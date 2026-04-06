@@ -1,0 +1,239 @@
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useLocation, useParams } from 'react-router-dom'
+import {
+  LayoutDashboard, FolderKanban, Plus, Settings, ChevronDown,
+  ChevronRight, Users, BarChart2, Loader2, Hash, LogOut,
+  Layers, ChevronLeft
+} from 'lucide-react'
+import { useAuthStore } from '../../store/authStore'
+import { useWorkspaceStore } from '../../store/workspaceStore'
+import { useProjectStore } from '../../store/projectStore'
+import CreateWorkspaceModal from '../workspace/CreateWorkspaceModal'
+import CreateProjectModal from '../project/CreateProjectModal'
+
+export default function Sidebar() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { workspaceId, projectId } = useParams()
+
+  const { user, logout } = useAuthStore()
+  const { workspaces, activeWorkspace, fetchWorkspaces, setActiveWorkspace } = useWorkspaceStore()
+  const { projects, fetchProjects } = useProjectStore()
+
+  const [collapsed, setCollapsed] = useState(false)
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false)
+  const [showProjectModal, setShowProjectModal] = useState(false)
+  const [workspacesExpanded, setWorkspacesExpanded] = useState(true)
+  const [projectsExpanded, setProjectsExpanded] = useState(true)
+
+  useEffect(() => {
+    fetchWorkspaces()
+  }, [])
+
+  useEffect(() => {
+    if (activeWorkspace) {
+      fetchProjects(activeWorkspace.id)
+    }
+  }, [activeWorkspace?.id])
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login')
+  }
+
+  const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/')
+
+  if (collapsed) {
+    return (
+      <div className="w-14 bg-surface-900 border-r border-slate-800 flex flex-col items-center py-4 gap-2 transition-all duration-200">
+        <button
+          onClick={() => setCollapsed(false)}
+          className="p-2 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-surface-800 transition-all"
+        >
+          <ChevronRight size={16} />
+        </button>
+        <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white font-bold text-sm mt-2">
+          T
+        </div>
+        {workspaces.slice(0, 5).map((ws) => (
+          <button
+            key={ws.id}
+            onClick={() => { setActiveWorkspace(ws); navigate(`/workspaces`) }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-lg hover:scale-110 transition-transform"
+            style={{ background: ws.color + '30' }}
+            title={ws.name}
+          >
+            {ws.icon}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="w-64 bg-surface-900 border-r border-slate-800 flex flex-col transition-all duration-200 overflow-hidden">
+        {/* Logo */}
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2 px-2">
+            <div className="w-8 h-8 rounded-lg bg-primary-500/10 flex items-center justify-center">
+              <LayoutDashboard size={18} className="text-primary-400" />
+            </div>
+            <span className="font-bold text-lg text-white tracking-tight">TaskForge</span>
+          </div>
+          <button
+            onClick={() => setCollapsed(true)}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-surface-800 transition-all"
+          >
+            <ChevronLeft size={14} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 space-y-1">
+          {/* Workspaces section */}
+          <div>
+            <button
+              className="flex items-center justify-between w-full px-2 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors"
+              onClick={() => setWorkspacesExpanded(!workspacesExpanded)}
+            >
+              <span>Workspaces</span>
+              <div className="flex items-center gap-1">
+                <span
+                  onClick={(e) => { e.stopPropagation(); setShowWorkspaceModal(true) }}
+                  className="p-0.5 rounded hover:bg-surface-700 hover:text-slate-200 transition-all"
+                >
+                  <Plus size={12} />
+                </span>
+                {workspacesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </div>
+            </button>
+
+            {workspacesExpanded && (
+              <div className="mt-1 space-y-0.5">
+                {workspaces.map((ws) => (
+                  <div key={ws.id}>
+                    <button
+                      onClick={() => {
+                        setActiveWorkspace(ws)
+                        navigate('/workspaces')
+                      }}
+                      className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+                        activeWorkspace?.id === ws.id
+                          ? 'text-slate-100 bg-surface-800'
+                          : 'text-slate-400 hover:text-slate-100 hover:bg-surface-800'
+                      }`}
+                    >
+                      <span className="text-base" style={{ textShadow: 'none' }}>{ws.icon}</span>
+                      <span className="truncate font-medium">{ws.name}</span>
+                      {ws.user_role === 'admin' && (
+                        <span className="ml-auto text-xs text-primary-400">admin</span>
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Active workspace nav */}
+          {activeWorkspace && (
+            <div className="mt-3">
+              <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+                {activeWorkspace.name}
+              </div>
+
+              <Link
+                to={`/workspaces/${activeWorkspace.id}/dashboard`}
+                className={`sidebar-item ${isActive(`/workspaces/${activeWorkspace.id}/dashboard`) ? 'sidebar-item-active' : ''}`}
+              >
+                <BarChart2 size={16} />
+                <span>Dashboard</span>
+              </Link>
+
+              <Link
+                to={`/workspaces/${activeWorkspace.id}/members`}
+                className={`sidebar-item ${isActive(`/workspaces/${activeWorkspace.id}/members`) ? 'sidebar-item-active' : ''}`}
+              >
+                <Users size={16} />
+                <span>Members</span>
+              </Link>
+
+              <div className="divider" />
+
+              {/* Projects */}
+              <button
+                className="flex items-center justify-between w-full px-2 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors"
+                onClick={() => setProjectsExpanded(!projectsExpanded)}
+              >
+                <span>Projects</span>
+                <div className="flex items-center gap-1">
+                  <span
+                    onClick={(e) => { e.stopPropagation(); setShowProjectModal(true) }}
+                    className="p-0.5 rounded hover:bg-surface-700 hover:text-slate-200 transition-all"
+                  >
+                    <Plus size={12} />
+                  </span>
+                  {projectsExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </div>
+              </button>
+
+              {projectsExpanded && (
+                <div className="space-y-0.5 mt-1">
+                  {projects.map((project) => {
+                    const projectPath = `/workspaces/${activeWorkspace.id}/projects/${project.id}`
+                    return (
+                      <Link
+                        key={project.id}
+                        to={projectPath}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+                          isActive(projectPath)
+                            ? 'text-slate-100 bg-surface-800 border border-slate-700'
+                            : 'text-slate-400 hover:text-slate-100 hover:bg-surface-800'
+                        }`}
+                      >
+                        <span className="text-sm">{project.icon}</span>
+                        <span className="truncate">{project.name}</span>
+                        <span className="ml-auto text-xs text-slate-600">{project.task_count}</span>
+                      </Link>
+                    )
+                  })}
+                  {projects.length === 0 && (
+                    <div className="text-xs text-slate-600 px-3 py-2 italic">No projects yet</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* User footer */}
+        <div className="p-3 border-t border-slate-800">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-800 transition-all group">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              {user?.initials || user?.full_name?.charAt(0) || '?'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-200 truncate">{user?.full_name}</p>
+              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-500 hover:text-red-400 transition-all"
+              title="Logout"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {showWorkspaceModal && <CreateWorkspaceModal onClose={() => setShowWorkspaceModal(false)} />}
+      {showProjectModal && activeWorkspace && (
+        <CreateProjectModal
+          workspace={activeWorkspace}
+          onClose={() => setShowProjectModal(false)}
+        />
+      )}
+    </>
+  )
+}
