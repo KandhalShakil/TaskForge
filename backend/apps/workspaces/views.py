@@ -26,10 +26,20 @@ class WorkspaceListCreateView(generics.ListCreateAPIView):
         ).select_related('owner').prefetch_related('members__user', 'projects', 'tasks').distinct()
 
     def perform_create(self, serializer):
-        if self.request.user.user_type != User.UserType.COMPANY and not self.request.user.is_staff:
+        user = self.request.user
+        
+        # Auto-upgrade logic: If an employee creates their first workspace, 
+        # they implicitly become a 'Company' account.
+        if user.user_type == User.UserType.EMPLOYEE:
+            user.user_type = User.UserType.COMPANY
+            user.save(update_fields=['user_type'])
+            
+        # Standard RBAC check
+        if user.user_type != User.UserType.COMPANY and not user.is_staff:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Only Company accounts can create workspaces.")
-        serializer.save(owner=self.request.user)
+            
+        serializer.save(owner=user)
 
 
 class WorkspaceDetailView(generics.RetrieveUpdateDestroyAPIView):
