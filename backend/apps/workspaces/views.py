@@ -50,7 +50,7 @@ class WorkspaceListCreateView(generics.ListCreateAPIView):
             # General safe recovery for pending migrations
             print(f"Role check recovery (pending migrations): {e}")
             
-        serializer.save(owner=user)
+        serializer.save()
 
 
 class WorkspaceDetailView(generics.RetrieveUpdateDestroyAPIView):
