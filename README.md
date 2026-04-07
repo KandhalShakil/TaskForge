@@ -1,42 +1,112 @@
-# TaskForge — Project Management SaaS
+# 🚀 TaskForge — Ultimate Project Management SaaS 🛠️
 
-TaskForge is a powerful, full-stack project management application inspired by ClickUp. It allows teams to manage workspaces, projects, and tasks using multiple dynamic views including Kanban boards, Calendars, and Timelines.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-## Tech Stack
+**TaskForge** is an enterprise-grade, full-stack project management platform designed for modern teams. Organize your work, track tasks in real-time, and gain deep insights into your productivity with a seamless, high-performance UI.
 
-### Frontend
-- **Framework:** React + Vite
-- **Styling:** Tailwind CSS v3
-- **State Management:** Zustand
-- **Routing:** React Router v6
-- **Data Fetching:** Axios (with JWT interceptors)
-- **Forms & Validation:** React Hook Form + Zod
-- **Drag & Drop:** `@dnd-kit/core`
-- **Charts/Analytics:** Recharts
-- **Calendar:** React Big Calendar
+---
 
-### Backend
-- **Framework:** Django 4.2 + Django REST Framework (DRF)
-- **Database:** PostgreSQL (configured for Supabase)
-- **Authentication:** JWT (`djangorestframework-simplejwt`)
-- **API Architecture:** RESTful endpoints organized by domains (users, workspaces, projects, tasks)
+## ✨ Key Features
 
-## Core Features
+> [!TIP]
+> Use the **Command+K** (or Ctrl+K) shortcut in the dashboard to quickly search through all your tasks and projects!
 
-1. **Robust Authentication:** Secure JWT-based login/registration.
-2. **Workspace Management:** Create workspaces, invite members, and assign role-based access (Admin/Member/Viewer).
-3. **Project Tracking:** Group tasks into active, completed, or archived projects.
-4. **Advanced Task Views:** 
-   - **List View:** Sortable, detailed table.
-   - **Kanban Board:** Drag-and-drop tasks across status columns.
-   - **Calendar View:** Visualize task due dates.
-   - **Timeline View:** Gantt-style chart for long-term project planning.
-5. **Analytics Dashboard:** Real-time metrics, completion rates, and visual charts summarizing workspace productivity.
+- **📂 Multi-Workspace Management**: Organise different teams or departments into isolated contexts.
+- **🏗️ Structured Projects**: Break down workspaces into specific projects with their own goals.
+- **📋 Advanced Task System**:
+    - **Kanban Board**: Drag-and-drop tasks across status columns.
+    - **Rich Text Editor**: Use Markdown and formatting in task descriptions (powered by `React Quill`).
+    - **Custom Categories**: Color-coded categorization for high-level organization.
+- **👥 Role-Based Collaboration**: 
+    - **Admins**, **Members**, and **Viewers** roles.
+    - **Real-time Member Search**: Easily invite and manage teammates.
+- **📊 Interactive Analytics**: 
+    - **Completion Rates**: Visualized in real-time.
+    - **Burn-down Charts**: Track project progress.
+- **⏳ Time Tracking**: *[Coming Soon]* - Log intervals on tasks for billing and productivity audits.
 
-## Getting Started
+---
 
-Please refer to the `SETUP.md` file for detailed instructions on how to install dependencies and run the application locally.
+## 🎨 Design Aesthetics
 
-## Deployment Guide
+TaskForge is crafted with a **Premium Dark Mode** focus:
+- **Vivid Gradients**: Sleek, modern components with purple-to-blue primary accents.
+- **Glassmorphism**: Subtle transparency and backdrop blurs for a clean feel.
+- **Responsive Layout**: Designed for everything from large monitors to tablets.
 
-Refer to `DEPLOYMENT.md` for instructions on how to deploy TaskForge to **Render** (Backend) and **Vercel** (Frontend).
+---
+
+## 🛠️ Technical Architecture
+
+### 🌐 Frontend (The Engine)
+- **Vite 5**: Blazing fast builds and HMR.
+- **Zustand**: Lightweight, persistent store management.
+- **Dnd-kit**: Robust drag-and-drop mechanics for Kanban.
+- **Lucide Icons**: Crisp, professional iconography.
+
+### ⚙️ Backend (The Core)
+- **Django REST Framework (DRF)**: Scalable API architecture.
+- **PostgreSQL**: Hosted on **Supabase** for high reliability.
+- **SimpleJWT**: Secure authentication with token rotation.
+- **WhiteNoise**: Efficient serving of static files.
+
+---
+
+## 🚀 Setting Up Locally
+
+### 1. 📂 Clone the Project
+```bash
+git clone https://github.com/KandhalShakil/TaskForge.git
+cd TaskForge
+```
+
+### 2. 🔌 Quick Start (Windows)
+Simply run the included batch script to automate everything:
+```bash
+push.bat  :: *Note: Use start.bat to run locally*
+```
+
+### 3. 🐍 Manual Backend Setup
+```bash
+cd backend
+python -m venv venv
+# Activate venv: .\venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
+
+### 4. ⚡ Manual Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## 📦 Deployment
+
+| Service | Platform | Link |
+| :--- | :--- | :--- |
+| **Backend** | [Render](https://render.com) | [Deploy Now](https://render.com) |
+| **Frontend** | [Vercel](https://vercel.com) | [Deploy Now](https://vercel.com) |
+
+*Check [DEPLOYMENT.md](file:///c:/Users/kandh/OneDrive/Desktop/Takify/DEPLOYMENT.md) for full instructions.*
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](file:///c:/Users/kandh/OneDrive/Desktop/Takify/LICENSE) file for details.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Feel free to open an issue or submit a pull request. 
+
+**TaskForge** — Forge your productivity. 🛠️✨
