@@ -20,10 +20,20 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    class UserType(models.TextChoices):
+        ADMIN = 'admin', 'Admin'
+        COMPANY = 'company', 'Company'
+        EMPLOYEE = 'employee', 'Employee'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=255)
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    user_type = models.CharField(
+        max_length=20, 
+        choices=UserType.choices, 
+        default=UserType.EMPLOYEE
+    )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)

@@ -1,6 +1,6 @@
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
-from .models import Task, TaskHistory
+from .models import Task
 
 @receiver(pre_save, sender=Task)
 def track_task_changes(sender, instance, **kwargs):
@@ -27,29 +27,12 @@ def track_task_changes(sender, instance, **kwargs):
         else:
             changes.append('unassigned')
             
-    # Save the changes temporarily on the instance so post_save can access them
-    # Note: Because signal kwargs don't easily let us pass the current "user" who made the request,
-    # we usually rely on middleware, or we default to the assignee/creator if unavailable.
-    # For now, we will store the change strings directly.
-    instance._pending_history_changes = changes
+    # Save the changes temporarily on the instance
+    instance._pending_changes = changes
 
 
 @receiver(post_save, sender=Task)
-def create_task_history(sender, instance, created, **kwargs):
-    # Determine the responsible user (falling back to assignee or creator if request unavailable)
-    responsible_user = getattr(instance, '_current_user', instance.assignee or instance.created_by)
-    
-    if created:
-        TaskHistory.objects.create(
-            task=instance,
-            user=responsible_user,
-            action="created this task"
-        )
-    else:
-        changes = getattr(instance, '_pending_history_changes', [])
-        for action_str in changes:
-            TaskHistory.objects.create(
-                task=instance,
-                user=responsible_user,
-                action=action_str
-            )
+def task_post_save(sender, instance, created, **kwargs):
+    # This signal currently does nothing since TaskHistory was removed, 
+    # but we keep it here for future hooks like notifications.
+    pass

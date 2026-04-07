@@ -5,6 +5,8 @@ import { useTaskStore } from '../../store/taskStore'
 import { TASK_STATUSES, TASK_PRIORITIES } from '../../utils/constants'
 import { formatDueDate, isOverdue } from '../../utils/dateUtils'
 import TaskModal from './TaskModal'
+import { useAuthStore } from '../../store/authStore'
+import { useWorkspaceStore } from '../../store/workspaceStore'
 
 const StatusBadge = ({ status }) => {
   const s = TASK_STATUSES.find((x) => x.value === status)
@@ -27,8 +29,13 @@ const PriorityBadge = ({ priority }) => {
 
 export default function TaskListView({ tasks = [], project, workspace, onRefresh }) {
   const { deleteTask } = useTaskStore()
+  const { user } = useAuthStore()
+  const { getUserRole } = useWorkspaceStore()
   const [editingTask, setEditingTask] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
+
+  const userRole = getUserRole(user?.id)
+  const isViewer = userRole === 'viewer'
 
   const handleDelete = async (task) => {
     if (!confirm(`Delete "${task.title}"?`)) return
@@ -135,15 +142,19 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
                     <button
                       onClick={() => setEditingTask(task)}
                       className="p-1.5 rounded text-slate-500 hover:text-slate-200 hover:bg-surface-700 transition-all"
+                      title={isViewer ? 'View Task' : 'Edit Task'}
                     >
-                      <Edit2 size={13} />
+                      {isViewer ? <Eye size={13} /> : <Edit2 size={13} />}
                     </button>
-                    <button
-                      onClick={() => handleDelete(task)}
-                      className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    {!isViewer && (
+                      <button
+                        onClick={() => handleDelete(task)}
+                        className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all"
+                        title="Delete Task"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 </div>
               )

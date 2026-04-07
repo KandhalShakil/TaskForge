@@ -20,6 +20,13 @@ const schema = z.object({
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
+  const [formData, setFormData] = useState({
+    full_name: '',
+    email: '',
+    password: '',
+    password2: '',
+    user_type: 'employee'
+  })
   const { register: registerUser } = useAuthStore()
 
   const {
@@ -31,7 +38,7 @@ export default function RegisterPage() {
 
   const onSubmit = async (data) => {
     try {
-      await registerUser(data)
+      await registerUser({ ...data, user_type: formData.user_type })
       toast.success('Account created! Welcome to TaskForge 🚀')
       navigate('/workspaces')
     } catch (err) {
@@ -130,6 +137,36 @@ export default function RegisterPage() {
                 {errors.root.message}
               </div>
             )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Account Type</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, user_type: 'employee' })}
+                  className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    formData.user_type === 'employee' 
+                      ? 'border-primary-500 bg-primary-500/10 text-white' 
+                      : 'border-slate-800 bg-slate-900/50 text-slate-500 hover:border-slate-700'
+                  }`}
+                >
+                  <span className="text-xs font-bold uppercase tracking-wider">Employee</span>
+                  <span className="text-[10px] opacity-70 text-center leading-tight">Join existing workspaces</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, user_type: 'company' })}
+                  className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    formData.user_type === 'company' 
+                      ? 'border-primary-500 bg-primary-500/10 text-white' 
+                      : 'border-slate-800 bg-slate-900/50 text-slate-500 hover:border-slate-700'
+                  }`}
+                >
+                  <span className="text-xs font-bold uppercase tracking-wider">Company</span>
+                  <span className="text-[10px] opacity-70 text-center leading-tight">Create & manage workspaces</span>
+                </button>
+              </div>
+            </div>
 
             <button
               id="register-submit"

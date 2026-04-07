@@ -1,13 +1,25 @@
 import { useState } from 'react'
 import { useLocation, useParams, Link } from 'react-router-dom'
-import { Search, Bell, Command, Grid } from 'lucide-react'
+import { Search, Bell, Command, Grid, Mail, Menu } from 'lucide-react'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import { useProjectStore } from '../../store/projectStore'
+import { useAuthStore } from '../../store/authStore'
+import { useEffect } from 'react'
+import InvitationsModal from '../workspace/InvitationsModal'
 
-export default function Header() {
-  const { activeWorkspace } = useWorkspaceStore()
+export default function Header({ onMenuClick }) {
+  const { activeWorkspace, getUserRole, invitations, fetchInvitations } = useWorkspaceStore()
   const { activeProject } = useProjectStore()
+  const { user } = useAuthStore()
   const location = useLocation()
+  const [showInvitations, setShowInvitations] = useState(false)
+
+  useEffect(() => {
+    fetchInvitations()
+  }, [])
+
+  const userRole = getUserRole(user?.id)
+  const isViewer = userRole === 'viewer'
 
   const getPageTitle = () => {
     if (location.pathname.includes('/dashboard')) return 'Analytics Dashboard'
@@ -34,27 +46,42 @@ export default function Header() {
   const breadcrumbs = getBreadcrumbs()
 
   return (
-    <header className="h-14 bg-surface-900 border-b border-slate-800 flex items-center justify-between px-6 flex-shrink-0">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
-        {breadcrumbs.map((crumb, i) => (
-          <span key={i} className="flex items-center gap-2">
-            {i > 0 && <span className="text-slate-600">/</span>}
-            {crumb.to ? (
-              <Link to={crumb.to} className="text-slate-400 hover:text-slate-200 transition-colors">
-                {crumb.label}
-              </Link>
-            ) : (
-              <span className="text-slate-100 font-medium">{crumb.label}</span>
-            )}
-          </span>
-        ))}
+    <header className="h-14 bg-surface-900 border-b border-slate-800 flex items-center justify-between px-4 lg:px-6 flex-shrink-0">
+      <div className="flex items-center gap-3">
+        {/* Mobile Menu Toggle */}
+        <button 
+          onClick={onMenuClick}
+          className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface-800 transition-all border border-slate-700/50"
+        >
+          <Menu size={20} />
+        </button>
+
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-sm overflow-hidden truncate">
+          {breadcrumbs.map((crumb, i) => (
+            <span key={i} className="flex items-center gap-2 flex-shrink-0">
+              {i > 0 && <span className="text-slate-600">/</span>}
+              {crumb.to ? (
+                <Link to={crumb.to} className="text-slate-400 hover:text-slate-200 transition-colors">
+                  {crumb.label}
+                </Link>
+              ) : (
+                <span className="text-slate-100 font-medium">{crumb.label}</span>
+              )}
+            </span>
+          ))}
+          {isViewer && (
+            <span className="ml-2 badge bg-slate-800 text-slate-400 text-[10px] uppercase tracking-wider px-2 py-0.5 border border-slate-700/50">
+              Read Only
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Right actions */}
       <div className="flex items-center gap-4">
-        {/* TaskForge Badge/Button */}
-        <div className="flex items-center gap-2.5 bg-surface-800/50 border border-slate-700/50 hover:border-slate-600/50 hover:bg-surface-800 rounded-xl px-4 py-1.5 transition-all cursor-default group">
+        {/* TaskForge Badge/Button - Hidden on Mobile */}
+        <div className="hidden sm:flex items-center gap-2.5 bg-surface-800/50 border border-slate-700/50 hover:border-slate-600/50 hover:bg-surface-800 rounded-xl px-4 py-1.5 transition-all cursor-default group">
           <div className="p-1 rounded-lg bg-primary-500/10 group-hover:bg-primary-500/20 transition-colors">
             <Grid size={18} className="text-primary-400" />
           </div>
@@ -71,8 +98,20 @@ export default function Header() {
             <Bell size={20} className="group-hover:scale-110 transition-transform" />
             <span className="absolute top-2 right-2 w-2 h-2 bg-primary-500 rounded-full border-2 border-surface-900 shadow-sm" />
           </button>
+
+          {invitations.length > 0 && (
+            <button 
+              onClick={() => setShowInvitations(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-600/10 text-primary-400 hover:bg-primary-600/20 transition-all border border-primary-500/20 shadow-lg shadow-primary-900/10 animate-fade-in"
+            >
+              <Mail size={14} />
+              <span className="text-xs font-bold">{invitations.length} Invites</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {showInvitations && <InvitationsModal onClose={() => setShowInvitations(false)} />}
     </header>
   )
 }

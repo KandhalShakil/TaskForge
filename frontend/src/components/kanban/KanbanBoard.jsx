@@ -8,6 +8,8 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
+import { useAuthStore } from '../../store/authStore'
+import { useWorkspaceStore } from '../../store/workspaceStore'
 import {
   SortableContext,
   sortableKeyboardCoordinates,
@@ -21,7 +23,12 @@ import KanbanCard from './KanbanCard'
 
 export default function KanbanBoard({ tasks = [], project, workspace, onRefresh }) {
   const { bulkUpdateTasks } = useTaskStore()
+  const { user } = useAuthStore()
+  const { getUserRole } = useWorkspaceStore()
   const [activeTask, setActiveTask] = useState(null)
+
+  const userRole = getUserRole(user?.id)
+  const isViewer = userRole === 'viewer'
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -60,6 +67,7 @@ export default function KanbanBoard({ tasks = [], project, workspace, onRefresh 
   }
 
   const handleDragEnd = async (event) => {
+    if (isViewer) return
     const { active, over } = event
     setActiveTask(null)
     if (!over) return
@@ -84,9 +92,9 @@ export default function KanbanBoard({ tasks = [], project, workspace, onRefresh 
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
+      onDragStart={isViewer ? null : handleDragStart}
+      onDragOver={isViewer ? null : handleDragOver}
+      onDragEnd={isViewer ? null : handleDragEnd}
     >
       <div className="flex gap-4 overflow-x-auto pb-4 h-full">
         {KANBAN_COLUMNS.map((column) => {

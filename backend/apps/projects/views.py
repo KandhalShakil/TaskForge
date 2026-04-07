@@ -2,6 +2,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from apps.core.permissions import IsWorkspaceAdmin, IsWorkspaceMemberOrAdmin
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from apps.workspaces.models import Workspace, WorkspaceMember
@@ -12,12 +13,13 @@ User = get_user_model()
 
 
 class ProjectListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = ProjectSerializer
 
     def get_queryset(self):
         qs = Project.objects.filter(
-            workspace__members__user=self.request.user
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
         ).select_related('owner', 'workspace').prefetch_related('members', 'tasks')
 
         workspace_id = self.request.query_params.get('workspace')
@@ -32,12 +34,15 @@ class ProjectListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         workspace_id = self.request.data.get('workspace')
-        workspace = get_object_or_404(Workspace, id=workspace_id, members__user=self.request.user)
+        workspace = get_object_or_404(Workspace, id=workspace_id)
+        if not WorkspaceMember.objects.filter(workspace=workspace, user=self.request.user, role__in=[WorkspaceMember.Role.ADMIN, WorkspaceMember.Role.MEMBER]).exists():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not have permission to create projects in this workspace.")
         serializer.save()
 
 
 class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -46,39 +51,40 @@ class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return Project.objects.filter(
-            workspace__members__user=self.request.user
-        ).select_related('owner', 'workspace').prefetch_related('members__user')
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        ).select_related('owner', 'workspace').prefetch_related('members__user', 'tasks')
 
     def destroy(self, request, *args, **kwargs):
         project = self.get_object()
-        if project.owner != request.user:
-            is_workspace_admin = WorkspaceMember.objects.filter(
-                workspace=project.workspace,
-                user=request.user,
-                role=WorkspaceMember.Role.ADMIN
-            ).exists()
-            if not is_workspace_admin:
-                return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+        # Only Workspace Admins or Project Owners can delete projects
+        is_workspace_admin = WorkspaceMember.objects.filter(
+            workspace=project.workspace,
+            user=request.user,
+            role=WorkspaceMember.Role.ADMIN
+        ).exists()
+        
+        if project.owner != request.user and not is_workspace_admin:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only Project Owners or Workspace Admins can delete this project.")
+            
         project.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ProjectMemberListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = ProjectMemberSerializer
 
     def get_queryset(self):
         project_id = self.kwargs['project_id']
-        project = get_object_or_404(
-            Project,
-            id=project_id,
-            workspace__members__user=self.request.user
-        )
-        return project.members.select_related('user').all()
+        return ProjectMember.objects.filter(
+            project_id=project_id,
+        ).select_related('user', 'project').all()
 
 
 class AddProjectMemberView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
 
     def post(self, request, project_id):
         project = get_object_or_404(
@@ -106,7 +112,7 @@ class AddProjectMemberView(APIView):
 
 
 class RemoveProjectMemberView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
 
     def delete(self, request, project_id, user_id):
         project = get_object_or_404(Project, id=project_id, workspace__members__user=request.user)

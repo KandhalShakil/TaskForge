@@ -4,6 +4,8 @@ import { useDroppable } from '@dnd-kit/core'
 import { Plus } from 'lucide-react'
 import KanbanCard from './KanbanCard'
 import TaskModal from '../tasks/TaskModal'
+import { useAuthStore } from '../../store/authStore'
+import { useWorkspaceStore } from '../../store/workspaceStore'
 
 const COLUMN_COLORS = {
   todo: 'border-slate-700',
@@ -30,8 +32,13 @@ const COLUMN_DOT_COLORS = {
 }
 
 export default function KanbanColumn({ column, tasks, project, workspace, onRefresh }) {
+  const { user } = useAuthStore()
+  const { getUserRole } = useWorkspaceStore()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const { setNodeRef, isOver } = useDroppable({ id: column.id })
+
+  const userRole = getUserRole(user?.id)
+  const isViewer = userRole === 'viewer'
 
   return (
     <>
@@ -47,12 +54,14 @@ export default function KanbanColumn({ column, tasks, project, workspace, onRefr
               {tasks.length}
             </span>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="p-1 rounded text-slate-600 hover:text-slate-300 hover:bg-surface-800 transition-all"
-          >
-            <Plus size={14} />
-          </button>
+          {!isViewer && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="p-1 rounded text-slate-600 hover:text-slate-300 hover:bg-surface-800 transition-all"
+            >
+              <Plus size={14} />
+            </button>
+          )}
         </div>
 
         {/* Drop zone */}
@@ -72,10 +81,12 @@ export default function KanbanColumn({ column, tasks, project, workspace, onRefr
 
           {tasks.length === 0 && (
             <div
-              className="flex items-center justify-center h-24 border-2 border-dashed border-slate-800 rounded-lg cursor-pointer hover:border-slate-600 transition-colors"
-              onClick={() => setShowCreateModal(true)}
+              className={`flex items-center justify-center h-24 border-2 border-dashed border-slate-800 rounded-lg transition-colors ${!isViewer ? 'cursor-pointer hover:border-slate-600' : ''}`}
+              onClick={!isViewer ? () => setShowCreateModal(true) : undefined}
             >
-              <span className="text-xs text-slate-600">Drop tasks here</span>
+              <span className="text-xs text-slate-600">
+                {!isViewer ? 'Drop tasks here' : 'No tasks in this column'}
+              </span>
             </div>
           )}
         </div>

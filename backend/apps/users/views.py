@@ -79,4 +79,8 @@ class UserListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return User.objects.filter(is_active=True)
+        # Prevent standard employees from scraping the global user list
+        if self.request.user.user_type not in [User.UserType.COMPANY, User.UserType.ADMIN] and not self.request.user.is_staff:
+            return User.objects.filter(id=self.request.user.id)
+            
+        return User.objects.filter(is_active=True).exclude(is_superuser=True)

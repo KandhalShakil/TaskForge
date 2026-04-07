@@ -70,10 +70,10 @@ export default function WorkspaceMembersPage() {
   const isAdmin = currentUserMember?.role === 'admin'
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Workspace Members</h1>
-        <p className="text-slate-400 text-sm mt-1">
+        <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">Workspace Members</h1>
+        <p className="text-slate-400 text-xs md:text-sm mt-1">
           {activeWorkspace?.name} · {members.length} members
         </p>
       </div>
@@ -83,13 +83,13 @@ export default function WorkspaceMembersPage() {
           <h2 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
             <UserPlus size={16} className="text-primary-400" /> Add Members
           </h2>
-          <div className="flex gap-3 mb-3">
+          <div className="flex flex-col sm:flex-row gap-3 mb-3">
             <div className="relative flex-1">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 type="text"
                 className="input pl-9"
-                placeholder="Search users by name or email..."
+                placeholder="Search users..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -97,7 +97,7 @@ export default function WorkspaceMembersPage() {
             <select
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value)}
-              className="select w-32"
+              className="select w-full sm:w-32"
             >
               <option value="admin">Admin</option>
               <option value="member">Member</option>
@@ -139,32 +139,38 @@ export default function WorkspaceMembersPage() {
         </div>
         <div className="divide-y divide-slate-800">
           {members.map((member) => (
-            <div key={member.id} className="flex items-center gap-4 px-5 py-4">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                {member.user.initials}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-white">{member.user.full_name}</p>
-                  {member.user.id === user?.id && (
-                    <span className="badge bg-surface-800 text-slate-400 text-xs">You</span>
-                  )}
+            <div key={member.id} className="flex flex-col sm:flex-row sm:items-center gap-4 px-4 md:px-5 py-4">
+              <div className="flex items-center gap-4 flex-1">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                  {member.user.initials}
                 </div>
-                <p className="text-xs text-slate-500">{member.user.email}</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-white truncate max-w-[120px] md:max-w-none">{member.user.full_name}</p>
+                    {member.user.id === user?.id && (
+                      <span className="badge bg-surface-800 text-slate-400 text-[10px] uppercase">You</span>
+                    )}
+                    {member.status === 'pending' && (
+                      <span className="badge bg-amber-900/30 text-amber-500 border border-amber-800/50 text-[10px] uppercase font-bold tracking-tight px-1.5 py-0.5">Pending</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 truncate">{member.user.email}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              
+              <div className="flex items-center justify-between sm:justify-end gap-2 pl-12 sm:pl-0">
                 {isAdmin && member.user.id !== user?.id ? (
                   <select
                     value={member.role}
                     onChange={(e) => handleRoleChange(member.user.id, e.target.value)}
-                    className="select py-1 h-auto text-xs w-28 bg-surface-800 border-slate-700"
+                    className="select py-1 h-8 text-xs w-28 bg-surface-800 border-slate-700"
                   >
                     <option value="admin">Admin</option>
                     <option value="member">Member</option>
                     <option value="viewer">Viewer</option>
                   </select>
                 ) : (
-                  <span className={`badge flex items-center gap-1.5 px-2.5 py-1 ${
+                  <span className={`badge flex items-center gap-1.5 px-2.5 py-1 text-[11px] ${
                     member.role === 'admin' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-800/50'
                     : member.role === 'member' ? 'bg-primary-900/30 text-primary-400 border border-primary-800/50'
                     : 'bg-slate-800 text-slate-400'
@@ -176,7 +182,7 @@ export default function WorkspaceMembersPage() {
                 {isAdmin && member.user.id !== user?.id && (
                   <button
                     onClick={() => handleRemove(member.user.id)}
-                    className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all ml-1"
+                    className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all"
                   >
                     <Trash2 size={14} />
                   </button>

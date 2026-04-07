@@ -7,13 +7,18 @@ import { useWorkspaceStore } from '../../store/workspaceStore'
 import { TASK_STATUSES, TASK_PRIORITIES } from '../../utils/constants'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
+import { useAuthStore } from '../../store/authStore'
 
 export default function TaskModal({ task, project, workspace, onClose }) {
   const { createTask, updateTask, deleteTask, categories } = useTaskStore()
-  const { members } = useWorkspaceStore()
+  const { members, getUserRole } = useWorkspaceStore()
+  const { user } = useAuthStore()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const isEditing = !!task
+
+  const userRole = getUserRole(user?.id)
+  const isViewer = userRole === 'viewer'
 
   const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } = useForm({
     defaultValues: task ? {
@@ -109,8 +114,9 @@ export default function TaskModal({ task, project, workspace, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content max-w-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-          <h2 className="text-lg font-semibold text-white">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             {isEditing ? 'Edit Task' : 'Create Task'}
+            {isViewer && <span className="badge bg-slate-800 text-slate-400 text-[10px] uppercase tracking-wider px-2 py-0.5">Read Only</span>}
           </h2>
           <button onClick={onClose} className="btn-ghost p-1.5"><X size={16} /></button>
         </div>
@@ -121,6 +127,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
             <input
               className={`input text-base font-medium ${errors.title ? 'border-red-500' : ''}`}
               placeholder="Task title..."
+              disabled={isViewer}
               {...register('title', { required: 'Title is required' })}
             />
             {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title.message}</p>}
@@ -136,8 +143,8 @@ export default function TaskModal({ task, project, workspace, onClose }) {
               name="description"
               control={control}
               render={({ field }) => (
-                <div className="bg-surface-900 border border-slate-700 rounded-lg overflow-hidden [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-slate-700 [&_.ql-toolbar]:bg-surface-800 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[150px] [&_.ql-editor]:text-sm [&_.ql-editor]:text-slate-200 [&_.ql-stroke]:stroke-slate-400 [&_.ql-fill]:fill-slate-400 [&_.ql-picker]:text-slate-400">
-                  <ReactQuill theme="snow" value={field.value || ''} onChange={field.onChange} placeholder="Add a formatted description..." />
+                <div className={`bg-surface-900 border border-slate-700 rounded-lg overflow-hidden [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-slate-700 [&_.ql-toolbar]:bg-surface-800 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[150px] [&_.ql-editor]:text-sm [&_.ql-editor]:text-slate-200 [&_.ql-stroke]:stroke-slate-400 [&_.ql-fill]:fill-slate-400 [&_.ql-picker]:text-slate-400 ${isViewer ? '[&_.ql-toolbar]:hidden' : ''}`}>
+                  <ReactQuill theme="snow" value={field.value || ''} onChange={field.onChange} placeholder="Add a formatted description..." readOnly={isViewer} />
                 </div>
               )}
             />
@@ -147,7 +154,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label flex items-center gap-1.5"><Flag size={12} /> Status</label>
-              <select className="select" {...register('status')}>
+              <select className="select" {...register('status')} disabled={isViewer}>
                 {TASK_STATUSES.map((s) => (
                   <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
@@ -155,7 +162,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
             </div>
             <div>
               <label className="label flex items-center gap-1.5"><Flag size={12} /> Priority</label>
-              <select className="select" {...register('priority')}>
+              <select className="select" {...register('priority')} disabled={isViewer}>
                 {TASK_PRIORITIES.map((p) => (
                   <option key={p.value} value={p.value}>{p.icon} {p.label}</option>
                 ))}
@@ -167,7 +174,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label flex items-center gap-1.5"><User size={12} /> Assignee</label>
-              <select className="select" {...register('assignee_id')}>
+              <select className="select" {...register('assignee_id')} disabled={isViewer}>
                 <option value="">Unassigned</option>
                 {members.map((m) => (
                   <option key={m.user.id} value={m.user.id}>{m.user.full_name}</option>
@@ -176,7 +183,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
             </div>
             <div>
               <label className="label flex items-center gap-1.5"><Tag size={12} /> Category</label>
-              <select className="select" {...register('category_id')}>
+              <select className="select" {...register('category_id')} disabled={isViewer}>
                 <option value="">No category</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -189,11 +196,11 @@ export default function TaskModal({ task, project, workspace, onClose }) {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="label flex items-center gap-1.5"><Calendar size={12} /> Start Date</label>
-              <input type="date" className="input" {...register('start_date')} />
+              <input type="date" className="input" {...register('start_date')} disabled={isViewer} />
             </div>
             <div>
               <label className="label flex items-center gap-1.5"><Calendar size={12} /> Due Date</label>
-              <input type="date" className="input" {...register('due_date')} />
+              <input type="date" className="input" {...register('due_date')} disabled={isViewer} />
             </div>
             <div>
               <label className="label">Est. Hours</label>
@@ -203,6 +210,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
                 min="0"
                 className="input"
                 placeholder="0"
+                disabled={isViewer}
                 {...register('estimated_hours')}
               />
             </div>
@@ -215,7 +223,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
           </div>
 
           <div className="flex gap-3 pt-2 border-t border-slate-800 items-center justify-between">
-            {isEditing && (
+            {isEditing && !isViewer && (
               <button
                 type="button"
                 onClick={handleDeleteClick}
@@ -226,10 +234,14 @@ export default function TaskModal({ task, project, workspace, onClose }) {
               </button>
             )}
             <div className="flex items-center gap-3 ml-auto flex-1 max-w-[280px]">
-              <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">Cancel</button>
-              <button type="submit" disabled={isSubmitting} className="btn-primary flex-1 justify-center">
-                {isSubmitting ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : (isEditing ? 'Update Task' : 'Create Task')}
+              <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">
+                {isViewer ? 'Close' : 'Cancel'}
               </button>
+              {!isViewer && (
+                <button type="submit" disabled={isSubmitting} className="btn-primary flex-1 justify-center">
+                  {isSubmitting ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : (isEditing ? 'Update Task' : 'Create Task')}
+                </button>
+              )}
             </div>
           </div>
         </form>

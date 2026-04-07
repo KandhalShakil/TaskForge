@@ -6,21 +6,6 @@ from apps.users.serializers import UserSerializer
 User = get_user_model()
 
 
-class WorkspaceMemberSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    user_id = serializers.UUIDField(write_only=True)
-
-    class Meta:
-        model = WorkspaceMember
-        fields = ['id', 'user', 'user_id', 'role', 'joined_at']
-        read_only_fields = ['id', 'joined_at']
-
-    def validate_user_id(self, value):
-        if not User.objects.filter(id=value, is_active=True).exists():
-            raise serializers.ValidationError('User not found.')
-        return value
-
-
 class WorkspaceSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
@@ -35,7 +20,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'owner', 'created_at', 'updated_at']
 
     def get_member_count(self, obj):
-        return obj.members.count()
+        return obj.members.filter(status=WorkspaceMember.Status.ACCEPTED).count()
 
     def get_user_role(self, obj):
         request = self.context.get('request')
@@ -50,9 +35,26 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         WorkspaceMember.objects.create(
             workspace=workspace,
             user=user,
-            role=WorkspaceMember.Role.ADMIN
+            role=WorkspaceMember.Role.ADMIN,
+            status=WorkspaceMember.Status.ACCEPTED
         )
         return workspace
+
+
+class WorkspaceMemberSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    user_id = serializers.UUIDField(write_only=True)
+    workspace = WorkspaceSerializer(read_only=True)
+
+    class Meta:
+        model = WorkspaceMember
+        fields = ['id', 'user', 'user_id', 'workspace', 'role', 'status', 'joined_at']
+        read_only_fields = ['id', 'status', 'joined_at']
+
+    def validate_user_id(self, value):
+        if not User.objects.filter(id=value, is_active=True).exists():
+            raise serializers.ValidationError('User not found.')
+        return value
 
 
 class WorkspaceDetailSerializer(WorkspaceSerializer):

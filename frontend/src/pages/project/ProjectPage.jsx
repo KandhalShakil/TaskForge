@@ -22,9 +22,13 @@ const VIEW_TABS = [
 
 export default function ProjectPage() {
   const { workspaceId, projectId } = useParams()
-  const { activeWorkspace, members, fetchMembers } = useWorkspaceStore()
+  const { activeWorkspace, members, fetchMembers, getUserRole } = useWorkspaceStore()
+  const { user } = useAuthStore()
   const { setActiveProject } = useProjectStore()
   const { tasks, categories, loading, fetchTasks, fetchCategories, filters } = useTaskStore()
+
+  const userRole = getUserRole(user?.id)
+  const isViewer = userRole === 'viewer'
 
   const [project, setProject] = useState(null)
   const [view, setView] = useState('list')
@@ -88,13 +92,15 @@ export default function ProjectPage() {
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="btn-primary"
-              id="create-task-btn"
-            >
-              <Plus size={14} /> New Task
-            </button>
+            {!isViewer && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="btn-primary"
+                id="create-task-btn"
+              >
+                <Plus size={14} /> New Task
+              </button>
+            )}
           </div>
         </div>
 

@@ -2,6 +2,7 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from apps.core.permissions import IsWorkspaceAdmin, IsWorkspaceMemberOrAdmin
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from .models import Workspace, WorkspaceMember
@@ -20,8 +21,15 @@ class WorkspaceListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return Workspace.objects.filter(
-            members__user=self.request.user
-        ).select_related('owner').prefetch_related('members').distinct()
+            members__user=self.request.user,
+            members__status=WorkspaceMember.Status.ACCEPTED
+        ).select_related('owner').prefetch_related('members__user', 'projects', 'tasks').distinct()
+
+    def perform_create(self, serializer):
+        if self.request.user.user_type != User.UserType.COMPANY and not self.request.user.is_staff:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only Company accounts can create workspaces.")
+        serializer.save(owner=self.request.user)
 
 
 class WorkspaceDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -30,7 +38,8 @@ class WorkspaceDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return Workspace.objects.filter(
-            members__user=self.request.user
+            members__user=self.request.user,
+            members__status=WorkspaceMember.Status.ACCEPTED
         ).select_related('owner').prefetch_related('members__user')
 
     def destroy(self, request, *args, **kwargs):
@@ -45,8 +54,7 @@ class WorkspaceDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def update(self, request, *args, **kwargs):
         workspace = self.get_object()
-        member = workspace.members.filter(user=request.user, role=WorkspaceMember.Role.ADMIN).first()
-        if not member:
+        if not WorkspaceMember.objects.filter(workspace=workspace, user=request.user, role=WorkspaceMember.Role.ADMIN).exists():
             return Response(
                 {'error': 'Only admins can update workspace.'},
                 status=status.HTTP_403_FORBIDDEN
@@ -55,30 +63,21 @@ class WorkspaceDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class WorkspaceMemberListView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = WorkspaceMemberSerializer
 
     def get_queryset(self):
         workspace_id = self.kwargs['workspace_id']
-        workspace = get_object_or_404(
-            Workspace,
-            id=workspace_id,
-            members__user=self.request.user
-        )
-        return workspace.members.select_related('user').all()
+        return WorkspaceMember.objects.filter(
+            workspace_id=workspace_id,
+        ).select_related('user', 'workspace').all()
 
 
 class AddWorkspaceMemberView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceAdmin]
 
     def post(self, request, workspace_id):
         workspace = get_object_or_404(Workspace, id=workspace_id)
-        # Only admins can add members
-        if not workspace.members.filter(user=request.user, role=WorkspaceMember.Role.ADMIN).exists():
-            return Response(
-                {'error': 'Only admins can add members.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
         serializer = WorkspaceMemberSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user_id = serializer.validated_data['user_id']
@@ -89,22 +88,20 @@ class AddWorkspaceMemberView(APIView):
             user=user,
             defaults={'role': serializer.validated_data.get('role', WorkspaceMember.Role.MEMBER)}
         )
+        
         if not created:
-            return Response({'error': 'User is already a member.'}, status=status.HTTP_400_BAD_REQUEST)
+            if member.status == WorkspaceMember.Status.PENDING:
+                return Response({'error': f'An invitation for {user.email} is already pending.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': f'{user.email} is already a member of this workspace.'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(WorkspaceMemberSerializer(member).data, status=status.HTTP_201_CREATED)
 
 
 class RemoveWorkspaceMemberView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceAdmin]
 
     def delete(self, request, workspace_id, user_id):
         workspace = get_object_or_404(Workspace, id=workspace_id)
-        if not workspace.members.filter(user=request.user, role=WorkspaceMember.Role.ADMIN).exists():
-            return Response(
-                {'error': 'Only admins can remove members.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
         member = get_object_or_404(WorkspaceMember, workspace=workspace, user_id=user_id)
         if member.user == workspace.owner:
             return Response({'error': 'Cannot remove the workspace owner.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -113,12 +110,10 @@ class RemoveWorkspaceMemberView(APIView):
 
 
 class UpdateMemberRoleView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceAdmin]
 
     def patch(self, request, workspace_id, user_id):
         workspace = get_object_or_404(Workspace, id=workspace_id)
-        if not workspace.members.filter(user=request.user, role=WorkspaceMember.Role.ADMIN).exists():
-            return Response({'error': 'Only admins can change roles.'}, status=status.HTTP_403_FORBIDDEN)
         member = get_object_or_404(WorkspaceMember, workspace=workspace, user_id=user_id)
         role = request.data.get('role')
         if role not in [r.value for r in WorkspaceMember.Role]:
@@ -126,3 +121,35 @@ class UpdateMemberRoleView(APIView):
         member.role = role
         member.save()
         return Response(WorkspaceMemberSerializer(member).data)
+
+class MyInvitationsView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = WorkspaceMemberSerializer
+
+    def get_queryset(self):
+        return WorkspaceMember.objects.filter(
+            user=self.request.user,
+            status=WorkspaceMember.Status.PENDING
+        ).select_related('workspace', 'workspace__owner')
+
+class RespondToInvitationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, member_id):
+        action = request.data.get('action')
+        member = get_object_or_404(
+            WorkspaceMember, 
+            id=member_id, 
+            user=request.user, 
+            status=WorkspaceMember.Status.PENDING
+        )
+
+        if action == 'accept':
+            member.status = WorkspaceMember.Status.ACCEPTED
+            member.save()
+            return Response(WorkspaceMemberSerializer(member).data)
+        elif action == 'decline':
+            member.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        return Response({'error': 'Invalid action.'}, status=status.HTTP_400_BAD_REQUEST)

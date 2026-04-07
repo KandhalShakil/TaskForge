@@ -2,11 +2,13 @@ from rest_framework import generics, status, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from apps.core.permissions import IsWorkspaceMemberOrAdmin
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Q
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
+from apps.workspaces.models import WorkspaceMember
 from .models import Task, Category, Comment
 from .serializers import (
     TaskSerializer, TaskListSerializer, CategorySerializer,
@@ -39,7 +41,7 @@ class TaskFilter(django_filters.FilterSet):
 
 
 class TaskListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = TaskFilter
     search_fields = ['title', 'description']
@@ -53,25 +55,27 @@ class TaskListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return Task.objects.filter(
-            workspace__members__user=self.request.user
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
         ).select_related(
-            'assignee', 'created_by', 'category', 'project'
-        ).prefetch_related('comments').distinct()
+            'assignee', 'created_by', 'category', 'project', 'workspace'
+        ).prefetch_related('comments__author').distinct()
 
 
 class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = TaskSerializer
 
     def get_queryset(self):
         return Task.objects.filter(
-            workspace__members__user=self.request.user
-        ).select_related('assignee', 'created_by', 'category', 'project')
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        ).select_related('assignee', 'created_by', 'category', 'project', 'workspace')
 
 
 class TaskBulkUpdateView(APIView):
     """Bulk update task status/order — for Kanban drag-and-drop."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
 
     def patch(self, request):
         serializer = BulkUpdateTaskSerializer(data=request.data)
@@ -85,13 +89,16 @@ class TaskBulkUpdateView(APIView):
 
 class TaskStatsView(APIView):
     """Analytics endpoint: task counts by status, priority, overdue."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
 
     def get(self, request):
         workspace_id = request.query_params.get('workspace')
         project_id = request.query_params.get('project')
 
-        qs = Task.objects.filter(workspace__members__user=request.user)
+        qs = Task.objects.filter(
+            workspace__members__user=request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        )
 
         if workspace_id:
             qs = qs.filter(workspace_id=workspace_id)
@@ -142,11 +149,14 @@ class TaskStatsView(APIView):
 
 
 class CategoryListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = CategorySerializer
 
     def get_queryset(self):
-        qs = Category.objects.filter(workspace__members__user=self.request.user)
+        qs = Category.objects.filter(
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        )
         workspace_id = self.request.query_params.get('workspace')
         if workspace_id:
             qs = qs.filter(workspace_id=workspace_id)
@@ -154,22 +164,26 @@ class CategoryListCreateView(generics.ListCreateAPIView):
 
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = CategorySerializer
 
     def get_queryset(self):
-        return Category.objects.filter(workspace__members__user=self.request.user)
+        return Category.objects.filter(
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        )
 
 
 class CommentListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = CommentSerializer
 
     def get_queryset(self):
         task_id = self.kwargs['task_id']
         return Comment.objects.filter(
             task_id=task_id,
-            task__workspace__members__user=self.request.user
+            task__workspace__members__user=self.request.user,
+            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED
         ).select_related('author')
 
     def perform_create(self, serializer):
@@ -177,23 +191,33 @@ class CommentListCreateView(generics.ListCreateAPIView):
         task = get_object_or_404(
             Task,
             id=task_id,
-            workspace__members__user=self.request.user
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
         )
         serializer.save(task=task, author=self.request.user)
 
 
 class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = CommentSerializer
 
     def get_queryset(self):
         return Comment.objects.filter(
-            task__workspace__members__user=self.request.user
+            task__workspace__members__user=self.request.user,
+            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED
         )
 
     def destroy(self, request, *args, **kwargs):
         comment = self.get_object()
-        if comment.author != request.user:
-            return Response({'error': 'You can only delete your own comments.'}, status=status.HTTP_403_FORBIDDEN)
+        # Admin check
+        is_admin = WorkspaceMember.objects.filter(
+            workspace=comment.task.workspace,
+            user=request.user,
+            role=WorkspaceMember.Role.ADMIN,
+            status=WorkspaceMember.Status.ACCEPTED
+        ).exists()
+        
+        if comment.author != request.user and not is_admin:
+            return Response({'error': 'Only the author or a workspace admin can delete this comment.'}, status=status.HTTP_403_FORBIDDEN)
         comment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

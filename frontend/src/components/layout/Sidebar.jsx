@@ -11,20 +11,26 @@ import { useProjectStore } from '../../store/projectStore'
 import CreateWorkspaceModal from '../workspace/CreateWorkspaceModal'
 import CreateProjectModal from '../project/CreateProjectModal'
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { workspaceId, projectId } = useParams()
 
   const { user, logout } = useAuthStore()
-  const { workspaces, activeWorkspace, fetchWorkspaces, setActiveWorkspace } = useWorkspaceStore()
+  const { workspaces, activeWorkspace, fetchWorkspaces, setActiveWorkspace, getUserRole } = useWorkspaceStore()
   const { projects, fetchProjects } = useProjectStore()
+
+  const userRole = getUserRole(user?.id)
+  const isViewer = userRole === 'viewer'
+  const isAdmin = userRole === 'admin'
 
   const [collapsed, setCollapsed] = useState(false)
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false)
   const [showProjectModal, setShowProjectModal] = useState(false)
   const [workspacesExpanded, setWorkspacesExpanded] = useState(true)
   const [projectsExpanded, setProjectsExpanded] = useState(true)
+
+  const isCompany = user?.user_type === 'company' || user?.is_staff
 
   useEffect(() => {
     fetchWorkspaces()
@@ -72,7 +78,21 @@ export default function Sidebar() {
 
   return (
     <>
-      <div className="w-64 bg-surface-900 border-r border-slate-800 flex flex-col transition-all duration-200 overflow-hidden">
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[999]" 
+          onClick={onClose}
+        />
+      )}
+
+      {/* Sidebar Container */}
+      <div className={`
+        fixed inset-y-0 left-0 lg:static z-[1000]
+        w-64 bg-surface-900 border-r border-slate-800 flex flex-col 
+        transition-all duration-300 ease-in-out overflow-hidden
+        ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
+      `}>
         {/* Logo */}
         <div className="p-6 border-b border-slate-800/50 flex items-center justify-between bg-surface-900/30 backdrop-blur-sm">
           <div className="flex items-center gap-3">
@@ -99,14 +119,19 @@ export default function Sidebar() {
               className="flex items-center justify-between w-full px-2 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors"
               onClick={() => setWorkspacesExpanded(!workspacesExpanded)}
             >
-              <span>Workspaces</span>
+              <div className="flex items-center justify-between px-4 mb-4">
+                <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Workspaces</h2>
+                {isCompany && (
+                  <button 
+                    id="sidebar-create-workspace"
+                    onClick={(e) => { e.stopPropagation(); setShowWorkspaceModal(true) }}
+                    className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-white transition-colors"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-1">
-                <span
-                  onClick={(e) => { e.stopPropagation(); setShowWorkspaceModal(true) }}
-                  className="p-0.5 rounded hover:bg-surface-700 hover:text-slate-200 transition-all"
-                >
-                  <Plus size={12} />
-                </span>
                 {workspacesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
               </div>
             </button>
@@ -168,14 +193,18 @@ export default function Sidebar() {
                 className="flex items-center justify-between w-full px-2 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors"
                 onClick={() => setProjectsExpanded(!projectsExpanded)}
               >
-                <span>Projects</span>
+                <div className="flex items-center justify-between px-4 mt-8 mb-4">
+                  <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Projects</h2>
+                  {isCompany && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setShowProjectModal(true) }}
+                      className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-white transition-colors"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center gap-1">
-                  <span
-                    onClick={(e) => { e.stopPropagation(); setShowProjectModal(true) }}
-                    className="p-0.5 rounded hover:bg-surface-700 hover:text-slate-200 transition-all"
-                  >
-                    <Plus size={12} />
-                  </span>
                   {projectsExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 </div>
               </button>

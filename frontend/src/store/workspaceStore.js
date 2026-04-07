@@ -5,6 +5,7 @@ export const useWorkspaceStore = create((set, get) => ({
   workspaces: [],
   activeWorkspace: null,
   members: [],
+  invitations: [],
   loading: false,
   error: null,
 
@@ -67,10 +68,46 @@ export const useWorkspaceStore = create((set, get) => ({
   },
 
   updateMemberRole: async (workspaceId, userId, role) => {
-    const { data } = await workspacesAPI.updateMemberRole(workspaceId, userId, role)
+    const { data } = await workspacesAPI.updateMemberRole(workspaceId, userId, { role })
     set((state) => ({
       members: state.members.map((m) => (m.user.id === userId ? data : m)),
     }))
     return data
+  },
+
+  getUserRole: (userId) => {
+    if (!userId) return 'viewer'
+    const member = get().members.find((m) => m.user.id === userId)
+    return member?.role || 'viewer'
+  },
+
+  isWorkspaceAdmin: (userId) => {
+    const role = get().getUserRole(userId)
+    return role === 'admin'
+  },
+
+  fetchInvitations: async () => {
+    try {
+      const { data } = await workspacesAPI.listInvitations()
+      set({ invitations: data.results || data })
+    } catch (err) {
+      console.error('Failed to fetch invitations:', err)
+    }
+  },
+
+  acceptInvitation: async (id) => {
+    await workspacesAPI.respondToInvitation(id, 'accept')
+    set((state) => ({
+      invitations: state.invitations.filter((i) => i.id !== id),
+    }))
+    // Refresh workspaces to show the new one
+    await get().fetchWorkspaces()
+  },
+
+  declineInvitation: async (id) => {
+    await workspacesAPI.respondToInvitation(id, 'decline')
+    set((state) => ({
+      invitations: state.invitations.filter((i) => i.id !== id),
+    }))
   },
 }))

@@ -11,8 +11,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'full_name', 'avatar', 'initials', 'date_joined']
-        read_only_fields = ['id', 'date_joined']
+        fields = ['id', 'email', 'full_name', 'avatar', 'user_type', 'initials', 'date_joined']
+        read_only_fields = ['id', 'date_joined', 'user_type']
 
     def get_initials(self, obj):
         return obj.initials
@@ -24,7 +24,12 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'full_name', 'password', 'password2']
+        fields = ['email', 'full_name', 'password', 'password2', 'user_type']
+
+    def validate_user_type(self, value):
+        if value == User.UserType.ADMIN:
+            raise serializers.ValidationError('You cannot register as a system administrator.')
+        return value
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:

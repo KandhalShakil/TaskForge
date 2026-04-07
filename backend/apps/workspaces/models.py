@@ -31,6 +31,11 @@ class WorkspaceMember(models.Model):
         MEMBER = 'member', 'Member'
         VIEWER = 'viewer', 'Viewer'
 
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        ACCEPTED = 'accepted', 'Accepted'
+        DECLINED = 'declined', 'Declined'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey(
         Workspace, on_delete=models.CASCADE, related_name='members'
@@ -41,6 +46,7 @@ class WorkspaceMember(models.Model):
         related_name='workspace_memberships'
     )
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

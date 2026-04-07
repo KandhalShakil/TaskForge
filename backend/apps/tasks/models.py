@@ -91,6 +91,7 @@ class Task(models.Model):
         return False
 
 
+
 class Comment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='comments')
@@ -110,51 +111,3 @@ class Comment(models.Model):
     def __str__(self):
         return f'Comment by {self.author.email} on {self.task.title}'
 
-
-class TaskHistory(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='history')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
-    action = models.CharField(max_length=255) # e.g. "moved to In Progress", "changed priority to High"
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'task_history'
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.user.email} {self.action} on {self.task.title}"
-
-
-class TimeLog(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='time_logs')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField(null=True, blank=True)
-    duration_minutes = models.IntegerField(default=0)
-    description = models.CharField(max_length=255, blank=True)
-
-    class Meta:
-        db_table = 'time_logs'
-        ordering = ['-start_time']
-
-    def __str__(self):
-        return f"{self.duration_minutes}m logged by {self.user.email}"
-
-
-class TaskAttachment(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='attachments')
-    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
-    file = models.FileField(upload_to='task_attachments/')
-    filename = models.CharField(max_length=255)
-    file_size = models.IntegerField() # in bytes
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'task_attachments'
-        ordering = ['-uploaded_at']
-
-    def __str__(self):
-        return self.filename
