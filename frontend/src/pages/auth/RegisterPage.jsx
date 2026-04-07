@@ -32,7 +32,7 @@ export default function RegisterPage() {
   const onSubmit = async (data) => {
     try {
       await registerUser(data)
-      toast.success('Account created! Welcome to Takify 🚀')
+      toast.success('Account created! Welcome to TaskForge 🚀')
       navigate('/workspaces')
     } catch (err) {
       const errors_ = err.response?.data
@@ -56,7 +56,7 @@ export default function RegisterPage() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center shadow-lg shadow-primary-900/30">
               <Layers size={20} className="text-white" />
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight">Takify</span>
+            <span className="text-2xl font-bold text-white tracking-tight">TaskForge</span>
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">Create your account</h1>
           <p className="text-slate-400 text-sm">Start managing projects for free</p>

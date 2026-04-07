@@ -51,7 +51,7 @@ export default function LoginPage() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center shadow-lg shadow-primary-900/30">
               <Layers size={20} className="text-white" />
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight">Takify</span>
+            <span className="text-2xl font-bold text-white tracking-tight">TaskForge</span>
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">Welcome back</h1>
           <p className="text-slate-400 text-sm">Sign in to your workspace</p>

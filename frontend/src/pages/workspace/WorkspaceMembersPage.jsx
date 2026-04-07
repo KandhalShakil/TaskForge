@@ -15,7 +15,7 @@ const ROLE_ICONS = {
 export default function WorkspaceMembersPage() {
   const { workspaceId } = useParams()
   const { user } = useAuthStore()
-  const { activeWorkspace, members, fetchMembers, addMember, removeMember } = useWorkspaceStore()
+  const { activeWorkspace, members, fetchMembers, addMember, removeMember, updateMemberRole } = useWorkspaceStore()
   const [allUsers, setAllUsers] = useState([])
   const [search, setSearch] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')

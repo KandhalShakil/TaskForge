@@ -13,7 +13,7 @@ export default function Header() {
     if (location.pathname.includes('/dashboard')) return 'Analytics Dashboard'
     if (location.pathname.includes('/members')) return 'Workspace Members'
     if (location.pathname.includes('/projects/') && activeProject) return activeProject.name
-    return activeWorkspace?.name || 'Takify'
+    return activeWorkspace?.name || 'TaskForge'
   }
 
   const getBreadcrumbs = () => {
