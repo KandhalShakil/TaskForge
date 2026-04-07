@@ -16,3 +16,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://task-forge.kandhal.tech",
     "https://taskforge-backend-hgre.onrender.com"
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    "https://www.task-forge.kandhal.tech",
+    "https://task-forge.kandhal.tech",
+]
