@@ -31,10 +31,9 @@ const COLUMN_DOT_COLORS = {
   cancelled: 'bg-red-500',
 }
 
-export default function KanbanColumn({ column, tasks, project, workspace, onRefresh }) {
+export default function KanbanColumn({ column, tasks, project, workspace, onRefresh, onCreateTask }) {
   const { user } = useAuthStore()
   const { getUserRole } = useWorkspaceStore()
-  const [showCreateModal, setShowCreateModal] = useState(false)
   const { setNodeRef, isOver } = useDroppable({ id: column.id })
 
   const userRole = getUserRole(user?.id)
@@ -56,7 +55,7 @@ export default function KanbanColumn({ column, tasks, project, workspace, onRefr
           </div>
           {!isViewer && (
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={onCreateTask}
               className="p-1 rounded text-slate-600 hover:text-slate-300 hover:bg-surface-800 transition-all"
             >
               <Plus size={14} />
@@ -84,7 +83,7 @@ export default function KanbanColumn({ column, tasks, project, workspace, onRefr
               className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl transition-all duration-300 group/drop ${
                 isOver ? 'border-primary-500 bg-primary-500/5' : 'border-slate-800 hover:border-slate-700'
               } ${!isViewer ? 'cursor-pointer' : ''}`}
-              onClick={!isViewer ? () => setShowCreateModal(true) : undefined}
+              onClick={!isViewer ? onCreateTask : undefined}
             >
               <div className={`p-2 rounded-lg bg-surface-900 border border-slate-800 text-slate-600 mb-2 group-hover/drop:text-slate-400 group-hover/drop:scale-110 transition-all ${isOver ? 'text-primary-400 border-primary-500/30' : ''}`}>
                 <Plus size={16} />
@@ -97,14 +96,6 @@ export default function KanbanColumn({ column, tasks, project, workspace, onRefr
         </div>
       </div>
 
-      {showCreateModal && (
-        <TaskModal
-          project={project}
-          workspace={workspace}
-          task={null}
-          onClose={() => { setShowCreateModal(false); onRefresh?.() }}
-        />
-      )}
     </>
   )
 }

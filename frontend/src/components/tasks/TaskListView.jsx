@@ -28,12 +28,11 @@ const PriorityBadge = ({ priority }) => {
   )
 }
 
-export default function TaskListView({ tasks = [], project, workspace, onRefresh }) {
+export default function TaskListView({ tasks = [], project, workspace, onRefresh, onCreateTask }) {
   const { deleteTask } = useTaskStore()
   const { user } = useAuthStore()
   const { getUserRole } = useWorkspaceStore()
   const [editingTask, setEditingTask] = useState(null)
-  const [showCreate, setShowCreate] = useState(false)
   const [taskToDelete, setTaskToDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -81,7 +80,7 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
               </p>
               {!isViewer && (
                 <button 
-                  onClick={() => setShowCreate(true)}
+                  onClick={onCreateTask}
                   className="btn-primary mt-6 shadow-lg shadow-primary-900/20"
                 >
                   <Plus size={16} /> Create Task

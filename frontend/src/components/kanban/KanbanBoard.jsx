@@ -21,7 +21,7 @@ import { KANBAN_COLUMNS, TASK_STATUSES } from '../../utils/constants'
 import KanbanColumn from './KanbanColumn'
 import KanbanCard from './KanbanCard'
 
-export default function KanbanBoard({ tasks = [], project, workspace, onRefresh }) {
+export default function KanbanBoard({ tasks = [], project, workspace, onRefresh, onCreateTask }) {
   const { bulkUpdateTasks } = useTaskStore()
   const { user } = useAuthStore()
   const { getUserRole } = useWorkspaceStore()
@@ -107,6 +107,7 @@ export default function KanbanBoard({ tasks = [], project, workspace, onRefresh 
               project={project}
               workspace={workspace}
               onRefresh={onRefresh}
+              onCreateTask={onCreateTask}
             />
           )
         })}

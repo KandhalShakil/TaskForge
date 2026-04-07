@@ -172,6 +172,7 @@ export default function ProjectPage() {
                 project={project}
                 workspace={activeWorkspace}
                 onRefresh={loadTasks}
+                onCreateTask={() => setShowCreateModal(true)}
               />
             )}
             {view === 'kanban' && (
@@ -180,6 +181,7 @@ export default function ProjectPage() {
                 project={project}
                 workspace={activeWorkspace}
                 onRefresh={loadTasks}
+                onCreateTask={() => setShowCreateModal(true)}
               />
             )}
             {view === 'calendar' && (
@@ -188,6 +190,7 @@ export default function ProjectPage() {
                 project={project}
                 workspace={activeWorkspace}
                 onRefresh={loadTasks}
+                onCreateTask={() => setShowCreateModal(true)}
               />
             )}
             {view === 'timeline' && (
@@ -196,6 +199,7 @@ export default function ProjectPage() {
                 project={project}
                 workspace={activeWorkspace}
                 onRefresh={loadTasks}
+                onCreateTask={() => setShowCreateModal(true)}
               />
             )}
           </>
