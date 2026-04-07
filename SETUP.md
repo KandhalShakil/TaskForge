@@ -1,6 +1,6 @@
-# Takify Setup & Deployment Guide
+# TaskForge Setup & Deployment Guide
 
-This guide will help you install dependencies and run Takify on your local machine.
+This guide will help you install dependencies and run TaskForge on your local machine.
 
 ## Prerequisites
 
@@ -90,22 +90,4 @@ npm run dev
 
 ## Deployment Information
 
-This project is built to be easily deployed to modern cloud providers.
-
-### Frontend Deployment (Vercel)
-1. Push the repository to GitHub.
-2. Import the project in Vercel.
-3. Framework Preset: `Vite`.
-4. Root Directory: `frontend`.
-5. Environment Variables:
-   - `VITE_API_URL` = `https://your-backend-domain.com`
-
-### Backend Deployment (Render)
-1. In Render, create a new "Web Service".
-2. Connect your GitHub repository.
-3. Root Directory: `backend`.
-4. Environment: `Python`.
-5. Build Command: `pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput`
-6. Start Command: `gunicorn config.wsgi:application`
-7. Add all the Environment Variables from your `.env` file (Database credentials, `SECRET_KEY`, `JWT_SECRET`, etc.).
-8. Update `CORS_ALLOWED_ORIGINS` in your Django `.env` to include your Vercel frontend URL.
+Refer to `DEPLOYMENT.md` for detailed instructions on how to deploy TaskForge to production.

@@ -1,9 +1,6 @@
+# TaskForge — Project Management SaaS
 
-# TaskForge
-TaskForge – A full-stack project management SaaS application inspired by ClickUp, built with React (Vite), Django REST Framework, and PostgreSQL. Supports workspaces, projects, tasks, Kanban boards, analytics, and JWT authentication.
-# Takify — Project Management SaaS
-
-Takify is a powerful, full-stack project management application similar to ClickUp. It allows teams to manage workspaces, projects, and tasks using multiple dynamic views including Kanban boards, Calendars, and Timelines.
+TaskForge is a powerful, full-stack project management application inspired by ClickUp. It allows teams to manage workspaces, projects, and tasks using multiple dynamic views including Kanban boards, Calendars, and Timelines.
 
 ## Tech Stack
 
@@ -39,3 +36,7 @@ Takify is a powerful, full-stack project management application similar to Click
 ## Getting Started
 
 Please refer to the `SETUP.md` file for detailed instructions on how to install dependencies and run the application locally.
+
+## Deployment Guide
+
+Refer to `DEPLOYMENT.md` for instructions on how to deploy TaskForge to **Render** (Backend) and **Vercel** (Frontend).
