@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLocation, useParams, Link } from 'react-router-dom'
-import { Search, Bell, Command } from 'lucide-react'
+import { Search, Bell, Command, Grid } from 'lucide-react'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import { useProjectStore } from '../../store/projectStore'
 
