@@ -74,18 +74,21 @@ export default function Sidebar() {
     <>
       <div className="w-64 bg-surface-900 border-r border-slate-800 flex flex-col transition-all duration-200 overflow-hidden">
         {/* Logo */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2 px-2">
-            <div className="w-8 h-8 rounded-lg bg-primary-500/10 flex items-center justify-center">
-              <LayoutDashboard size={18} className="text-primary-400" />
+        <div className="p-6 border-b border-slate-800/50 flex items-center justify-between bg-surface-900/30 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500/20 to-purple-600/20 border border-primary-500/20 flex items-center justify-center shadow-inner shadow-primary-500/10">
+              <LayoutDashboard size={20} className="text-primary-400" />
             </div>
-            <span className="font-bold text-lg text-white tracking-tight">TaskForge</span>
+            <div className="flex flex-col">
+              <span className="font-bold text-base text-white tracking-tight leading-none">TaskForge</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1 line-clamp-1">Productivity</span>
+            </div>
           </div>
           <button
             onClick={() => setCollapsed(true)}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-surface-800 transition-all"
+            className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-surface-800/80 transition-all border border-transparent hover:border-slate-700/50"
           >
-            <ChevronLeft size={14} />
+            <ChevronLeft size={16} />
           </button>
         </div>
 

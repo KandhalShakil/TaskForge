@@ -52,15 +52,26 @@ export default function Header() {
       </div>
 
       {/* Right actions */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 bg-surface-800 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-500 text-sm w-48">
-          <Grid size={20} className="text-primary-400" />
-          <span className="font-bold text-lg text-white">TaskForge</span>
+      <div className="flex items-center gap-4">
+        {/* TaskForge Badge/Button */}
+        <div className="flex items-center gap-2.5 bg-surface-800/50 border border-slate-700/50 hover:border-slate-600/50 hover:bg-surface-800 rounded-xl px-4 py-1.5 transition-all cursor-default group">
+          <div className="p-1 rounded-lg bg-primary-500/10 group-hover:bg-primary-500/20 transition-colors">
+            <Grid size={18} className="text-primary-400" />
+          </div>
+          <span className="font-bold text-base text-white tracking-tight">TaskForge</span>
         </div>
-        <kbd className="text-xs bg-surface-700 px-1.5 py-0.5 rounded text-slate-600 font-mono">⌘K</kbd>
-        <button className="relative p-2 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-surface-800 transition-all">
-          <Bell size={16} />
-        </button>
+
+        <div className="flex items-center gap-3 border-l border-slate-800 pl-4">
+          <kbd className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-400 bg-surface-800 border border-slate-700 rounded-lg shadow-sm">
+            <Command size={12} className="text-slate-500" />
+            <span className="font-sans">K</span>
+          </kbd>
+
+          <button className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-surface-800 border border-transparent hover:border-slate-700/50 transition-all relative group">
+            <Bell size={20} className="group-hover:scale-110 transition-transform" />
+            <span className="absolute top-2 right-2 w-2 h-2 bg-primary-500 rounded-full border-2 border-surface-900 shadow-sm" />
+          </button>
+        </div>
       </div>
     </header>
   )
