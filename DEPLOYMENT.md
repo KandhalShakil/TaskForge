@@ -28,8 +28,8 @@ In the Render dashboard for your service, click on **Environment** and add the f
 - `DB_HOST`: (From your Supabase dashboard)
 - `DB_PORT`: `6543` (usually)
 - `JWT_SECRET`: (Another long, random string)
-- `ALLOWED_HOSTS`: `taskforge-backend.onrender.com` (use your actual Render URL)
-- `CORS_ALLOWED_ORIGINS`: `https://taskforge.vercel.app` (your actual frontend URL)
+- `ALLOWED_HOSTS`: `taskforge-backend-hgre.onrender.com`
+- `CORS_ALLOWED_ORIGINS`: `https://www.task-forge.kandhal.tech,https://task-forge.kandhal.tech`
 
 ---
 
@@ -46,12 +46,12 @@ In the Render dashboard for your service, click on **Environment** and add the f
 ### Step 2: Configure Environment Variables
 1.  Click on **Environment Variables**.
 2.  Add:
-    - `VITE_API_URL`: `https://taskforge-backend.onrender.com/api` (your backend URL with /api)
+    - `VITE_API_URL`: `https://taskforge-backend-hgre.onrender.com`
 
 ### Step 3: Deploy
 1.  Click **Deploy**.
-2.  Once complete, Vercel will give you a production URL (e.g., `https://taskforge.vercel.app`).
-3.  **IMPORTANT**: Go back to your Render backend environment variables and update `CORS_ALLOWED_ORIGINS` to include this new URL.
+2.  Once complete, Vercel will give you a production URL.
+3.  **IMPORTANT**: Go back to your Render backend environment variables and update `CORS_ALLOWED_ORIGINS` to include your new production domain: `https://www.task-forge.kandhal.tech`.
 
 ---
 

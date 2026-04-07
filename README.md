@@ -9,6 +9,13 @@
 
 ---
 
+## 🌐 Live Demo
+You can access the production application at:
+- **Frontend**: [https://www.task-forge.kandhal.tech](https://www.task-forge.kandhal.tech)
+- **API Status**: [https://taskforge-backend-hgre.onrender.com/api](https://taskforge-backend-hgre.onrender.com/api)
+
+---
+
 ## ✨ Key Features
 
 > [!TIP]
@@ -85,17 +92,6 @@ cd frontend
 npm install
 npm run dev
 ```
-
----
-
-## 📦 Deployment
-
-| Service | Platform | Link |
-| :--- | :--- | :--- |
-| **Backend** | [Render](https://render.com) | [Deploy Now](https://render.com) |
-| **Frontend** | [Vercel](https://vercel.com) | [Deploy Now](https://vercel.com) |
-
-*Check [DEPLOYMENT.md](file:///c:/Users/kandh/OneDrive/Desktop/Takify/DEPLOYMENT.md) for full instructions.*
 
 ---
 

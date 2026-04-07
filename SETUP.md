@@ -20,6 +20,14 @@ We have provided a convenient batch script to automatically install dependencies
 
 ---
 
+## 🌎 Production Access
+
+Access your live TaskForge application here:
+- **Production Site**: [https://www.task-forge.kandhal.tech](https://www.task-forge.kandhal.tech)
+- **Production API**: [https://taskforge-backend-hgre.onrender.com](https://taskforge-backend-hgre.onrender.com)
+
+---
+
 ## Manual Setup
 
 If you prefer to run things manually or are on macOS/Linux, follow these steps:
