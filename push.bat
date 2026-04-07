@@ -6,8 +6,12 @@ setlocal
 echo [TaskForge] Initializing Git repository...
 git init
 
-echo [TaskForge] Adding remote origin...
-git remote add origin https://github.com/KandhalShakil/TaskForge.git
+echo [TaskForge] Configuring remote origin...
+:: Use set-url if it exists, otherwise add it. 
+git remote add origin https://github.com/KandhalShakil/TaskForge.git 2>nul
+if %errorlevel% neq 0 (
+    git remote set-url origin https://github.com/KandhalShakil/TaskForge.git
+)
 
 echo [TaskForge] Checking for branch...
 git branch -M main
@@ -15,8 +19,12 @@ git branch -M main
 echo [TaskForge] Adding files (respecting .gitignore)...
 git add .
 
-echo [TaskForge] committing changes...
-git commit -m "Initial commit: Rebranded to TaskForge with full-stack project management features"
+echo [TaskForge] Committing changes...
+git commit -m "Initial commit: Rebranded to TaskForge with full-stack project management features" 2>nul
+
+echo [TaskForge] Pulling remote changes (to avoid push rejection)...
+:: This handles cases where the github repo was created with a README or LICENSE
+git pull origin main --allow-unrelated-histories --no-edit
 
 echo [TaskForge] Pushing to GitHub...
 echo [IMPORTANT] You may be prompted for your GitHub credentials in a separate window.
