@@ -4,6 +4,7 @@ import { X, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import { WORKSPACE_ICONS, WORKSPACE_COLORS } from '../../utils/constants'
+import Button from '../common/Button'
 
 export default function CreateWorkspaceModal({ onClose }) {
   const { createWorkspace } = useWorkspaceStore()
@@ -99,10 +100,12 @@ export default function CreateWorkspaceModal({ onClose }) {
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">Cancel</button>
-            <button type="submit" disabled={isSubmitting} className="btn-primary flex-1 justify-center">
-              {isSubmitting ? <><Loader2 size={14} className="animate-spin" /> Creating...</> : 'Create Workspace'}
-            </button>
+            <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
+              Cancel
+            </Button>
+            <Button type="submit" loading={isSubmitting} className="flex-1">
+              Create Workspace
+            </Button>
           </div>
         </form>
       </div>

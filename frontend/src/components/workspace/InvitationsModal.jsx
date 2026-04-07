@@ -1,9 +1,13 @@
 import { X, Check, Trash2, Mail } from 'lucide-react'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import toast from 'react-hot-toast'
+import { useState } from 'react'
+import ConfirmModal from '../common/ConfirmModal'
 
 export default function InvitationsModal({ onClose }) {
   const { invitations, acceptInvitation, declineInvitation } = useWorkspaceStore()
+  const [inviteToDecline, setInviteToDecline] = useState(null)
+  const [isDeclining, setIsDeclining] = useState(false)
 
   const handleAccept = async (id) => {
     try {
@@ -14,13 +18,17 @@ export default function InvitationsModal({ onClose }) {
     }
   }
 
-  const handleDecline = async (id) => {
-    if (!confirm('Are you sure you want to decline this invitation?')) return
+  const handleDecline = async () => {
+    if (!inviteToDecline) return
+    setIsDeclining(true)
     try {
-      await declineInvitation(id)
+      await declineInvitation(inviteToDecline.id)
       toast.success('Invitation declined')
+      setInviteToDecline(null)
     } catch (err) {
       toast.error('Failed to decline invitation')
+    } finally {
+      setIsDeclining(false)
     }
   }
 
@@ -59,8 +67,8 @@ export default function InvitationsModal({ onClose }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => handleDecline(invite.id)}
-                      className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all"
+                      onClick={() => setInviteToDecline(invite)}
+                      className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all font-bold"
                       title="Decline"
                     >
                       <Trash2 size={16} />
@@ -78,6 +86,17 @@ export default function InvitationsModal({ onClose }) {
             </div>
           )}
         </div>
+
+        <ConfirmModal
+          isOpen={!!inviteToDecline}
+          onClose={() => setInviteToDecline(null)}
+          onConfirm={handleDecline}
+          title="Decline Invitation?"
+          message={`Are you sure you want to decline the invitation to join "${inviteToDecline?.workspace?.name}"?`}
+          confirmText="Decline Invitation"
+          isDanger={true}
+          isLoading={isDeclining}
+        />
       </div>
     </div>
   )

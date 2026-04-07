@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import { authAPI } from '../../api/auth'
 import { useAuthStore } from '../../store/authStore'
+import ConfirmModal from '../../components/common/ConfirmModal'
 
 const ROLE_ICONS = {
   admin: <Crown size={12} className="text-yellow-400" />,
@@ -21,6 +22,8 @@ export default function WorkspaceMembersPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('member')
   const [loading, setLoading] = useState(false)
+  const [memberToRemove, setMemberToRemove] = useState(null)
+  const [isRemoving, setIsRemoving] = useState(false)
 
   useEffect(() => {
     fetchMembers(workspaceId)
@@ -47,13 +50,17 @@ export default function WorkspaceMembersPage() {
     }
   }
 
-  const handleRemove = async (memberId) => {
-    if (!confirm('Remove this member from the workspace?')) return
+  const handleRemove = async () => {
+    if (!memberToRemove) return
+    setIsRemoving(true)
     try {
-      await removeMember(workspaceId, memberId)
+      await removeMember(workspaceId, memberToRemove.user.id)
       toast.success('Member removed')
+      setMemberToRemove(null)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Cannot remove member')
+    } finally {
+      setIsRemoving(false)
     }
   }
 
@@ -181,8 +188,8 @@ export default function WorkspaceMembersPage() {
                 )}
                 {isAdmin && member.user.id !== user?.id && (
                   <button
-                    onClick={() => handleRemove(member.user.id)}
-                    className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all"
+                    onClick={() => setMemberToRemove(member)}
+                    className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all font-bold"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -191,7 +198,17 @@ export default function WorkspaceMembersPage() {
             </div>
           ))}
         </div>
-      </div>
+        <ConfirmModal
+        isOpen={!!memberToRemove}
+        onClose={() => setMemberToRemove(null)}
+        onConfirm={handleRemove}
+        title="Remove Member?"
+        message={`Are you sure you want to remove "${memberToRemove?.user?.full_name}" from the workspace? They will lose access to all projects and tasks.`}
+        confirmText="Remove Member"
+        isDanger={true}
+        isLoading={isRemoving}
+      />
+    </div>
     </div>
   )
 }

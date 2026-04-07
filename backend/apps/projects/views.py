@@ -35,7 +35,12 @@ class ProjectListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         workspace_id = self.request.data.get('workspace')
         workspace = get_object_or_404(Workspace, id=workspace_id)
-        if not WorkspaceMember.objects.filter(workspace=workspace, user=self.request.user, role__in=[WorkspaceMember.Role.ADMIN, WorkspaceMember.Role.MEMBER]).exists():
+        if not WorkspaceMember.objects.filter(
+            workspace=workspace, 
+            user=self.request.user, 
+            role__in=[WorkspaceMember.Role.ADMIN, WorkspaceMember.Role.MEMBER],
+            status=WorkspaceMember.Status.ACCEPTED
+        ).exists():
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not have permission to create projects in this workspace.")
         serializer.save()

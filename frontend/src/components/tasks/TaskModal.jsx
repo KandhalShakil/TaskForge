@@ -8,6 +8,8 @@ import { TASK_STATUSES, TASK_PRIORITIES } from '../../utils/constants'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
 import { useAuthStore } from '../../store/authStore'
+import ConfirmModal from '../common/ConfirmModal'
+import Button from '../common/Button'
 
 export default function TaskModal({ task, project, workspace, onClose }) {
   const { createTask, updateTask, deleteTask, categories } = useTaskStore()
@@ -78,37 +80,6 @@ export default function TaskModal({ task, project, workspace, onClose }) {
     }
   }
 
-  if (showDeleteConfirm) {
-    return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
-          <div className="w-12 h-12 rounded-full bg-red-900/30 text-red-500 flex items-center justify-center mx-auto mb-4 border border-red-800/50">
-            <Trash2 size={24} />
-          </div>
-          <h2 className="text-lg font-bold text-white mb-2">Delete Task?</h2>
-          <p className="text-sm text-slate-400 mb-6 px-2">
-            Are you sure you want to delete <span className="text-white font-medium">"{task?.title}"</span>? This action cannot be undone.
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowDeleteConfirm(false)}
-              className="btn-secondary flex-1 justify-center"
-              disabled={isDeleting}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={confirmDelete}
-              className="btn-primary bg-red-600 hover:bg-red-700 text-white flex-1 justify-center border-none"
-              disabled={isDeleting}
-            >
-              {isDeleting ? <><Loader2 size={14} className="animate-spin" /> Deleting...</> : 'Yes, Delete'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -224,28 +195,39 @@ export default function TaskModal({ task, project, workspace, onClose }) {
 
           <div className="flex gap-3 pt-2 border-t border-slate-800 items-center justify-between">
             {isEditing && !isViewer && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={handleDeleteClick}
                 className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded transition-all"
                 title="Delete Task"
-              >
-                <Trash2 size={16} />
-              </button>
+                icon={Trash2}
+              />
             )}
             <div className="flex items-center gap-3 ml-auto flex-1 max-w-[280px]">
-              <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">
+              <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
                 {isViewer ? 'Close' : 'Cancel'}
-              </button>
+              </Button>
               {!isViewer && (
-                <button type="submit" disabled={isSubmitting} className="btn-primary flex-1 justify-center">
-                  {isSubmitting ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : (isEditing ? 'Update Task' : 'Create Task')}
-                </button>
+                <Button type="submit" loading={isSubmitting} className="flex-1">
+                  {isEditing ? 'Update Task' : 'Create Task'}
+                </Button>
               )}
             </div>
           </div>
         </form>
       </div>
+
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title="Delete Task?"
+        message={`Are you sure you want to delete "${task?.title}"? This action cannot be undone.`}
+        confirmText="Delete Task"
+        isDanger={true}
+        isLoading={isDeleting}
+      />
     </div>
   )
 }

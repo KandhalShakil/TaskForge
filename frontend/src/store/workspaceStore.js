@@ -7,6 +7,7 @@ export const useWorkspaceStore = create((set, get) => ({
   members: [],
   invitations: [],
   loading: false,
+  isSubmitting: false,
   error: null,
 
   fetchWorkspaces: async () => {
@@ -25,26 +26,46 @@ export const useWorkspaceStore = create((set, get) => ({
   },
 
   createWorkspace: async (workspaceData) => {
-    const { data } = await workspacesAPI.create(workspaceData)
-    set((state) => ({ workspaces: [data, ...state.workspaces] }))
-    return data
+    set({ isSubmitting: true })
+    try {
+      const { data } = await workspacesAPI.create(workspaceData)
+      set((state) => ({ workspaces: [data, ...state.workspaces], isSubmitting: false }))
+      return data
+    } catch (err) {
+      set({ isSubmitting: false })
+      throw err
+    }
   },
 
   updateWorkspace: async (id, workspaceData) => {
-    const { data } = await workspacesAPI.update(id, workspaceData)
-    set((state) => ({
-      workspaces: state.workspaces.map((w) => (w.id === id ? data : w)),
-      activeWorkspace: state.activeWorkspace?.id === id ? data : state.activeWorkspace,
-    }))
-    return data
+    set({ isSubmitting: true })
+    try {
+      const { data } = await workspacesAPI.update(id, workspaceData)
+      set((state) => ({
+        workspaces: state.workspaces.map((w) => (w.id === id ? data : w)),
+        activeWorkspace: state.activeWorkspace?.id === id ? data : state.activeWorkspace,
+        isSubmitting: false
+      }))
+      return data
+    } catch (err) {
+      set({ isSubmitting: false })
+      throw err
+    }
   },
 
   deleteWorkspace: async (id) => {
-    await workspacesAPI.delete(id)
-    set((state) => ({
-      workspaces: state.workspaces.filter((w) => w.id !== id),
-      activeWorkspace: state.activeWorkspace?.id === id ? state.workspaces[0] || null : state.activeWorkspace,
-    }))
+    set({ isSubmitting: true })
+    try {
+      await workspacesAPI.delete(id)
+      set((state) => ({
+        workspaces: state.workspaces.filter((w) => w.id !== id),
+        activeWorkspace: state.activeWorkspace?.id === id ? state.workspaces[0] || null : state.activeWorkspace,
+        isSubmitting: false
+      }))
+    } catch (err) {
+      set({ isSubmitting: false })
+      throw err
+    }
   },
 
   setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),
@@ -57,9 +78,15 @@ export const useWorkspaceStore = create((set, get) => ({
   },
 
   addMember: async (workspaceId, memberData) => {
-    const { data } = await workspacesAPI.addMember(workspaceId, memberData)
-    set((state) => ({ members: [...state.members, data] }))
-    return data
+    set({ isSubmitting: true })
+    try {
+      const { data } = await workspacesAPI.addMember(workspaceId, memberData)
+      set((state) => ({ members: [...state.members, data], isSubmitting: false }))
+      return data
+    } catch (err) {
+      set({ isSubmitting: false })
+      throw err
+    }
   },
 
   removeMember: async (workspaceId, userId) => {

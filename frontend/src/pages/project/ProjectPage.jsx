@@ -12,6 +12,8 @@ import CalendarView from '../../components/calendar/CalendarView'
 import TimelineView from '../../components/timeline/TimelineView'
 import TaskModal from '../../components/tasks/TaskModal'
 import TaskFilters from '../../components/tasks/TaskFilters'
+import Skeleton from '../../components/common/Skeleton'
+import { useAuthStore } from '../../store/authStore'
 
 const VIEW_TABS = [
   { id: 'list', label: 'List', Icon: List },
@@ -58,8 +60,34 @@ export default function ProjectPage() {
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="animate-spin text-primary-500" size={32} />
+      <div className="flex flex-col h-full">
+        <div className="px-6 py-8 border-b border-slate-800 bg-surface-900/50">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <Skeleton variant="rect" width="48px" height="48px" className="rounded-xl" />
+              <div className="space-y-2">
+                <Skeleton variant="text" width="200px" height="24px" />
+                <Skeleton variant="text" width="300px" height="12px" />
+              </div>
+            </div>
+            <Skeleton variant="rect" width="120px" height="40px" className="rounded-xl" />
+          </div>
+          <div className="flex gap-2">
+            {[1, 2, 3, 4].map(i => <Skeleton key={i} variant="rect" width="80px" height="32px" className="rounded-lg" />)}
+          </div>
+        </div>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="card p-5 space-y-4">
+              <Skeleton variant="text" width="80%" height="20px" />
+              <Skeleton variant="text" width="100%" height="40px" />
+              <div className="flex justify-between">
+                <Skeleton variant="rect" width="60px" height="20px" />
+                <Skeleton variant="circle" width="24px" height="24px" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { useProjectStore } from '../../store/projectStore'
 import { WORKSPACE_ICONS, WORKSPACE_COLORS } from '../../utils/constants'
 import { useState } from 'react'
+import Button from '../common/Button'
 
 export default function CreateProjectModal({ workspace, onClose }) {
   const { createProject } = useProjectStore()
@@ -12,13 +13,19 @@ export default function CreateProjectModal({ workspace, onClose }) {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm()
 
   const onSubmit = async (data) => {
+    // Clean empty strings for optional fields
+    const payload = {
+      ...data,
+      workspace: workspace.id,
+      icon: selectedIcon,
+      color: selectedColor,
+    }
+    if (!payload.description) delete payload.description
+    if (!payload.start_date) delete payload.start_date
+    if (!payload.end_date) delete payload.end_date
+
     try {
-      await createProject({
-        ...data,
-        workspace: workspace.id,
-        icon: selectedIcon,
-        color: selectedColor,
-      })
+      await createProject(payload)
       toast.success('Project created!')
       onClose()
     } catch (err) {
@@ -105,10 +112,12 @@ export default function CreateProjectModal({ workspace, onClose }) {
           </p>
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1 justify-center">Cancel</button>
-            <button type="submit" disabled={isSubmitting} className="btn-primary flex-1 justify-center">
-              {isSubmitting ? <><Loader2 size={14} className="animate-spin" /> Creating...</> : 'Create Project'}
-            </button>
+            <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
+              Cancel
+            </Button>
+            <Button type="submit" loading={isSubmitting} className="flex-1">
+              Create Project
+            </Button>
           </div>
         </form>
       </div>

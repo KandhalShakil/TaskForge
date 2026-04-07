@@ -6,6 +6,7 @@ export const useTaskStore = create((set, get) => ({
   categories: [],
   stats: null,
   loading: false,
+  isSubmitting: false,
   filters: {
     status: '',
     priority: '',
@@ -57,22 +58,44 @@ export const useTaskStore = create((set, get) => ({
   },
 
   createTask: async (taskData) => {
-    const { data } = await tasksAPI.create(taskData)
-    set((state) => ({ tasks: [data, ...state.tasks] }))
-    return data
+    set({ isSubmitting: true })
+    try {
+      const { data } = await tasksAPI.create(taskData)
+      set((state) => ({ tasks: [data, ...state.tasks], isSubmitting: false }))
+      return data
+    } catch (err) {
+      set({ isSubmitting: false })
+      throw err
+    }
   },
 
   updateTask: async (id, taskData) => {
-    const { data } = await tasksAPI.update(id, taskData)
-    set((state) => ({
-      tasks: state.tasks.map((t) => (t.id === id ? data : t)),
-    }))
-    return data
+    set({ isSubmitting: true })
+    try {
+      const { data } = await tasksAPI.update(id, taskData)
+      set((state) => ({
+        tasks: state.tasks.map((t) => (t.id === id ? data : t)),
+        isSubmitting: false,
+      }))
+      return data
+    } catch (err) {
+      set({ isSubmitting: false })
+      throw err
+    }
   },
 
   deleteTask: async (id) => {
-    await tasksAPI.delete(id)
-    set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) }))
+    set({ isSubmitting: true })
+    try {
+      await tasksAPI.delete(id)
+      set((state) => ({ 
+        tasks: state.tasks.filter((t) => t.id !== id),
+        isSubmitting: false
+      }))
+    } catch (err) {
+      set({ isSubmitting: false })
+      throw err
+    }
   },
 
   bulkUpdateTasks: async (updates) => {
@@ -100,8 +123,14 @@ export const useTaskStore = create((set, get) => ({
   },
 
   createCategory: async (categoryData) => {
-    const { data } = await categoriesAPI.create(categoryData)
-    set((state) => ({ categories: [...state.categories, data] }))
-    return data
+    set({ isSubmitting: true })
+    try {
+      const { data } = await categoriesAPI.create(categoryData)
+      set((state) => ({ categories: [...state.categories, data], isSubmitting: false }))
+      return data
+    } catch (err) {
+      set({ isSubmitting: false })
+      throw err
+    }
   },
 }))

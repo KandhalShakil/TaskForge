@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MoreHorizontal, Edit2, Trash2, Calendar, User } from 'lucide-react'
+import { MoreHorizontal, Edit2, Trash2, Calendar, User, Eye, FileText, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useTaskStore } from '../../store/taskStore'
 import { TASK_STATUSES, TASK_PRIORITIES } from '../../utils/constants'
@@ -7,6 +7,7 @@ import { formatDueDate, isOverdue } from '../../utils/dateUtils'
 import TaskModal from './TaskModal'
 import { useAuthStore } from '../../store/authStore'
 import { useWorkspaceStore } from '../../store/workspaceStore'
+import ConfirmModal from '../common/ConfirmModal'
 
 const StatusBadge = ({ status }) => {
   const s = TASK_STATUSES.find((x) => x.value === status)
@@ -33,18 +34,24 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
   const { getUserRole } = useWorkspaceStore()
   const [editingTask, setEditingTask] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [taskToDelete, setTaskToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const userRole = getUserRole(user?.id)
   const isViewer = userRole === 'viewer'
 
-  const handleDelete = async (task) => {
-    if (!confirm(`Delete "${task.title}"?`)) return
+  const handleDelete = async () => {
+    if (!taskToDelete) return
+    setIsDeleting(true)
     try {
-      await deleteTask(task.id)
+      await deleteTask(taskToDelete.id)
       toast.success('Task deleted')
+      setTaskToDelete(null)
       onRefresh?.()
     } catch {
       toast.error('Failed to delete task')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -64,10 +71,22 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
         {/* Task rows */}
         <div className="divide-y divide-slate-800/50 bg-surface-950">
           {tasks.length === 0 ? (
-            <div className="py-16 text-center">
-              <div className="text-3xl mb-2">📋</div>
-              <p className="text-slate-400 font-medium">No tasks</p>
-              <p className="text-slate-600 text-sm mt-1">Create your first task to get started</p>
+            <div className="py-24 text-center flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-surface-900 border border-slate-800 flex items-center justify-center mb-4 text-slate-600 shadow-inner">
+                <FileText size={32} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-1">No tasks found</h3>
+              <p className="text-slate-500 text-sm max-w-xs mx-auto">
+                There are no tasks in this project yet. Start by creating a new task to track your progress.
+              </p>
+              {!isViewer && (
+                <button 
+                  onClick={() => setShowCreate(true)}
+                  className="btn-primary mt-6 shadow-lg shadow-primary-900/20"
+                >
+                  <Plus size={16} /> Create Task
+                </button>
+              )}
             </div>
           ) : (
             tasks.map((task) => {
@@ -148,8 +167,8 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
                     </button>
                     {!isViewer && (
                       <button
-                        onClick={() => handleDelete(task)}
-                        className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all"
+                        onClick={() => setTaskToDelete(task)}
+                        className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all font-bold"
                         title="Delete Task"
                       >
                         <Trash2 size={13} />
@@ -171,6 +190,17 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
           onClose={() => { setEditingTask(null); onRefresh?.() }}
         />
       )}
+
+      <ConfirmModal
+        isOpen={!!taskToDelete}
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={handleDelete}
+        title="Delete Task?"
+        message={`Are you sure you want to delete "${taskToDelete?.title}"? This action cannot be undone.`}
+        confirmText="Delete Task"
+        isDanger={true}
+        isLoading={isDeleting}
+      />
     </>
   )
 }

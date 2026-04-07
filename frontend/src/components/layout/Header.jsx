@@ -7,7 +7,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useEffect } from 'react'
 import InvitationsModal from '../workspace/InvitationsModal'
 
-export default function Header({ onMenuClick }) {
+export default function Header({ onMenuClick, onSearchClick }) {
   const { activeWorkspace, getUserRole, invitations, fetchInvitations } = useWorkspaceStore()
   const { activeProject } = useProjectStore()
   const { user } = useAuthStore()
@@ -59,14 +59,17 @@ export default function Header({ onMenuClick }) {
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm overflow-hidden truncate">
           {breadcrumbs.map((crumb, i) => (
-            <span key={i} className="flex items-center gap-2 flex-shrink-0">
-              {i > 0 && <span className="text-slate-600">/</span>}
+            <span key={i} className="flex items-center gap-2 flex-shrink-0 animate-in slide-in-from-left-2 duration-300">
+              {i > 0 && <span className="text-slate-700 font-bold">/</span>}
               {crumb.to ? (
-                <Link to={crumb.to} className="text-slate-400 hover:text-slate-200 transition-colors">
+                <Link 
+                  to={crumb.to} 
+                  className="text-slate-500 hover:text-slate-200 transition-all font-medium hover:bg-surface-800 px-2 py-1 rounded-lg"
+                >
                   {crumb.label}
                 </Link>
               ) : (
-                <span className="text-slate-100 font-medium">{crumb.label}</span>
+                <span className="text-slate-100 font-bold px-2 py-1">{crumb.label}</span>
               )}
             </span>
           ))}
@@ -88,9 +91,12 @@ export default function Header({ onMenuClick }) {
           <span className="font-bold text-base text-white tracking-tight">TaskForge</span>
         </div>
 
-        <div className="flex items-center gap-3 border-l border-slate-800 pl-4">
-          <kbd className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-400 bg-surface-800 border border-slate-700 rounded-lg shadow-sm">
-            <Command size={12} className="text-slate-500" />
+        <div 
+          onClick={onSearchClick}
+          className="flex items-center gap-3 border-l border-slate-800 pl-4 cursor-pointer group"
+        >
+          <kbd className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-400 bg-surface-800 border border-slate-700 rounded-lg shadow-sm group-hover:border-primary-500/50 group-hover:text-slate-200 transition-all">
+            <Command size={12} className="text-slate-500 group-hover:text-primary-400" />
             <span className="font-sans">K</span>
           </kbd>
 

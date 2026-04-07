@@ -81,11 +81,16 @@ export default function KanbanColumn({ column, tasks, project, workspace, onRefr
 
           {tasks.length === 0 && (
             <div
-              className={`flex items-center justify-center h-24 border-2 border-dashed border-slate-800 rounded-lg transition-colors ${!isViewer ? 'cursor-pointer hover:border-slate-600' : ''}`}
+              className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl transition-all duration-300 group/drop ${
+                isOver ? 'border-primary-500 bg-primary-500/5' : 'border-slate-800 hover:border-slate-700'
+              } ${!isViewer ? 'cursor-pointer' : ''}`}
               onClick={!isViewer ? () => setShowCreateModal(true) : undefined}
             >
-              <span className="text-xs text-slate-600">
-                {!isViewer ? 'Drop tasks here' : 'No tasks in this column'}
+              <div className={`p-2 rounded-lg bg-surface-900 border border-slate-800 text-slate-600 mb-2 group-hover/drop:text-slate-400 group-hover/drop:scale-110 transition-all ${isOver ? 'text-primary-400 border-primary-500/30' : ''}`}>
+                <Plus size={16} />
+              </div>
+              <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isOver ? 'text-primary-400' : 'text-slate-600 group-hover/drop:text-slate-500'}`}>
+                {!isViewer ? 'Add or Drop Task' : 'No Tasks'}
               </span>
             </div>
           )}
