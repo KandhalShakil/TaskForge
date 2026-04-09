@@ -89,6 +89,13 @@ class AddWorkspaceMemberView(APIView):
         user_id = serializer.validated_data['user_id']
         user = get_object_or_404(User, id=user_id)
 
+        # Restricted: Only Employees can be added as workspace members.
+        if user.user_type == User.UserType.COMPANY:
+            return Response(
+                {'error': 'Company accounts cannot be added as workspace members. Please invite an Employee account.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         member, created = WorkspaceMember.objects.get_or_create(
             workspace=workspace,
             user=user,

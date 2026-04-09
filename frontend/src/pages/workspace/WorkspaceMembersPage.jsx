@@ -32,7 +32,8 @@ export default function WorkspaceMembersPage() {
 
   const memberUserIds = new Set(members.map((m) => m.user.id))
   const availableUsers = allUsers.filter(
-    (u) => !memberUserIds.has(u.id) &&
+    (u) => u.user_type === 'employee' &&
+      !memberUserIds.has(u.id) &&
       (u.email.toLowerCase().includes(search.toLowerCase()) ||
        u.full_name.toLowerCase().includes(search.toLowerCase()))
   )

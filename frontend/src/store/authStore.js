@@ -21,11 +21,21 @@ export const useAuthStore = create(
 
       register: async (userData) => {
         const { data } = await authAPI.register(userData)
+        return data // Return the message and email
+      },
+
+      verifyRegistration: async (verificationData) => {
+        const { data } = await authAPI.verifyRegistration(verificationData)
         const { user, access, refresh } = data
         localStorage.setItem('access_token', access)
         localStorage.setItem('refresh_token', refresh)
         set({ user, accessToken: access, refreshToken: refresh, isAuthenticated: true })
         return user
+      },
+
+      resendOTP: async (email) => {
+        const { data } = await authAPI.resendOTP({ email })
+        return data
       },
 
       logout: async () => {
@@ -43,8 +53,6 @@ export const useAuthStore = create(
         set({ user: data })
         return data
       },
-
-      updateUser: (userData) => set({ user: { ...get().user, ...userData } }),
     }),
     {
       name: 'auth-storage',

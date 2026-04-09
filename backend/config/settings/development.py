@@ -5,4 +5,4 @@ DEBUG = True
 CORS_ALLOW_ALL_ORIGINS = True
 
 # Show emails in console during development
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

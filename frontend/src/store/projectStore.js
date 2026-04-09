@@ -30,36 +30,5 @@ export const useProjectStore = create((set, get) => ({
     }
   },
 
-  updateProject: async (id, projectData) => {
-    set({ isSubmitting: true })
-    try {
-      const { data } = await projectsAPI.update(id, projectData)
-      set((state) => ({
-        projects: state.projects.map((p) => (p.id === id ? data : p)),
-        activeProject: state.activeProject?.id === id ? data : state.activeProject,
-        isSubmitting: false
-      }))
-      return data
-    } catch (err) {
-      set({ isSubmitting: false })
-      throw err
-    }
-  },
-
-  deleteProject: async (id) => {
-    set({ isSubmitting: true })
-    try {
-      await projectsAPI.delete(id)
-      set((state) => ({
-        projects: state.projects.filter((p) => p.id !== id),
-        activeProject: state.activeProject?.id === id ? null : state.activeProject,
-        isSubmitting: false
-      }))
-    } catch (err) {
-      set({ isSubmitting: false })
-      throw err
-    }
-  },
-
   setActiveProject: (project) => set({ activeProject: project }),
 }))

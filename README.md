@@ -25,7 +25,7 @@ You can access the production application at:
 - **🏗️ Structured Projects**: Break down workspaces into specific projects with their own goals.
 - **📋 Advanced Task System**:
     - **Kanban Board**: Drag-and-drop tasks across status columns.
-    - **Rich Text Editor**: Use Markdown and formatting in task descriptions (powered by `React Quill`).
+    - **Rich Text Editor**: Support for Markdown and formatting in task descriptions.
     - **Custom Categories**: Color-coded categorization for high-level organization.
 - **👥 Role-Based Collaboration**: 
     - **Admins**, **Members**, and **Viewers** roles.

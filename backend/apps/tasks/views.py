@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from apps.core.permissions import IsWorkspaceMemberOrAdmin
 from django.shortcuts import get_object_or_404
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters

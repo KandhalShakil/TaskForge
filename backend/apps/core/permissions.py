@@ -15,27 +15,7 @@ class IsWorkspaceAdmin(permissions.BasePermission):
             return True
 
         workspace_id = view.kwargs.get('workspace_id') or request.data.get('workspace')
-        if not workspace_id:
-            # Check for project context
-            project_id = view.kwargs.get('project_id') or request.data.get('project')
-            if project_id:
-                from apps.projects.models import Project
-                try:
-                    project = Project.objects.get(id=project_id)
-                    workspace_id = project.workspace_id
-                except Project.DoesNotExist:
-                    return False
-            
-            # Check for task context (for comments/categories)
-            task_id = view.kwargs.get('task_id') or request.data.get('task')
-            if task_id:
-                from apps.tasks.models import Task
-                try:
-                    task = Task.objects.get(id=task_id)
-                    workspace_id = task.workspace_id
-                except Task.DoesNotExist:
-                    return False
-
+        
         if not workspace_id:
             return True # Fallback to queryset filtering in the view
 
