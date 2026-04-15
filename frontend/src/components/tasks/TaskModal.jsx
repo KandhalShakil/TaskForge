@@ -12,6 +12,155 @@ import ConfirmModal from '../common/ConfirmModal'
 import Button from '../common/Button'
 import { tasksAPI } from '../../api/tasks'
 
+const makeTempKey = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+const flattenSubtasks = (items = [], parentId = null, bucket = []) => {
+  items.forEach((item, index) => {
+    const parentRef = item?.parent_id ?? item?.parent ?? parentId
+    const normalizedParent = typeof parentRef === 'string' ? parentRef : null
+    const tempKey = makeTempKey()
+    const flatNode = {
+      id: item?.id || null,
+      temp_key: tempKey,
+      title: item?.title || '',
+      status: item?.status || 'todo',
+      priority: item?.priority || 'no_priority',
+      assignee_id: item?.assignee?.id || item?.assignee_id || '',
+      start_date: item?.start_date || '',
+      due_date: item?.due_date || '',
+      estimated_hours: item?.estimated_hours || '',
+      is_completed: Boolean(item?.is_completed),
+      order: typeof item?.order === 'number' ? item.order : index,
+      parent_id: normalizedParent,
+      parent_temp_key: null,
+    }
+    bucket.push(flatNode)
+
+    if (Array.isArray(item?.children) && item.children.length > 0) {
+      flattenSubtasks(item.children, item?.id || tempKey, bucket)
+    }
+  })
+  return bucket
+}
+
+const hydrateParentTempKeys = (items) => {
+  const idToTempKey = new Map(items.filter((item) => item.id).map((item) => [item.id, item.temp_key]))
+  return items.map((item) => {
+    const parentTemp = item.parent_id ? idToTempKey.get(item.parent_id) || null : null
+    return {
+      ...item,
+      parent_temp_key: parentTemp,
+    }
+  })
+}
+
+const createEmptySubtask = (parentKey = null) => ({
+  id: null,
+  temp_key: makeTempKey(),
+  title: '',
+  status: 'todo',
+  priority: 'no_priority',
+  assignee_id: '',
+  start_date: '',
+  due_date: '',
+  estimated_hours: '',
+  is_completed: false,
+  order: 0,
+  parent_id: null,
+  parent_temp_key: parentKey,
+})
+
+const buildChildrenMap = (items) => {
+  const map = new Map()
+  items.forEach((item) => {
+    const parentKey = item.parent_id || item.parent_temp_key || null
+    if (!map.has(parentKey)) {
+      map.set(parentKey, [])
+    }
+    map.get(parentKey).push(item)
+  })
+  return map
+}
+
+const collectBranchKeys = (node, childrenMap, bucket = new Set()) => {
+  const key = node.id || node.temp_key
+  bucket.add(key)
+  const children = childrenMap.get(key) || []
+  children.forEach((child) => collectBranchKeys(child, childrenMap, bucket))
+  return bucket
+}
+
+const normalizeSubtasksForSave = (items) => {
+  const cleaned = items
+    .map((item) => ({
+      ...item,
+      title: (item.title || '').trim(),
+      assignee_id: item.assignee_id || null,
+      start_date: item.start_date || null,
+      due_date: item.due_date || null,
+      estimated_hours: item.estimated_hours === '' ? null : item.estimated_hours,
+      source_key: item.id || item.temp_key,
+    }))
+    .filter((item) => item.title.length > 0)
+
+  const validKeys = new Set(cleaned.map((item) => item.source_key))
+  const siblingOrder = new Map()
+
+  return cleaned.map((item) => {
+    const tentativeParent = item.parent_id || item.parent_temp_key || null
+    const parentKey = tentativeParent && validKeys.has(tentativeParent) ? tentativeParent : null
+    const currentOrder = siblingOrder.get(parentKey) || 0
+    siblingOrder.set(parentKey, currentOrder + 1)
+
+    return {
+      id: item.id,
+      source_key: item.source_key,
+      title: item.title,
+      status: item.status || 'todo',
+      priority: item.priority || 'no_priority',
+      assignee_id: item.assignee_id,
+      start_date: item.start_date,
+      due_date: item.due_date,
+      estimated_hours: item.estimated_hours,
+      is_completed: Boolean(item.is_completed),
+      order: currentOrder,
+      parent_key: parentKey,
+    }
+  })
+}
+
+const toNestedSubtasksInput = (prepared) => {
+  const childrenMap = new Map()
+
+  prepared.forEach((item) => {
+    const parentKey = item.parent_key || null
+    if (!childrenMap.has(parentKey)) {
+      childrenMap.set(parentKey, [])
+    }
+    childrenMap.get(parentKey).push(item)
+  })
+
+  const buildNode = (node) => ({
+    title: node.title,
+    status: node.status,
+    priority: node.priority,
+    assignee_id: node.assignee_id,
+    start_date: node.start_date,
+    due_date: node.due_date,
+    estimated_hours: node.estimated_hours,
+    is_completed: node.is_completed,
+    order: node.order,
+    children: (childrenMap.get(node.source_key) || []).map(buildNode),
+  })
+
+  return (childrenMap.get(null) || []).map(buildNode)
+}
+
 export default function TaskModal({ task, project, workspace, onClose }) {
   const { createTask, updateTask, deleteTask, categories } = useTaskStore()
   const { members, getUserRole } = useWorkspaceStore()
@@ -49,18 +198,17 @@ export default function TaskModal({ task, project, workspace, onClose }) {
     let active = true
 
     const normalizeSubtasks = (items = []) => {
-      if (!items.length) return [{ id: null, title: '', is_completed: false }]
-      return items.map((item) => ({
-        id: item.id || null,
-        title: item.title || '',
-        is_completed: Boolean(item.is_completed),
-      }))
+      if (!items.length) return [createEmptySubtask()]
+
+      const flattened = flattenSubtasks(items)
+      const normalized = hydrateParentTempKeys(flattened)
+      return normalized.length ? normalized : [createEmptySubtask()]
     }
 
     const loadSubtasks = async () => {
       if (!isEditing) {
         if (active) {
-          setSubtasks([{ id: null, title: '', is_completed: false }])
+          setSubtasks([createEmptySubtask()])
           setInitialSubtaskIds([])
         }
         return
@@ -86,7 +234,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
         setInitialSubtaskIds(normalized.filter((item) => item.id).map((item) => item.id))
       } catch {
         if (active) {
-          setSubtasks([{ id: null, title: '', is_completed: false }])
+          setSubtasks([createEmptySubtask()])
           setInitialSubtaskIds([])
           toast.error('Failed to load subtasks')
         }
@@ -109,46 +257,64 @@ export default function TaskModal({ task, project, workspace, onClose }) {
     [subtasks]
   )
 
-  const addSubtaskRow = () => {
-    setSubtasks((prev) => [...prev, { id: null, title: '', is_completed: false }])
+  const nestedSubtasks = useMemo(() => {
+    const byParent = buildChildrenMap(subtasks)
+    return {
+      roots: byParent.get(null) || [],
+      byParent,
+    }
+  }, [subtasks])
+
+  const addSubtaskRow = (parentNode = null) => {
+    setSubtasks((prev) => [
+      ...prev,
+      createEmptySubtask(parentNode ? (parentNode.id || parentNode.temp_key) : null),
+    ])
   }
 
-  const updateSubtaskRow = (index, value) => {
+  const updateSubtaskField = (nodeKey, field, value) => {
     setSubtasks((prev) => {
-      const next = [...prev]
-      next[index] = { ...next[index], title: value }
-      return next
+      return prev.map((item) => {
+        const key = item.id || item.temp_key
+        if (key !== nodeKey) {
+          return item
+        }
+        return { ...item, [field]: value }
+      })
     })
   }
 
-  const removeSubtaskRow = (index) => {
+  const removeSubtaskRow = (node) => {
     setSubtasks((prev) => {
-      if (prev.length === 1) return prev
-      return prev.filter((_, i) => i !== index)
-    })
-  }
+      const childrenMap = buildChildrenMap(prev)
+      const branchKeys = collectBranchKeys(node, childrenMap)
+      const remaining = prev.filter((item) => !branchKeys.has(item.id || item.temp_key))
 
-  const toggleSubtaskComplete = (index) => {
-    setSubtasks((prev) => {
-      const next = [...prev]
-      next[index] = {
-        ...next[index],
-        is_completed: !next[index].is_completed,
+      if (!remaining.length) {
+        return [createEmptySubtask()]
       }
-      return next
+      return remaining
+    })
+  }
+
+  const toggleSubtaskComplete = (nodeKey) => {
+    setSubtasks((prev) => {
+      return prev.map((item) => {
+        const key = item.id || item.temp_key
+        if (key !== nodeKey) {
+          return item
+        }
+        return {
+          ...item,
+          is_completed: !item.is_completed,
+        }
+      })
     })
   }
 
   const onSubmit = async (data) => {
     try {
-      const cleanedSubtasks = subtasks
-        .map((subtask, index) => ({
-          id: subtask.id || null,
-          title: (subtask.title || '').trim(),
-          is_completed: Boolean(subtask.is_completed),
-          order: index,
-        }))
-        .filter((subtask) => subtask.title.length > 0)
+      const cleanedSubtasks = normalizeSubtasksForSave(subtasks)
 
       const payload = {
         ...data,
@@ -160,10 +326,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
         ...(isEditing
           ? {}
           : {
-              subtasks_input: cleanedSubtasks.map((subtask) => ({
-                title: subtask.title,
-                order: subtask.order,
-              })),
+              subtasks_input: toNestedSubtasksInput(cleanedSubtasks),
             }),
       }
 
@@ -179,8 +342,15 @@ export default function TaskModal({ task, project, workspace, onClose }) {
           ...existing.map((subtask) =>
             tasksAPI.updateSubtask(subtask.id, {
               title: subtask.title,
+              status: subtask.status,
+              priority: subtask.priority,
+              assignee_id: subtask.assignee_id,
+              start_date: subtask.start_date,
+              due_date: subtask.due_date,
+              estimated_hours: subtask.estimated_hours,
               is_completed: subtask.is_completed,
               order: subtask.order,
+              parent_id: subtask.parent_key,
             })
           ),
           ...removedIds.map((id) => tasksAPI.deleteSubtask(id)),
@@ -188,8 +358,15 @@ export default function TaskModal({ task, project, workspace, onClose }) {
             tasksAPI.addSubtask(task.id, {
               task: task.id,
               title: subtask.title,
+              status: subtask.status,
+              priority: subtask.priority,
+              assignee_id: subtask.assignee_id,
+              start_date: subtask.start_date,
+              due_date: subtask.due_date,
+              estimated_hours: subtask.estimated_hours,
               is_completed: subtask.is_completed,
               order: subtask.order,
+              parent_id: subtask.parent_key,
             })
           ),
         ])
@@ -221,6 +398,128 @@ export default function TaskModal({ task, project, workspace, onClose }) {
       setIsDeleting(false)
       setShowDeleteConfirm(false)
     }
+  }
+
+  const renderSubtaskRows = (nodes, byParent, depth = 0) => {
+    return nodes.map((subtask, index) => {
+      const nodeKey = subtask.id || subtask.temp_key
+      const children = byParent.get(nodeKey) || []
+
+      return (
+        <div key={nodeKey} className="space-y-2">
+          <div className="flex items-center gap-2" style={{ marginLeft: `${depth * 20}px` }}>
+            {!isViewer && (
+              <button
+                type="button"
+                className="btn-ghost p-1.5"
+                onClick={() => toggleSubtaskComplete(nodeKey)}
+                title={subtask.is_completed ? 'Mark as not completed' : 'Mark as completed'}
+              >
+                {subtask.is_completed ? <CheckSquare size={14} /> : <Square size={14} />}
+              </button>
+            )}
+            {isViewer && (
+              <span className="p-1.5 text-slate-500">
+                {subtask.is_completed ? <CheckSquare size={14} /> : <Square size={14} />}
+              </span>
+            )}
+            <input
+              type="text"
+              className={`input ${subtask.is_completed ? 'line-through text-slate-500' : ''}`}
+              placeholder={depth > 0 ? `Nested subtask ${index + 1}` : `Subtask ${index + 1}`}
+              value={subtask.title}
+              onChange={(e) => updateSubtaskField(nodeKey, 'title', e.target.value)}
+              disabled={isViewer}
+            />
+            {!isViewer && (
+              <button
+                type="button"
+                className="btn-ghost p-1.5 text-slate-400 hover:text-slate-200"
+                onClick={() => addSubtaskRow(subtask)}
+                title="Add child subtask"
+              >
+                <Plus size={14} />
+              </button>
+            )}
+            {!isViewer && (
+              <button
+                type="button"
+                className="btn-ghost p-1.5 text-red-400 hover:bg-red-950/30"
+                onClick={() => removeSubtaskRow(subtask)}
+                disabled={subtasks.length === 1}
+                title="Remove subtask branch"
+              >
+                <XCircle size={14} />
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2" style={{ marginLeft: `${depth * 20 + 44}px` }}>
+            <select
+              className="select"
+              value={subtask.status}
+              onChange={(e) => updateSubtaskField(nodeKey, 'status', e.target.value)}
+              disabled={isViewer}
+              title="Subtask status"
+            >
+              {TASK_STATUSES.map((statusItem) => (
+                <option key={statusItem.value} value={statusItem.value}>{statusItem.label}</option>
+              ))}
+            </select>
+            <select
+              className="select"
+              value={subtask.priority}
+              onChange={(e) => updateSubtaskField(nodeKey, 'priority', e.target.value)}
+              disabled={isViewer}
+              title="Subtask priority"
+            >
+              {TASK_PRIORITIES.map((priorityItem) => (
+                <option key={priorityItem.value} value={priorityItem.value}>{priorityItem.icon} {priorityItem.label}</option>
+              ))}
+            </select>
+            <select
+              className="select"
+              value={subtask.assignee_id || ''}
+              onChange={(e) => updateSubtaskField(nodeKey, 'assignee_id', e.target.value)}
+              disabled={isViewer}
+              title="Subtask assignee"
+            >
+              <option value="">Unassigned</option>
+              {members.map((member) => (
+                <option key={member.user.id} value={member.user.id}>{member.user.full_name}</option>
+              ))}
+            </select>
+            <input
+              type="date"
+              className="input"
+              value={subtask.start_date || ''}
+              onChange={(e) => updateSubtaskField(nodeKey, 'start_date', e.target.value)}
+              disabled={isViewer}
+              title="Subtask start date"
+            />
+            <input
+              type="date"
+              className="input"
+              value={subtask.due_date || ''}
+              onChange={(e) => updateSubtaskField(nodeKey, 'due_date', e.target.value)}
+              disabled={isViewer}
+              title="Subtask due date"
+            />
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              className="input"
+              placeholder="Est. Hours"
+              value={subtask.estimated_hours ?? ''}
+              onChange={(e) => updateSubtaskField(nodeKey, 'estimated_hours', e.target.value)}
+              disabled={isViewer}
+              title="Subtask estimated hours"
+            />
+          </div>
+          {children.length > 0 && renderSubtaskRows(children, byParent, depth + 1)}
+        </div>
+      )
+    })
   }
 
   return (
@@ -341,39 +640,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
               <p className="text-xs text-slate-500 mb-2">Loading subtasks...</p>
             )}
             <div className="space-y-2">
-              {subtasks.map((subtask, index) => (
-                <div key={`subtask-${index}`} className="flex items-center gap-2">
-                  {!isViewer && (
-                    <button
-                      type="button"
-                      className="btn-ghost p-1.5"
-                      onClick={() => toggleSubtaskComplete(index)}
-                      title={subtask.is_completed ? 'Mark as not completed' : 'Mark as completed'}
-                    >
-                      {subtask.is_completed ? <CheckSquare size={14} /> : <Square size={14} />}
-                    </button>
-                  )}
-                  <input
-                    type="text"
-                    className={`input ${subtask.is_completed ? 'line-through text-slate-500' : ''}`}
-                    placeholder={`Subtask ${index + 1}`}
-                    value={subtask.title}
-                    onChange={(e) => updateSubtaskRow(index, e.target.value)}
-                    disabled={isViewer}
-                  />
-                  {!isViewer && (
-                    <button
-                      type="button"
-                      className="btn-ghost p-1.5 text-red-400 hover:bg-red-950/30"
-                      onClick={() => removeSubtaskRow(index)}
-                      disabled={subtasks.length === 1}
-                      title="Remove subtask"
-                    >
-                      <XCircle size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {renderSubtaskRows(nestedSubtasks.roots, nestedSubtasks.byParent)}
             </div>
             {!hasSubtaskContent && (
               <p className="text-xs text-slate-500 mt-2">Add at least one subtask to break this task into smaller steps.</p>

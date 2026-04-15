@@ -112,7 +112,26 @@ class Comment(models.Model):
 class SubTask(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='subtasks')
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='children'
+    )
     title = models.CharField(max_length=500)
+    status = models.CharField(max_length=20, choices=Task.Status.choices, default=Task.Status.TODO)
+    priority = models.CharField(max_length=20, choices=Task.Priority.choices, default=Task.Priority.NO_PRIORITY)
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_subtasks'
+    )
+    start_date = models.DateField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    estimated_hours = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
     is_completed = models.BooleanField(default=False)
     order = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -120,7 +139,10 @@ class SubTask(models.Model):
 
     class Meta:
         db_table = 'subtasks'
-        ordering = ['created_at']
+        ordering = ['order', 'created_at']
+        indexes = [
+            models.Index(fields=['task', 'parent', 'order']),
+        ]
 
     def __str__(self):
         return self.title

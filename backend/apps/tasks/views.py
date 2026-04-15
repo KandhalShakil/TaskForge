@@ -1,4 +1,5 @@
 from rest_framework import generics, status, filters
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -23,9 +24,10 @@ class SubTaskListCreateView(generics.ListCreateAPIView):
         task_id = self.kwargs['task_id']
         return SubTask.objects.filter(
             task_id=task_id,
+            parent__isnull=True,
             task__workspace__members__user=self.request.user,
             task__workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        ).select_related('task')
+        ).select_related('task', 'assignee').prefetch_related('children__children__children')
         
         
     def perform_create(self, serializer):
@@ -36,6 +38,11 @@ class SubTaskListCreateView(generics.ListCreateAPIView):
             workspace__members__user=self.request.user,
             workspace__members__status=WorkspaceMember.Status.ACCEPTED
         )
+
+        parent = serializer.validated_data.get('parent')
+        if parent is not None and parent.task_id != task.id:
+            raise ValidationError({'parent_id': 'Parent subtask must belong to the same task.'})
+
         serializer.save(task=task)
         
 class SubTaskDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -46,10 +53,9 @@ class SubTaskDetailView(generics.RetrieveUpdateDestroyAPIView):
         return SubTask.objects.filter(
             task__workspace__members__user=self.request.user,
             task__workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        ).select_related('task')
+        ).select_related('task', 'parent', 'assignee').prefetch_related('children__children__children')
         
         
-
 class TaskFilter(django_filters.FilterSet):
     status = django_filters.CharFilter(field_name='status')
     priority = django_filters.CharFilter(field_name='priority')
@@ -104,7 +110,10 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Task.objects.filter(
             workspace__members__user=self.request.user,
             workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        ).select_related('assignee', 'created_by', 'category', 'project', 'workspace')
+        ).select_related('assignee', 'created_by', 'category', 'project', 'workspace').prefetch_related(
+            'subtasks__children__children__children',
+            'subtasks'
+        )
 
 
 class TaskBulkUpdateView(APIView):

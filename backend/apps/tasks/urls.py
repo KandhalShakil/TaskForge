@@ -17,5 +17,3 @@ urlpatterns = [
     path('subtasks/<uuid:pk>/', SubTaskDetailView.as_view(), name='subtask-detail'),
 ]
 
-# Categories as a separate prefix in config/urls.py
-# path('api/categories/', include('apps.tasks.category_urls'))
