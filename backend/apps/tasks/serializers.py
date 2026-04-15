@@ -95,7 +95,7 @@ class SubTaskCreateItemSerializer(serializers.Serializer):
     assignee_id = serializers.UUIDField(required=False, allow_null=True)
     start_date = serializers.DateField(required=False, allow_null=True)
     due_date = serializers.DateField(required=False, allow_null=True)
-    estimated_hours = serializers.DecimalField(max_digits=5, decimal_places=1, required=False, allow_null=True)
+    estimated_hours = serializers.DecimalField(max_digits=5, decimal_places=1, required=True, allow_null=False)
     order = serializers.IntegerField(required=False, min_value=0)
     is_completed = serializers.BooleanField(required=False, default=False)
     children = serializers.ListSerializer(
