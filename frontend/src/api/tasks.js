@@ -10,6 +10,10 @@ export const tasksAPI = {
   listComments: (taskId) => api.get(`/tasks/${taskId}/comments/`),
   addComment: (taskId, data) => api.post(`/tasks/${taskId}/comments/`, data),
   deleteComment: (taskId, commentId) => api.delete(`/tasks/${taskId}/comments/${commentId}/`),
+  listSubtasks: (taskId) => api.get(`/tasks/${taskId}/subtasks/`),
+  addSubtask: (taskId, data) => api.post(`/tasks/${taskId}/subtasks/`, data),
+  updateSubtask: (id, data) => api.patch(`/tasks/subtasks/${id}/`, data),
+  deleteSubtask: (id) => api.delete(`/tasks/subtasks/${id}/`),
 }
 
 export const categoriesAPI = {

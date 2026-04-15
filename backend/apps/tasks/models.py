@@ -90,8 +90,6 @@ class Task(models.Model):
             return self.due_date < timezone.now().date()
         return False
 
-
-
 class Comment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='comments')
@@ -111,3 +109,18 @@ class Comment(models.Model):
     def __str__(self):
         return f'Comment by {self.author.email} on {self.task.title}'
 
+class SubTask(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='subtasks')
+    title = models.CharField(max_length=500)
+    is_completed = models.BooleanField(default=False)
+    order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'subtasks'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return self.title

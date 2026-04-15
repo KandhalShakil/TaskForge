@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Task, Category, Comment
+from .models import SubTask, Task, Category, Comment
 
 
 @admin.register(Task)
@@ -20,3 +20,10 @@ class CategoryAdmin(admin.ModelAdmin):
 class CommentAdmin(admin.ModelAdmin):
     list_display = ['task', 'author', 'created_at']
     search_fields = ['content', 'author__email']
+    
+
+@admin.register(SubTask)
+class SubTaskAdmin(admin.ModelAdmin):
+    list_display = ['title', 'task', 'is_completed', 'order', 'created_at']
+    list_filter = ['is_completed', 'created_at']
+    search_fields = ['title', 'task__title']

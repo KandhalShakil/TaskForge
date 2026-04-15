@@ -16,6 +16,7 @@ const SIZES = {
 export default function Button({
   children,
   loading = false,
+  loadingText,
   disabled = false,
   variant = 'primary',
   size = 'md',
@@ -39,21 +40,13 @@ export default function Button({
       `}
       {...props}
     >
-      {loading && (
-        <Loader2 size={16} className="animate-spin text-current" />
-      )}
+      {loading && <Loader2 size={16} className="animate-spin text-current" />}
       
       {!loading && Icon && iconPosition === 'left' && (
         <Icon size={16} className="text-current" />
       )}
       
-      <span className={loading ? 'opacity-0' : 'opacity-100'}>{children}</span>
-      
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Loader2 size={16} className="animate-spin text-current" />
-        </div>
-      )}
+      <span>{loading && loadingText ? loadingText : children}</span>
 
       {!loading && Icon && iconPosition === 'right' && (
         <Icon size={16} className="text-current" />

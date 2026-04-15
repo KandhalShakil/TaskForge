@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.users.serializers import UserSerializer
-from .models import Task, Category, Comment
+from .models import Task, Category, Comment, SubTask
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -17,6 +17,17 @@ class CommentSerializer(serializers.ModelSerializer):
         model = Comment
         fields = ['id', 'task', 'author', 'content', 'created_at', 'updated_at']
         read_only_fields = ['id', 'author', 'created_at', 'updated_at']
+        
+class SubTaskSerializer(serializers.ModelSerializer):
+    class Meta: 
+        model = SubTask
+        fields = ['id', 'task', 'title', 'is_completed', 'order', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+        
+
+class SubTaskCreateItemSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=500)
+    order = serializers.IntegerField(required=False, min_value=0)
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -27,6 +38,9 @@ class TaskSerializer(serializers.ModelSerializer):
     category_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     is_overdue = serializers.BooleanField(read_only=True)
     comment_count = serializers.SerializerMethodField()
+    
+    subtasks = SubTaskSerializer(many=True, read_only=True)
+    subtasks_input = SubTaskCreateItemSerializer(many=True, write_only=True, required=False)
 
     class Meta:
         model = Task
@@ -38,6 +52,7 @@ class TaskSerializer(serializers.ModelSerializer):
             'created_by',
             'due_date', 'start_date', 'estimated_hours',
             'order', 'is_overdue', 'comment_count',
+            'subtasks', 'subtasks_input',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'is_overdue']
@@ -46,8 +61,13 @@ class TaskSerializer(serializers.ModelSerializer):
         return obj.comments.count()
 
     def create(self, validated_data):
+        self.subtasks_input = validated_data.pop('subtasks_input', [])
         validated_data['created_by'] = self.context['request'].user
-        return super().create(validated_data)
+        task = super().create(validated_data)
+        
+        if self.subtasks_input:
+            SubTask.objects.bulk_create([SubTask(task=task, title=item['title'].strip(), order=item.get('order', idx)) for idx , item in enumerate(self.subtasks_input) if item['title'].strip()])
+        return task
 
 
 class TaskListSerializer(serializers.ModelSerializer):
@@ -89,3 +109,5 @@ class BulkUpdateTaskSerializer(serializers.Serializer):
             except Task.DoesNotExist:
                 pass
         return updated
+    
+    

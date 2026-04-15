@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     TaskListCreateView, TaskDetailView, TaskBulkUpdateView, TaskStatsView,
     CategoryListCreateView, CategoryDetailView,
-    CommentListCreateView, CommentDetailView
+    CommentListCreateView, CommentDetailView,
+    SubTaskListCreateView, SubTaskDetailView
 )
 
 urlpatterns = [
@@ -12,6 +13,8 @@ urlpatterns = [
     path('<uuid:pk>/', TaskDetailView.as_view(), name='task-detail'),
     path('<uuid:task_id>/comments/', CommentListCreateView.as_view(), name='task-comments'),
     path('<uuid:task_id>/comments/<uuid:pk>/', CommentDetailView.as_view(), name='comment-detail'),
+    path('<uuid:task_id>/subtasks/', SubTaskListCreateView.as_view(), name='task-subtasks'),
+    path('subtasks/<uuid:pk>/', SubTaskDetailView.as_view(), name='subtask-detail'),
 ]
 
 # Categories as a separate prefix in config/urls.py

@@ -9,12 +9,46 @@ from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
 from apps.workspaces.models import WorkspaceMember
-from .models import Task, Category, Comment
+from .models import Task, Category, Comment, SubTask
 from .serializers import (
     TaskSerializer, TaskListSerializer, CategorySerializer,
-    CommentSerializer, BulkUpdateTaskSerializer
+    CommentSerializer, BulkUpdateTaskSerializer , SubTaskSerializer
 )
 
+class SubTaskListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
+    serializer_class = SubTaskSerializer
+
+    def get_queryset(self):
+        task_id = self.kwargs['task_id']
+        return SubTask.objects.filter(
+            task_id=task_id,
+            task__workspace__members__user=self.request.user,
+            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        ).select_related('task')
+        
+        
+    def perform_create(self, serializer):
+        task_id = self.kwargs['task_id']
+        task = get_object_or_404(
+            Task,
+            id=task_id,
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        )
+        serializer.save(task=task)
+        
+class SubTaskDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
+    serializer_class = SubTaskSerializer
+    
+    def get_queryset(self):
+        return SubTask.objects.filter(
+            task__workspace__members__user=self.request.user,
+            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        ).select_related('task')
+        
+        
 
 class TaskFilter(django_filters.FilterSet):
     status = django_filters.CharFilter(field_name='status')
