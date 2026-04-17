@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MoreHorizontal, Edit2, Trash2, Calendar, User, Eye, FileText, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useTaskStore } from '../../store/taskStore'
+import { useProjectStore } from '../../store/projectStore'
 import { TASK_STATUSES, TASK_PRIORITIES } from '../../utils/constants'
 import { formatDueDate, isOverdue } from '../../utils/dateUtils'
-import TaskModal from './TaskModal'
 import { useAuthStore } from '../../store/authStore'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import ConfirmModal from '../common/ConfirmModal'
@@ -28,16 +29,25 @@ const PriorityBadge = ({ priority }) => {
   )
 }
 
-export default function TaskListView({ tasks = [], project, workspace, onRefresh, onCreateTask }) {
+export default function TaskListView({ tasks = [], project, workspace, onRefresh, onCreateTask, getTaskPath }) {
+  const navigate = useNavigate()
   const { deleteTask } = useTaskStore()
+  const { setActiveProject } = useProjectStore()
   const { user } = useAuthStore()
   const { getUserRole } = useWorkspaceStore()
-  const [editingTask, setEditingTask] = useState(null)
   const [taskToDelete, setTaskToDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const userRole = getUserRole(user?.id)
   const isViewer = userRole === 'viewer'
+
+  const handleNavigateToTask = (task) => {
+    if (project) {
+      setActiveProject(project)
+    }
+    const taskPath = getTaskPath ? getTaskPath(task) : `/workspace/${workspace.id}/project/${project.id}/task/${task.id}`
+    navigate(taskPath)
+  }
 
   const handleDelete = async () => {
     if (!taskToDelete) return
@@ -109,7 +119,7 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
                       className={`text-sm font-medium truncate cursor-pointer hover:text-primary-300 transition-colors ${
                         task.status === 'done' ? 'line-through text-slate-500' : 'text-slate-100'
                       }`}
-                      onClick={() => setEditingTask(task)}
+                      onClick={() => handleNavigateToTask(task)}
                     >
                       {task.title}
                     </span>
@@ -158,7 +168,7 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
                   {/* Actions */}
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => setEditingTask(task)}
+                      onClick={() => handleNavigateToTask(task)}
                       className="p-1.5 rounded text-slate-500 hover:text-slate-200 hover:bg-surface-700 transition-all"
                       title={isViewer ? 'View Task' : 'Edit Task'}
                     >
@@ -180,15 +190,6 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
           )}
         </div>
       </div>
-
-      {editingTask && (
-        <TaskModal
-          task={editingTask}
-          project={project}
-          workspace={workspace}
-          onClose={() => { setEditingTask(null); onRefresh?.() }}
-        />
-      )}
 
       <ConfirmModal
         isOpen={!!taskToDelete}

@@ -16,30 +16,77 @@ from .serializers import (
     CommentSerializer, BulkUpdateTaskSerializer , SubTaskSerializer
 )
 
+
+def resolve_task_node(node_id, user=None):
+    task_query = Task.objects.all()
+    subtask_query = SubTask.objects.select_related('task', 'parent')
+
+    if user is not None:
+        task_query = task_query.filter(
+            workspace__members__user=user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED,
+        )
+        subtask_query = subtask_query.filter(
+            task__workspace__members__user=user,
+            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED,
+        )
+
+    task = task_query.filter(id=node_id).first()
+    if task:
+        return task
+    return subtask_query.filter(id=node_id).first()
+
 class SubTaskListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = SubTaskSerializer
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        task_id = self.kwargs['task_id']
+        node = get_object_or_404(
+            Task.objects.filter(
+                workspace__members__user=self.request.user,
+                workspace__members__status=WorkspaceMember.Status.ACCEPTED
+            ),
+            id=task_id,
+        ) if Task.objects.filter(id=task_id).exists() else get_object_or_404(
+            SubTask.objects.select_related('task'),
+            id=task_id,
+            task__workspace__members__user=self.request.user,
+            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED,
+        )
+        context['task'] = node if isinstance(node, Task) else node.task
+        return context
+
     def get_queryset(self):
         task_id = self.kwargs['task_id']
+        node = resolve_task_node(task_id, self.request.user)
+        if node is None:
+            return SubTask.objects.none()
+
+        task_id_value = node.id if isinstance(node, Task) else node.task_id
+        parent_filter = {'parent__isnull': True} if isinstance(node, Task) else {'parent_id': node.id}
+
         return SubTask.objects.filter(
-            task_id=task_id,
-            parent__isnull=True,
+            task_id=task_id_value,
             task__workspace__members__user=self.request.user,
-            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        ).select_related('task', 'assignee').prefetch_related('children__children__children')
+            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED,
+            **parent_filter,
+        ).select_related('task', 'assignee', 'category').prefetch_related('children__assignee', 'children__category')
         
         
     def perform_create(self, serializer):
         task_id = self.kwargs['task_id']
-        task = get_object_or_404(
-            Task,
-            id=task_id,
-            workspace__members__user=self.request.user,
-            workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        )
+        node = resolve_task_node(task_id, self.request.user)
+        if node is None:
+            raise ValidationError({'task_id': 'Task or subtask context not found.'})
+
+        task = node if isinstance(node, Task) else node.task
 
         parent = serializer.validated_data.get('parent')
+        if parent is None and isinstance(node, SubTask):
+            parent = node
+
         if parent is not None and parent.task_id != task.id:
             raise ValidationError({'parent_id': 'Parent subtask must belong to the same task.'})
 
@@ -53,7 +100,7 @@ class SubTaskDetailView(generics.RetrieveUpdateDestroyAPIView):
         return SubTask.objects.filter(
             task__workspace__members__user=self.request.user,
             task__workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        ).select_related('task', 'parent', 'assignee').prefetch_related('children__children__children')
+        ).select_related('task', 'parent', 'assignee', 'category').prefetch_related('children__assignee', 'children__category')
         
         
 class TaskFilter(django_filters.FilterSet):
@@ -111,8 +158,10 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
             workspace__members__user=self.request.user,
             workspace__members__status=WorkspaceMember.Status.ACCEPTED
         ).select_related('assignee', 'created_by', 'category', 'project', 'workspace').prefetch_related(
-            'subtasks__children__children__children',
-            'subtasks'
+            'subtasks__assignee',
+            'subtasks__category',
+            'subtasks__children__assignee',
+            'subtasks__children__category',
         )
 
 

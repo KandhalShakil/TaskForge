@@ -10,6 +10,21 @@ const axiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+const PUBLIC_AUTH_PATHS = [
+  '/auth/register/',
+  '/auth/register/verify/',
+  '/auth/register/resend-otp/',
+  '/auth/verify-email/',
+  '/auth/forgot-password/',
+  '/auth/forgot-password/reset/',
+  '/auth/login/',
+  '/auth/refresh/',
+]
+
+const isPublicAuthRequest = (url = '') => {
+  return PUBLIC_AUTH_PATHS.some((path) => url.endsWith(path))
+}
+
 // Attach JWT access token to every request
 axiosInstance.interceptors.request.use(
   (config) => {
@@ -17,7 +32,7 @@ axiosInstance.interceptors.request.use(
     useLoadingStore.getState().startLoading()
 
     const token = localStorage.getItem('access_token')
-    if (token) {
+    if (token && !isPublicAuthRequest(config.url || '')) {
       config.headers.Authorization = `Bearer ${token}`
     }
     return config

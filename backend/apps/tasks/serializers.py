@@ -1,10 +1,18 @@
 from rest_framework import serializers
 from apps.users.serializers import UserSerializer
 from django.contrib.auth import get_user_model
+from bs4 import BeautifulSoup
 from .models import Task, Category, Comment, SubTask
 
 
 User = get_user_model()
+
+
+def clean_html(raw_html):
+    if not raw_html:
+        return ''
+    soup = BeautifulSoup(raw_html, 'html.parser')
+    return soup.get_text().strip()
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -21,18 +29,35 @@ class CommentSerializer(serializers.ModelSerializer):
         model = Comment
         fields = ['id', 'task', 'author', 'content', 'created_at', 'updated_at']
         read_only_fields = ['id', 'author', 'created_at', 'updated_at']
+
+
+class SubTaskSummarySerializer(serializers.ModelSerializer):
+    assignee = UserSerializer(read_only=True)
+    category = CategorySerializer(read_only=True)
+
+    class Meta:
+        model = SubTask
+        fields = [
+            'id', 'task', 'parent', 'title', 'description',
+            'status', 'priority', 'category', 'assignee',
+            'start_date', 'due_date', 'estimated_hours',
+            'is_completed', 'order', 'created_at', 'updated_at'
+        ]
+        read_only_fields = fields
         
 class SubTaskSerializer(serializers.ModelSerializer):
     assignee = UserSerializer(read_only=True)
     assignee_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    category = CategorySerializer(read_only=True)
+    category_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     parent_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     children = serializers.SerializerMethodField()
 
     class Meta: 
         model = SubTask
         fields = [
-            'id', 'task', 'parent', 'parent_id', 'title',
-            'status', 'priority',
+            'id', 'task', 'parent', 'parent_id', 'title', 'description',
+            'status', 'priority', 'category', 'category_id',
             'assignee', 'assignee_id',
             'start_date', 'due_date', 'estimated_hours',
             'is_completed',
@@ -41,10 +66,15 @@ class SubTaskSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'parent', 'task', 'children', 'created_at', 'updated_at']
 
     def get_children(self, obj):
-        children_qs = obj.children.select_related('assignee').order_by('order', 'created_at')
-        return SubTaskSerializer(children_qs, many=True, context=self.context).data
+        children_qs = obj.children.select_related('assignee', 'category').order_by('order', 'created_at')
+        return SubTaskSummarySerializer(children_qs, many=True, context=self.context).data
 
     def validate(self, attrs):
+        task = attrs.get('task') or self.context.get('task')
+        instance = getattr(self, 'instance', None)
+        if task is None and instance is not None:
+            task = instance.task
+
         assignee_id = attrs.pop('assignee_id', serializers.empty)
         if assignee_id is not serializers.empty:
             if assignee_id is None:
@@ -54,6 +84,30 @@ class SubTaskSerializer(serializers.ModelSerializer):
                 if not assignee:
                     raise serializers.ValidationError({'assignee_id': 'Assignee does not exist.'})
                 attrs['assignee'] = assignee
+
+        category_id = attrs.pop('category_id', serializers.empty)
+        if category_id is not serializers.empty:
+            if category_id is None:
+                attrs['category'] = None
+            else:
+                category = Category.objects.filter(id=category_id).first()
+                if not category:
+                    raise serializers.ValidationError({'category_id': 'Category does not exist.'})
+                if task is not None and category.workspace_id != task.workspace_id:
+                    raise serializers.ValidationError({'category_id': 'Category must belong to the same workspace.'})
+                attrs['category'] = category
+
+        title = (attrs.get('title') or '').strip()
+        if not title:
+            raise serializers.ValidationError({'title': 'Title is required.'})
+        attrs['title'] = title
+        if 'description' in attrs:
+            attrs['description'] = clean_html(attrs.get('description', ''))
+
+        start_date = attrs.get('start_date', instance.start_date if instance is not None else None)
+        due_date = attrs.get('due_date', instance.due_date if instance is not None else None)
+        if start_date and due_date and due_date < start_date:
+            raise serializers.ValidationError({'due_date': 'Due date cannot be earlier than start date.'})
 
         parent_id = attrs.pop('parent_id', serializers.empty)
         if parent_id is serializers.empty:
@@ -66,11 +120,6 @@ class SubTaskSerializer(serializers.ModelSerializer):
         parent = SubTask.objects.filter(id=parent_id).first()
         if not parent:
             raise serializers.ValidationError({'parent_id': 'Parent subtask does not exist.'})
-
-        task = attrs.get('task')
-        instance = getattr(self, 'instance', None)
-        if task is None and instance is not None:
-            task = instance.task
 
         if task is not None and parent.task_id != task.id:
             raise serializers.ValidationError({'parent_id': 'Parent subtask must belong to the same task.'})
@@ -90,19 +139,38 @@ class SubTaskSerializer(serializers.ModelSerializer):
         
 class SubTaskCreateItemSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=500)
+    description = serializers.CharField(required=False, allow_blank=True)
     status = serializers.ChoiceField(choices=Task.Status.choices, required=False, default=Task.Status.TODO)
     priority = serializers.ChoiceField(choices=Task.Priority.choices, required=False, default=Task.Priority.NO_PRIORITY)
     assignee_id = serializers.UUIDField(required=False, allow_null=True)
+    category_id = serializers.UUIDField(required=False, allow_null=True)
     start_date = serializers.DateField(required=False, allow_null=True)
     due_date = serializers.DateField(required=False, allow_null=True)
-    estimated_hours = serializers.DecimalField(max_digits=5, decimal_places=1, required=True, allow_null=False)
+    estimated_hours = serializers.DecimalField(max_digits=5, decimal_places=1, required=False, allow_null=True)
     order = serializers.IntegerField(required=False, min_value=0)
     is_completed = serializers.BooleanField(required=False, default=False)
-    children = serializers.ListSerializer(
-        child=serializers.DictField(),
-        required=False,
-        allow_empty=True
-    )
+
+    children = serializers.ListField(child=serializers.DictField(), required=False, allow_empty=True)
+
+    def validate(self, attrs):
+        title = (attrs.get('title') or '').strip()
+        if not title:
+            raise serializers.ValidationError({'title': 'Title is required.'})
+        attrs['title'] = title
+        attrs['description'] = clean_html(attrs.get('description', ''))
+
+        start_date = attrs.get('start_date')
+        due_date = attrs.get('due_date')
+        if start_date and due_date and due_date < start_date:
+            raise serializers.ValidationError({'due_date': 'Due date cannot be earlier than start date.'})
+
+        category_id = attrs.get('category_id')
+        if category_id is not None:
+            category = Category.objects.filter(id=category_id).first()
+            if not category:
+                raise serializers.ValidationError({'category_id': 'Category does not exist.'})
+
+        return attrs
 
     def validate_children(self, value):
         serializer = SubTaskCreateItemSerializer(data=value, many=True)
@@ -140,9 +208,56 @@ class TaskSerializer(serializers.ModelSerializer):
     def get_comment_count(self, obj):
         return obj.comments.count()
 
+    def validate(self, attrs):
+        instance = getattr(self, 'instance', None)
+
+        title = (attrs.get('title') or (instance.title if instance is not None else '')).strip()
+        if not title:
+            raise serializers.ValidationError({'title': 'Title is required.'})
+        attrs['title'] = title
+        if 'description' in attrs:
+            attrs['description'] = clean_html(attrs.get('description', ''))
+
+        start_date = attrs.get('start_date', instance.start_date if instance is not None else None)
+        due_date = attrs.get('due_date', instance.due_date if instance is not None else None)
+        if start_date and due_date and due_date < start_date:
+            raise serializers.ValidationError({'due_date': 'Due date cannot be earlier than start date.'})
+
+        workspace = attrs.get('workspace', instance.workspace if instance is not None else None)
+        category_id = attrs.pop('category_id', serializers.empty)
+        if category_id is not serializers.empty:
+            if category_id is None:
+                attrs['category'] = None
+            else:
+                category = Category.objects.filter(id=category_id).first()
+                if not category:
+                    raise serializers.ValidationError({'category_id': 'Category does not exist.'})
+                if workspace is not None and category.workspace_id != workspace.id:
+                    raise serializers.ValidationError({'category_id': 'Category must belong to the same workspace.'})
+                attrs['category'] = category
+
+        subtasks_input = attrs.get('subtasks_input') or []
+        if workspace is not None and subtasks_input:
+            def validate_subtask_categories(items):
+                for item in items:
+                    category_id = item.get('category_id')
+                    if category_id:
+                        category = Category.objects.filter(id=category_id).first()
+                        if not category:
+                            raise serializers.ValidationError({'subtasks_input': 'Category does not exist.'})
+                        if category.workspace_id != workspace.id:
+                            raise serializers.ValidationError({'subtasks_input': 'Subtask category must belong to the same workspace.'})
+                    children = item.get('children') or []
+                    if children:
+                        validate_subtask_categories(children)
+
+            validate_subtask_categories(subtasks_input)
+
+        return attrs
+
     def get_subtasks(self, obj):
-        roots = obj.subtasks.filter(parent__isnull=True).select_related('assignee').order_by('order', 'created_at')
-        return SubTaskSerializer(roots, many=True, context=self.context).data
+        roots = obj.subtasks.filter(parent__isnull=True).select_related('assignee', 'category').order_by('order', 'created_at')
+        return SubTaskSummarySerializer(roots, many=True, context=self.context).data
 
     def _create_subtasks_tree(self, task, items, parent=None):
         for idx, item in enumerate(items):
@@ -155,12 +270,19 @@ class TaskSerializer(serializers.ModelSerializer):
             if assignee_id:
                 assignee = User.objects.filter(id=assignee_id).first()
 
+            category = None
+            category_id = item.get('category_id')
+            if category_id:
+                category = Category.objects.filter(id=category_id, workspace_id=task.workspace_id).first()
+
             subtask = SubTask.objects.create(
                 task=task,
                 parent=parent,
                 title=title,
+                description=clean_html(item.get('description', '')),
                 status=item.get('status', Task.Status.TODO),
                 priority=item.get('priority', Task.Priority.NO_PRIORITY),
+                category=category,
                 assignee=assignee,
                 start_date=item.get('start_date'),
                 due_date=item.get('due_date'),

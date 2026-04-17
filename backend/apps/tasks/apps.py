@@ -7,3 +7,4 @@ class TasksConfig(AppConfig):
 
     def ready(self):
         import apps.tasks.signals
+        import apps.tasks.signals_mongo  # noqa: F401

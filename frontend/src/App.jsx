@@ -1,13 +1,19 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from './store/authStore'
 import AppLayout from './components/layout/AppLayout'
-import LoginPage from './pages/auth/LoginPage'
-import RegisterPage from './pages/auth/RegisterPage'
-import WorkspacePage from './pages/workspace/WorkspacePage'
-import ProjectPage from './pages/project/ProjectPage'
-import AnalyticsDashboard from './pages/dashboard/AnalyticsDashboard'
-import WorkspaceMembersPage from './pages/workspace/WorkspaceMembersPage'
+
+const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'))
+const WorkspacePage = lazy(() => import('./pages/workspace/WorkspacePage'))
+const ProjectPage = lazy(() => import('./pages/project/ProjectPage'))
+const AnalyticsDashboard = lazy(() => import('./pages/dashboard/AnalyticsDashboard'))
+const WorkspaceMembersPage = lazy(() => import('./pages/workspace/WorkspaceMembersPage'))
+const TaskHierarchyPage = lazy(() => import('./pages/tasks/TaskHierarchyPage'))
+const CreateSubtaskPage = lazy(() => import('./pages/tasks/CreateSubtaskPage'))
+const SubtaskDetailPage = lazy(() => import('./pages/tasks/SubtaskDetailPage'))
+const ChatPage = lazy(() => import('./pages/chat/ChatPage'))
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuthStore()
@@ -33,20 +39,32 @@ export default function App() {
           success: { iconTheme: { primary: '#6366f1', secondary: '#fff' } },
         }}
       />
-      <Routes>
-        <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-        <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+      <Suspense fallback={<div className="min-h-screen bg-surface-950 flex items-center justify-center text-slate-400">Loading...</div>}>
+        <Routes>
+          <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
 
-        <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          <Route index element={<Navigate to="/workspaces" replace />} />
-          <Route path="/workspaces" element={<WorkspacePage />} />
-          <Route path="/workspaces/:workspaceId/members" element={<WorkspaceMembersPage />} />
-          <Route path="/workspaces/:workspaceId/projects/:projectId" element={<ProjectPage />} />
-          <Route path="/workspaces/:workspaceId/dashboard" element={<AnalyticsDashboard />} />
-        </Route>
+          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+            <Route index element={<Navigate to="/workspaces" replace />} />
+            <Route path="/workspaces" element={<WorkspacePage />} />
+            <Route path="/workspace/:workspaceId/project/:projectId/tasks" element={<ProjectPage />} />
+            <Route path="/workspace/:workspaceId/project/:projectId/task/:taskId" element={<TaskHierarchyPage />} />
+            <Route path="/workspace/:workspaceId/project/:projectId/task/:taskId/create-subtask" element={<CreateSubtaskPage />} />
+            <Route path="/workspace/:workspaceId/project/:projectId/task/:taskId/subtasks/:subtaskId" element={<SubtaskDetailPage />} />
+            <Route path="/workspaces/:workspaceId/members" element={<WorkspaceMembersPage />} />
+            <Route path="/workspaces/:workspaceId/projects/:projectId" element={<ProjectPage />} />
+            <Route path="/workspaces/:workspaceId/projects/:projectId/tasks/:taskId" element={<TaskHierarchyPage />} />
+            <Route path="/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/create-subtask" element={<CreateSubtaskPage />} />
+            <Route path="/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/subtasks/:subtaskId" element={<SubtaskDetailPage />} />
+            <Route path="/workspaces/:workspaceId/chat" element={<ChatPage />} />
+            <Route path="/workspaces/:workspaceId/chat/dm/:directUserId" element={<ChatPage />} />
+            <Route path="/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/chat" element={<ChatPage />} />
+            <Route path="/workspaces/:workspaceId/dashboard" element={<AnalyticsDashboard />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/workspaces" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/workspaces" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

@@ -3,6 +3,8 @@ import api from './axiosInstance'
 export const tasksAPI = {
   list: (params) => api.get('/tasks/', { params }),
   create: (data) => api.post('/tasks/', data),
+  getTask: (id) => api.get(`/tasks/${id}/`),
+  getSubtask: (id) => api.get(`/tasks/subtasks/${id}/`),
   update: (id, data) => api.patch(`/tasks/${id}/`, data),
   delete: (id) => api.delete(`/tasks/${id}/`),
   bulkUpdate: (tasks) => api.patch('/tasks/bulk-update/', { tasks }),

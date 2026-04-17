@@ -14,25 +14,6 @@ export const TASK_PRIORITIES = [
   { value: 'no_priority', label: 'No Priority', color: 'priority-no_priority', icon: '⚪' },
 ]
 
-export const WORKSPACE_ROLES = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'member', label: 'Member' },
-  { value: 'viewer', label: 'Viewer' },
-]
-
-export const PROJECT_STATUSES = [
-  { value: 'active', label: 'Active' },
-  { value: 'archived', label: 'Archived' },
-  { value: 'completed', label: 'Completed' },
-]
-
-export const VIEW_TYPES = [
-  { value: 'list', label: 'List', icon: 'List' },
-  { value: 'kanban', label: 'Board', icon: 'Columns' },
-  { value: 'calendar', label: 'Calendar', icon: 'Calendar' },
-  { value: 'timeline', label: 'Timeline', icon: 'GanttChart' },
-]
-
 export const KANBAN_COLUMNS = [
   { id: 'todo', label: 'To Do' },
   { id: 'in_progress', label: 'In Progress' },

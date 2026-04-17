@@ -6,8 +6,15 @@ from apps.core.permissions import IsWorkspaceMemberOrAdmin
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from apps.workspaces.models import Workspace, WorkspaceMember
-from .models import Project, ProjectMember
-from .serializers import ProjectSerializer, ProjectDetailSerializer, ProjectMemberSerializer
+from .models import Project, ProjectMember, Space, Folder
+from .serializers import (
+    ProjectSerializer,
+    ProjectDetailSerializer,
+    ProjectMemberSerializer,
+    SpaceSerializer,
+    FolderSerializer,
+    HierarchySpaceSerializer,
+)
 
 User = get_user_model()
 
@@ -20,7 +27,7 @@ class ProjectListCreateView(generics.ListCreateAPIView):
         qs = Project.objects.filter(
             workspace__members__user=self.request.user,
             workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        ).select_related('owner', 'workspace').prefetch_related('members', 'tasks')
+        ).select_related('owner', 'workspace', 'space', 'folder').prefetch_related('members', 'tasks')
 
         workspace_id = self.request.query_params.get('workspace')
         if workspace_id:
@@ -58,7 +65,7 @@ class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Project.objects.filter(
             workspace__members__user=self.request.user,
             workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        ).select_related('owner', 'workspace').prefetch_related('members__user', 'tasks')
+        ).select_related('owner', 'workspace', 'space', 'folder').prefetch_related('members__user', 'tasks')
 
     def destroy(self, request, *args, **kwargs):
         project = self.get_object()
@@ -124,3 +131,113 @@ class RemoveProjectMemberView(APIView):
         member = get_object_or_404(ProjectMember, project=project, user_id=user_id)
         member.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SpaceListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
+    serializer_class = SpaceSerializer
+
+    def get_queryset(self):
+        qs = Space.objects.filter(
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        ).select_related('workspace', 'created_by').prefetch_related('projects', 'folders__projects')
+
+        workspace_id = self.request.query_params.get('workspace')
+        if workspace_id:
+            qs = qs.filter(workspace_id=workspace_id)
+        return qs
+
+    def perform_create(self, serializer):
+        workspace_id = self.request.data.get('workspace')
+        workspace = get_object_or_404(Workspace, id=workspace_id)
+        if not WorkspaceMember.objects.filter(
+            workspace=workspace,
+            user=self.request.user,
+            role__in=[WorkspaceMember.Role.ADMIN, WorkspaceMember.Role.MEMBER],
+            status=WorkspaceMember.Status.ACCEPTED
+        ).exists():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('You do not have permission to create spaces in this workspace.')
+        serializer.save(created_by=self.request.user)
+
+
+class SpaceDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
+    serializer_class = SpaceSerializer
+
+    def get_queryset(self):
+        return Space.objects.filter(
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        ).select_related('workspace', 'created_by').prefetch_related('projects', 'folders__projects')
+
+
+class FolderListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
+    serializer_class = FolderSerializer
+
+    def get_queryset(self):
+        qs = Folder.objects.filter(
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        ).select_related('workspace', 'space', 'created_by').prefetch_related('projects')
+
+        workspace_id = self.request.query_params.get('workspace')
+        if workspace_id:
+            qs = qs.filter(workspace_id=workspace_id)
+
+        space_id = self.request.query_params.get('space')
+        if space_id:
+            qs = qs.filter(space_id=space_id)
+        return qs
+
+    def perform_create(self, serializer):
+        workspace_id = self.request.data.get('workspace')
+        workspace = get_object_or_404(Workspace, id=workspace_id)
+        if not WorkspaceMember.objects.filter(
+            workspace=workspace,
+            user=self.request.user,
+            role__in=[WorkspaceMember.Role.ADMIN, WorkspaceMember.Role.MEMBER],
+            status=WorkspaceMember.Status.ACCEPTED
+        ).exists():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('You do not have permission to create folders in this workspace.')
+        serializer.save(created_by=self.request.user)
+
+
+class FolderDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
+    serializer_class = FolderSerializer
+
+    def get_queryset(self):
+        return Folder.objects.filter(
+            workspace__members__user=self.request.user,
+            workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        ).select_related('workspace', 'space', 'created_by').prefetch_related('projects')
+
+
+class ProjectHierarchyView(APIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
+
+    def get(self, request):
+        workspace_id = request.query_params.get('workspace')
+        if not workspace_id:
+            return Response({'error': 'workspace query parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        workspace = get_object_or_404(
+            Workspace,
+            id=workspace_id,
+            members__user=request.user,
+            members__status=WorkspaceMember.Status.ACCEPTED,
+        )
+
+        spaces = Space.objects.filter(workspace=workspace).select_related('workspace', 'created_by').prefetch_related(
+            'projects__tasks',
+            'folders__projects__tasks',
+            'folders__space',
+            'folders__workspace',
+        )
+
+        serializer = HierarchySpaceSerializer(spaces, many=True)
+        return Response(serializer.data)

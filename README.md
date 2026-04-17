@@ -1,326 +1,228 @@
-# TaskForge (Takify) 🚀
+# TaskForge
 
-<p align="center">
-    <img alt="License" src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge">
-    <img alt="Frontend" src="https://img.shields.io/badge/Frontend-React%2018-38bdf8?style=for-the-badge&logo=react&logoColor=white">
-    <img alt="Backend" src="https://img.shields.io/badge/Backend-Django%204.2-166534?style=for-the-badge&logo=django&logoColor=white">
-    <img alt="API" src="https://img.shields.io/badge/API-DRF-f97316?style=for-the-badge">
-    <img alt="Database" src="https://img.shields.io/badge/Database-PostgreSQL-0ea5e9?style=for-the-badge&logo=postgresql&logoColor=white">
-    <img alt="Build Tool" src="https://img.shields.io/badge/Build-Vite%205-a855f7?style=for-the-badge&logo=vite&logoColor=white">
-</p>
+TaskForge is a full-stack project management platform built with Django REST Framework, React, Vite, MongoDB, and Pusher. It supports workspaces, projects, tasks, subtasks, comments, analytics, and real-time chat.
 
-<p align="center">
-    <b>Plan smarter. Collaborate faster. Ship work with confidence.</b>
-</p>
+## Overview
 
-TaskForge is a full-stack team collaboration and project management platform built with React + Django REST Framework.
-It supports multi-workspace organization, role-based collaboration, project/task tracking, drag-and-drop Kanban flows, comments, subtasks, and analytics.
+The app is organized around workspaces. Users join workspaces, workspaces contain projects, and projects contain tasks and subtasks. Chat is powered by Pusher and persisted through the Django API, with optimistic UI updates on the frontend.
 
-This README is intentionally comprehensive so new contributors can understand the architecture and run the project end-to-end without reverse-engineering the codebase.
+## Features
 
-> [!NOTE]
-> This is a production-oriented monorepo with a React SPA frontend and a Django REST backend. The backend currently runs locally, while frontend local startup may require dependency cleanup if npm fails.
+- Workspace creation and membership management
+- Project organization with spaces and folders
+- Task CRUD, filtering, bulk updates, and stats
+- Subtasks with nested hierarchy support
+# TaskForge
 
-## 🌐 Live URLs
+TaskForge is a full-stack project management platform built with Django REST Framework, React, Vite, MongoDB, and Pusher. It supports workspaces, projects, tasks, subtasks, comments, analytics, and real-time chat.
 
-- Frontend: https://www.task-forge.kandhal.tech
-- API base: https://taskforge-backend-hgre.onrender.com/api
+## Overview
 
-## ⚡ Quick Start Snapshot
+The app is organized around workspaces. Users join workspaces, workspaces contain projects, and projects contain tasks and subtasks. Chat is powered by Pusher and persisted through the Django API, with optimistic UI updates on the frontend.
 
-| Service | Local URL | Command |
-|---|---|---|
-| Backend API | http://localhost:8000 | python manage.py runserver |
-| Frontend App | http://localhost:5173 | npm run dev |
+## Features
 
-## 🧭 Navigation
+- Workspace creation and membership management
+- Project organization with spaces and folders
+- Task CRUD, filtering, bulk updates, and stats
+- Subtasks with nested hierarchy support
+- Comments and attachments on tasks
+- Real-time chat for workspace, task, and direct messages
+- Pusher-backed notifications and optimistic message sending
+- JWT-based authentication with refresh support
 
-- [Project Overview](#1-project-overview)
-- [Feature Set](#2-feature-set)
-- [Tech Stack](#3-tech-stack)
-- [Repository Structure](#4-repository-structure)
-- [System Architecture](#5-system-architecture)
-- [Domain Model](#6-domain-model)
-- [API Reference](#7-api-reference)
-- [Authentication and Authorization](#8-authentication-and-authorization)
-- [Local Development Setup](#9-local-development-setup)
-- [Environment Variables](#10-environment-variables)
-- [Build and Deployment](#11-build-and-deployment)
-- [Troubleshooting](#12-troubleshooting)
-- [Security Notes](#13-security-notes)
-- [Roadmap Ideas](#14-roadmap-ideas)
-- [License](#15-license)
+## Tech Stack
 
-## Table of Contents
-
-1. Project Overview
-2. Feature Set
-3. Tech Stack
-4. Repository Structure
-5. System Architecture
-6. Domain Model
-7. API Reference
-8. Authentication and Authorization
-9. Local Development Setup
-10. Environment Variables
-11. Build and Deployment
-12. Troubleshooting
-13. Security Notes
-14. Roadmap Ideas
-15. License
-
-## 1) Project Overview 🏗️
-
-TaskForge is designed around workspaces:
-
-- A user joins one or more workspaces.
-- Each workspace contains projects.
-- Tasks can belong to a workspace and optionally a project.
-- Workspace and project memberships define who can view/edit resources.
-- JWT authentication secures all API requests.
-
-The frontend is a single-page app (SPA) powered by Vite and React Router.
-The backend exposes a REST API with Django REST Framework and PostgreSQL.
-
-## 2) Feature Set ✨
-
-### Core collaboration features 🤝
-
-- Workspace creation and management
-- Workspace invitations and invite response flow (accept/decline)
-- Workspace roles: `admin`, `member`, `viewer`
-- Project lifecycle support: `active`, `archived`, `completed`
-- Project-level member management
-
-### Task management features ✅
-
-- Task CRUD with rich filtering and search
-- Kanban-compatible status model
-- Drag-and-drop bulk task status/order update endpoint
-- Priority levels (`urgent` to `no_priority`)
-- Categories scoped by workspace
-- Comments on tasks
-- Subtasks per task
-- Overdue detection logic
-
-### Analytics features 📊
-
-- Task totals and completion rate
-- Aggregation by status and priority
-- Overdue counts
-- Daily task creation series for recent trend visualization
-
-### UX features (frontend) 🎨
-
-- Command palette for fast workspace/project navigation
-- Persisted auth state using Zustand middleware
-- Automatic token refresh on `401`
-- Global loading state handling for API calls
-- Responsive app shell with routed pages
-
-## 3) Tech Stack 🧰
-
-### Frontend 🌐
+### Frontend
 
 - React 18
 - Vite 5
-- React Router 6
+- React Router
 - Zustand
-- Tailwind CSS
 - Axios
-- DnD Kit (`@dnd-kit/*`)
-- Recharts
-- React Big Calendar
-- Framer Motion
-- React Hook Form + Zod
+- Tailwind CSS
+- Pusher JS
 
-### Backend ⚙️
+### Backend
 
-- Python 3.11+
+- Python 3.13
 - Django 4.2
 - Django REST Framework
-- djangorestframework-simplejwt (JWT + blacklist)
+- Simple JWT
 - django-filter
-- django-cors-headers
 - WhiteNoise
-- PostgreSQL driver via `psycopg[binary]`
+- MongoDB for app data sync and chat persistence
+- Pusher server SDK for real-time messaging
 
-### Infrastructure and deployment 🚢
-
-- Render (backend)
-- Vercel-friendly SPA rewrite config in frontend
-- Supabase-hosted PostgreSQL (as configured in settings comments)
-
-## 4) Repository Structure 🗂️
+## Project Structure
 
 ```text
-.
-|-- backend/
-|   |-- apps/
-|   |   |-- core/           # Shared pagination and permission classes
-|   |   |-- users/          # Custom user model, auth, OTP registration flow
-|   |   |-- workspaces/     # Workspace + workspace membership
-|   |   |-- projects/       # Project + project membership
-|   |   |-- tasks/          # Task, category, comments, subtasks, analytics
-|   |-- config/
-|   |   |-- settings/
-|   |   |   |-- base.py
-|   |   |   |-- development.py
-|   |   |   |-- production.py
-|   |   |-- urls.py
-|   |-- templates/emails/otp_email.html
-|   |-- requirements.txt
-|   |-- manage.py
-|
-|-- frontend/
-|   |-- src/
-|   |   |-- api/            # Axios instance + endpoint wrappers
-|   |   |-- components/     # Shared and domain-specific UI
-|   |   |-- pages/          # Route-level pages
-|   |   |-- store/          # Zustand stores
-|   |   |-- utils/
-|   |   |-- App.jsx
-|   |-- package.json
-|   |-- vite.config.js
-|   |-- vercel.json
-|
-|-- render.yaml
-|-- LICENSE
-|-- README.md
+backend/
+  apps/
+  core/
+  users/
+  workspaces/
+  projects/
+  tasks/
+  chat/
+  config/
+  requirements.txt
+
+frontend/
+  src/
+  api/
+  components/
+  pages/
+  store/
+  utils/
 ```
 
-## 5) System Architecture 🧠
+## Installation
 
-### High-level flow 🔄
+### Backend
 
-1. Frontend authenticates user via `/api/auth/login/` or OTP registration flow.
-2. Backend returns JWT access/refresh tokens.
-3. Frontend stores tokens in local storage and persisted Zustand auth state.
-4. Axios interceptor attaches `Authorization: Bearer <access_token>` automatically.
-5. On token expiration, interceptor requests `/api/auth/refresh/` and retries failed calls.
-6. Domain APIs (workspaces, projects, tasks, categories) are then available according to role permissions.
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
 
-### Backend API organization 🧩
+### Frontend
 
-- `/api/auth/*` -> auth, registration, profile, user listing
-- `/api/workspaces/*` -> workspace and workspace member operations
-- `/api/projects/*` -> project and project member operations
-- `/api/tasks/*` -> tasks, bulk update, stats, comments, subtasks
-- `/api/categories/*` -> category endpoints (mapped from tasks app)
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## 6) Domain Model 🧱
+## Environment Variables
 
-The project uses UUID primary keys for all core entities.
+Create a backend `.env` file with values like these:
 
-### User 👤
+```env
+DEBUG=True
+SECRET_KEY=your-secret-key
+ALLOWED_HOSTS=localhost,127.0.0.1
 
-- Email-based authentication (`USERNAME_FIELD = email`)
-- Custom user types:
-    - `admin`
-    - `company`
-    - `employee`
+DB_ENGINE=django.db.backends.sqlite3
+DB_NAME=db.sqlite3
 
-### Workspace 🏢
+MONGO_URI=mongodb+srv://<username>:<password>@<cluster>/<db>
+MONGO_DB_NAME=takify
 
-- Owned by one user
-- Supports color/icon branding fields
-- Membership status model:
-    - `pending`
-    - `accepted`
-    - `declined`
+PUSHER_APP_ID=your-pusher-app-id
+PUSHER_KEY=your-pusher-key
+PUSHER_SECRET=your-pusher-secret
+PUSHER_CLUSTER=your-pusher-cluster
+PUSHER_SSL=True
+```
 
-### Project 📁
+Create a frontend `.env` file with values like these:
 
-- Belongs to a workspace
-- Has owner, status, optional start/end dates
-- Has a separate `ProjectMember` table with role model (`manager`, `member`, `viewer`)
+```env
+VITE_API_URL=http://localhost:8000
+VITE_PUSHER_KEY=your-pusher-key
+VITE_PUSHER_CLUSTER=your-pusher-cluster
+```
 
-### Task 📝
+Use the matching `.env.example` files as the source of truth for required variable names.
 
-- Belongs to a workspace and optionally to a project
-- Status values:
-    - `todo`
-    - `in_progress`
-    - `in_review`
-    - `done`
-    - `cancelled`
-- Priority values:
-    - `urgent`
-    - `high`
-    - `medium`
-    - `low`
-    - `no_priority`
-- Supports category, assignee, due/start dates, estimated hours, and ordering index
+## Important API Endpoints
 
-### Category, Comment, SubTask 💬
+### Auth
 
-- Categories are unique by `(workspace, name)`
-- Comments are attached to tasks with author tracking
-- Subtasks are attached to tasks and include completion state
+- `POST /api/auth/register/`
+- `POST /api/auth/register/verify/`
+- `POST /api/auth/login/`
+- `POST /api/auth/refresh/`
+- `POST /api/auth/logout/`
+- `GET /api/auth/me/`
 
-## 7) API Reference 🔌
+### Workspaces
 
-Base URL (development):
+- `GET /api/workspaces/`
+- `POST /api/workspaces/`
+- `GET /api/workspaces/{id}/members/`
+- `POST /api/workspaces/{id}/members/add/`
+- `DELETE /api/workspaces/{id}/members/{userId}/remove/`
 
-- Backend root: `http://localhost:8000`
-- API base: `http://localhost:8000/api`
+### Projects
 
-### Auth endpoints 🔐
+- `GET /api/projects/`
+- `POST /api/projects/`
+- `GET /api/projects/{id}/`
+- `GET /api/projects/hierarchy/`
+- `GET /api/projects/spaces/`
+- `GET /api/projects/folders/`
 
-- `POST /api/auth/register/` -> stage registration and send OTP
-- `POST /api/auth/register/verify/` -> verify OTP and create user
-- `POST /api/auth/register/resend-otp/` -> resend OTP
-- `POST /api/auth/login/` -> obtain access/refresh token pair
-- `POST /api/auth/refresh/` -> refresh access token
-- `POST /api/auth/logout/` -> blacklist refresh token
-- `GET /api/auth/me/` -> current authenticated user
-- `GET /api/auth/users/` -> user list (restricted by user type)
+### Tasks
 
-### Workspace endpoints 🏢
-
-- `GET/POST /api/workspaces/`
-- `GET/PATCH/DELETE /api/workspaces/{workspace_id}/`
-- `GET /api/workspaces/{workspace_id}/members/`
-- `POST /api/workspaces/{workspace_id}/members/add/`
-- `DELETE /api/workspaces/{workspace_id}/members/{user_id}/remove/`
-- `PATCH /api/workspaces/{workspace_id}/members/{user_id}/role/`
-- `GET /api/workspaces/invitations/`
-- `POST /api/workspaces/invitations/{member_id}/respond/`
-
-### Project endpoints 📁
-
-- `GET/POST /api/projects/`
-- `GET/PATCH/DELETE /api/projects/{project_id}/`
-- `GET /api/projects/{project_id}/members/`
-- `POST /api/projects/{project_id}/members/add/`
-- `DELETE /api/projects/{project_id}/members/{user_id}/remove/`
-
-### Task endpoints 📝
-
-- `GET/POST /api/tasks/`
-- `PATCH /api/tasks/bulk-update/`
+- `GET /api/tasks/`
+- `POST /api/tasks/`
+- `GET /api/tasks/{id}/`
+- `PATCH /api/tasks/{id}/`
+- `DELETE /api/tasks/{id}/`
 - `GET /api/tasks/stats/`
-- `GET/PATCH/DELETE /api/tasks/{task_id}/`
-- `GET/POST /api/tasks/{task_id}/comments/`
-- `GET/PATCH/DELETE /api/tasks/{task_id}/comments/{comment_id}/`
-- `GET/POST /api/tasks/{task_id}/subtasks/`
-- `GET/PATCH/DELETE /api/tasks/subtasks/{subtask_id}/`
+- `PATCH /api/tasks/bulk-update/`
+- `GET /api/tasks/{taskId}/subtasks/`
+- `POST /api/tasks/{taskId}/subtasks/`
 
-### Category endpoints 🏷️
+### Chat
 
-- `GET/POST /api/categories/`
-- `GET/PATCH/DELETE /api/categories/{category_id}/`
+- `GET /api/chat/context/`
+- `GET /api/chat/threads/`
+- `POST /api/chat/send-message/`
+- `GET /api/chat/messages/`
+- `POST /api/chat/messages/read/`
+- `PATCH /api/chat/messages/{messageId}/`
+- `DELETE /api/chat/messages/{messageId}/`
+- `POST /api/chat/upload/`
 
-### Task filtering and sorting 🎯
+## Chat System
 
-Supported query params on `GET /api/tasks/` include:
+Chat uses a Pusher channel named `chat-channel`. The frontend subscribes to the channel and renders optimistic messages immediately. The backend validates room access, persists the message, sanitizes message content, and broadcasts the final payload back through Pusher.
 
-- `workspace`
-- `project`
-- `status`
-- `priority`
-- `assignee`
-- `category`
+### Chat flow
+
+1. User types a message and presses Enter.
+2. The frontend appends an optimistic message with `sending` status.
+3. The message is sent to `/api/chat/send-message/` with a `clientMessageId`.
+4. Django validates the room, stores the message, and broadcasts a `new-message` event.
+5. The frontend reconciles the optimistic message with the saved payload.
+
+## Deployment
+
+### Backend
+
+```bash
+cd backend
+python manage.py migrate
+python manage.py collectstatic --noinput
+gunicorn config.wsgi:application
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm run build
+```
+
+## Security Notes
+
+- Do not commit `.env` files.
+- Never place API keys or passwords in documentation.
+- Use separate values for development and production.
+- Restrict backend hosts and CORS settings appropriately.
+
+## Notes for Contributors
+
+- Keep the codebase free of unused files, duplicate helpers, and stale documentation.
+- Prefer the existing API and store patterns when adding new features.
+- Run the frontend build and Django system checks after refactors.
 - `due_date_from`
 - `due_date_to`
 - `overdue` (`true/false`)

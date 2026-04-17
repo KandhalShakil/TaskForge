@@ -4,5 +4,4 @@ export const useLoadingStore = create((set) => ({
   activeRequests: 0,
   startLoading: () => set((state) => ({ activeRequests: state.activeRequests + 1 })),
   stopLoading: () => set((state) => ({ activeRequests: Math.max(0, state.activeRequests - 1) })),
-  isLoading: () => set((state) => state.activeRequests > 0),
 }))

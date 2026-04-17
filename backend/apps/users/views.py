@@ -14,6 +14,7 @@ from django.template.loader import render_to_string
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.conf import settings
+from django.contrib.auth.password_validation import validate_password
 import random
 
 User = get_user_model()
@@ -136,6 +137,83 @@ class ResendOTPView(APIView):
             return Response({'message': 'New OTP sent successfully.'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': 'Failed to send email.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Do not reveal if user exists to prevent account enumeration
+        user = User.objects.filter(email=email).first()
+        if user:
+            otp = str(random.randint(100000, 999999))
+            cache_key = f"forgot_password_{email}"
+            cache.set(cache_key, {'otp': otp}, timeout=settings.OTP_EXPIRY)
+
+            try:
+                html_message = render_to_string('emails/otp_email.html', {'otp': otp})
+                plain_message = f'Your password reset code is: {otp}. It will expire in 15 minutes.'
+                send_mail(
+                    subject='TaskForge password reset code',
+                    message=plain_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[email],
+                    html_message=html_message,
+                    fail_silently=False,
+                )
+            except Exception:
+                return Response(
+                    {'error': 'Failed to send reset email. Please try again.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        return Response(
+            {'message': 'If this email exists, a reset code has been sent.'},
+            status=status.HTTP_200_OK,
+        )
+
+
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        otp = str(request.data.get('otp', ''))
+        password = request.data.get('password')
+        password2 = request.data.get('password2')
+
+        if not email or not otp or not password or not password2:
+            return Response(
+                {'error': 'Email, otp, password and password2 are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if password != password2:
+            return Response({'error': 'Passwords do not match.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            validate_password(password)
+        except Exception as exc:
+            return Response({'error': exc.messages if hasattr(exc, 'messages') else str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        cache_key = f"forgot_password_{email}"
+        cache_data = cache.get(cache_key)
+        if not cache_data or cache_data.get('otp') != otp:
+            return Response({'error': 'Invalid or expired OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(email=email).first()
+        if not user:
+            return Response({'error': 'Invalid request.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(password)
+        user.save(update_fields=['password'])
+        cache.delete(cache_key)
+
+        return Response({'message': 'Password reset successful.'}, status=status.HTTP_200_OK)
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):

@@ -8,3 +8,8 @@ Pillow>=10.4.0
 django-filter==24.2
 gunicorn==22.0.0
 whitenoise==6.6.0
+bcrypt==4.2.0
+beautifulsoup4==4.12.3
+pymongo==4.8.0
+daphne==4.1.2
+pusher==3.3.3

@@ -120,8 +120,12 @@ class SubTask(models.Model):
         related_name='children'
     )
     title = models.CharField(max_length=500)
+    description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=Task.Status.choices, default=Task.Status.TODO)
     priority = models.CharField(max_length=20, choices=Task.Priority.choices, default=Task.Priority.NO_PRIORITY)
+    category = models.ForeignKey(
+        Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='subtasks'
+    )
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
