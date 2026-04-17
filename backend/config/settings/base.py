@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlparse, unquote
 from decouple import config
 from datetime import timedelta
 from pathlib import Path
@@ -72,22 +73,56 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-db_settings_module = os.environ.get('DJANGO_SETTINGS_MODULE', '')
-default_db_engine = (
-    'django.db.backends.postgresql'
-    if db_settings_module.endswith('production')
-    else 'django.db.backends.sqlite3'
-)
+def _database_from_url(database_url):
+    parsed_url = urlparse(database_url)
+    if parsed_url.scheme in ('sqlite', 'sqlite3'):
+        database_path = parsed_url.path.lstrip('/') or ':memory:'
+        if database_path != ':memory:':
+            database_path = BASE_DIR / database_path
+        return {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': database_path,
+            }
+        }
 
-# Database (SQLite for local development, PostgreSQL for production)
-if config('DB_ENGINE', default=default_db_engine) == 'django.db.backends.sqlite3':
+    if parsed_url.scheme in ('postgres', 'postgresql'):
+        return {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': parsed_url.path.lstrip('/'),
+                'USER': unquote(parsed_url.username or ''),
+                'PASSWORD': unquote(parsed_url.password or ''),
+                'HOST': parsed_url.hostname or '',
+                'PORT': parsed_url.port or '5432',
+                'OPTIONS': {
+                    'connect_timeout': 10,
+                    'sslmode': 'require' if parsed_url.query else 'prefer',
+                },
+            }
+        }
+
+    return None
+
+
+database_url = config('DATABASE_URL', default='').strip()
+db_engine = config('DB_ENGINE', default='').strip()
+
+# Database configuration prefers DATABASE_URL and only uses PostgreSQL when it is
+# explicitly selected. Otherwise we fall back to SQLite to avoid localhost leaks.
+DATABASES = _database_from_url(database_url) if database_url else None
+
+if DATABASES is None and db_engine == 'django.db.backends.sqlite3':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-else:
+elif DATABASES is None and db_engine == 'django.db.backends.postgresql' and all(
+    config(name, default='').strip()
+    for name in ('DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST')
+):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -100,6 +135,13 @@ else:
                 'connect_timeout': 10,
                 'sslmode': config('DB_SSLMODE', default='prefer'),
             },
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
 

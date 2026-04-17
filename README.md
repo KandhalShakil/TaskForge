@@ -130,6 +130,8 @@ VITE_PUSHER_CLUSTER=your-pusher-cluster
 
 Use the matching `.env.example` files as the source of truth for required variable names.
 
+For production PostgreSQL, set either `DATABASE_URL` or `DB_ENGINE=django.db.backends.postgresql` with the matching `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DB_HOST` values. If no production database is configured, the app safely falls back to SQLite.
+
 ## Important API Endpoints
 
 ### Auth
