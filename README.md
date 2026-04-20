@@ -418,9 +418,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 💬 Support & Contact
 
 - 💡 **Issues:** Report bugs and request features via [GitHub Issues](../../issues)
+<<<<<<< HEAD
 - 📧 **Email:** support@taskforge.com
 - 🐦 **Twitter:** [@TaskForgeApp](https://twitter.com/taskforgeapp)
 - 💼 **LinkedIn:** [TaskForge Team](https://linkedin.com/company/taskforge)
+=======
+- 📧 **Email:** kandhalshakil@gmail.com 
+>>>>>>> 253fc03610d4ffa62b855e4953137350e4badb7d
 
 ---
 
