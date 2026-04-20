@@ -46,8 +46,8 @@ export default function Header({ onMenuClick, onSearchClick }) {
   const breadcrumbs = getBreadcrumbs()
 
   return (
-    <header className="h-14 bg-surface-900 border-b border-slate-800 flex items-center justify-between px-4 lg:px-6 flex-shrink-0">
-      <div className="flex items-center gap-3">
+    <header className="h-14 bg-surface-900 border-b border-slate-800 flex items-center justify-between px-3 sm:px-4 lg:px-6 flex-shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {/* Mobile Menu Toggle */}
         <button 
           onClick={onMenuClick}
@@ -57,24 +57,24 @@ export default function Header({ onMenuClick, onSearchClick }) {
         </button>
 
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm overflow-hidden truncate">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-sm overflow-hidden truncate min-w-0">
           {breadcrumbs.map((crumb, i) => (
-            <span key={i} className="flex items-center gap-2 flex-shrink-0 animate-in slide-in-from-left-2 duration-300">
+            <span key={i} className="flex items-center gap-2 flex-shrink min-w-0 animate-in slide-in-from-left-2 duration-300">
               {i > 0 && <span className="text-slate-700 font-bold">/</span>}
               {crumb.to ? (
                 <Link 
                   to={crumb.to} 
-                  className="text-slate-500 hover:text-slate-200 transition-all font-medium hover:bg-surface-800 px-2 py-1 rounded-lg"
+                  className="text-slate-500 hover:text-slate-200 transition-all font-medium hover:bg-surface-800 px-2 py-1 rounded-lg truncate max-w-[9rem] sm:max-w-none"
                 >
                   {crumb.label}
                 </Link>
               ) : (
-                <span className="text-slate-100 font-bold px-2 py-1">{crumb.label}</span>
+                <span className="text-slate-100 font-bold px-2 py-1 truncate max-w-[10rem] sm:max-w-none">{crumb.label}</span>
               )}
             </span>
           ))}
           {isViewer && (
-            <span className="ml-2 badge bg-slate-800 text-slate-400 text-[10px] uppercase tracking-wider px-2 py-0.5 border border-slate-700/50">
+            <span className="hidden sm:inline-flex ml-2 badge bg-slate-800 text-slate-400 text-[10px] uppercase tracking-wider px-2 py-0.5 border border-slate-700/50">
               Read Only
             </span>
           )}
@@ -82,7 +82,7 @@ export default function Header({ onMenuClick, onSearchClick }) {
       </div>
 
       {/* Right actions */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 pl-2">
         {/* TaskForge Badge/Button - Hidden on Mobile */}
         <div className="hidden sm:flex items-center gap-2.5 bg-surface-800/50 border border-slate-700/50 hover:border-slate-600/50 hover:bg-surface-800 rounded-xl px-4 py-1.5 transition-all cursor-default group">
           <div className="p-1 rounded-lg bg-primary-500/10 group-hover:bg-primary-500/20 transition-colors">
@@ -91,9 +91,9 @@ export default function Header({ onMenuClick, onSearchClick }) {
           <span className="font-bold text-base text-white tracking-tight">TaskForge</span>
         </div>
 
-        <div 
+        <div
           onClick={onSearchClick}
-          className="flex items-center gap-3 border-l border-slate-800 pl-4 cursor-pointer group"
+          className="flex items-center gap-2 sm:gap-3 border-l border-slate-800 pl-2 sm:pl-4 cursor-pointer group"
         >
           <kbd className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-400 bg-surface-800 border border-slate-700 rounded-lg shadow-sm group-hover:border-primary-500/50 group-hover:text-slate-200 transition-all">
             <Command size={12} className="text-slate-500 group-hover:text-primary-400" />
@@ -108,7 +108,7 @@ export default function Header({ onMenuClick, onSearchClick }) {
           {invitations.length > 0 && (
             <button 
               onClick={() => setShowInvitations(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-600/10 text-primary-400 hover:bg-primary-600/20 transition-all border border-primary-500/20 shadow-lg shadow-primary-900/10 animate-fade-in"
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-600/10 text-primary-400 hover:bg-primary-600/20 transition-all border border-primary-500/20 shadow-lg shadow-primary-900/10 animate-fade-in"
             >
               <Mail size={14} />
               <span className="text-xs font-bold">{invitations.length} Invites</span>

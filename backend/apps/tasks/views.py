@@ -1,40 +1,63 @@
-from rest_framework import generics, status, filters
+import uuid
+
+from django.utils import timezone
+from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+
 from apps.core.permissions import IsWorkspaceMemberOrAdmin
-from django.shortcuts import get_object_or_404
-from django.db.models import Count
-from django.utils import timezone
-from django_filters.rest_framework import DjangoFilterBackend
-import django_filters
-from apps.workspaces.models import WorkspaceMember
-from .models import Task, Category, Comment, SubTask
+from apps.core.validation import normalize_datetime
+from apps.workspaces.documents import WorkspaceMemberDocument
+
+from .documents import CategoryDocument, CommentDocument, SubTaskDocument, TaskDocument
 from .serializers import (
-    TaskSerializer, TaskListSerializer, CategorySerializer,
-    CommentSerializer, BulkUpdateTaskSerializer , SubTaskSerializer
+    BulkUpdateTaskSerializer,
+    CategorySerializer,
+    CommentSerializer,
+    SubTaskSerializer,
+    TaskListSerializer,
+    TaskSerializer,
 )
 
 
+def _member_workspace_ids(user_id):
+    return [
+        m.workspaceId
+        for m in WorkspaceMemberDocument.objects(userId=str(user_id), status='accepted')
+    ]
+
+
+def _can_access_task(user_id, task):
+    if not task:
+        return False
+    return WorkspaceMemberDocument.objects(
+        workspaceId=str(task.workspaceId),
+        userId=str(user_id),
+        status='accepted',
+    ).first() is not None
+
+
 def resolve_task_node(node_id, user=None):
-    task_query = Task.objects.all()
-    subtask_query = SubTask.objects.select_related('task', 'parent')
-
-    if user is not None:
-        task_query = task_query.filter(
-            workspace__members__user=user,
-            workspace__members__status=WorkspaceMember.Status.ACCEPTED,
-        )
-        subtask_query = subtask_query.filter(
-            task__workspace__members__user=user,
-            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED,
-        )
-
-    task = task_query.filter(id=node_id).first()
+    task = TaskDocument.objects(id=str(node_id)).first()
     if task:
-        return task
-    return subtask_query.filter(id=node_id).first()
+        if user is None or _can_access_task(user.id, task):
+            return task
+        return None
+
+    subtask = SubTaskDocument.objects(id=str(node_id)).first()
+    if not subtask:
+        return None
+
+    task = TaskDocument.objects(id=str(subtask.taskId)).first()
+    if not task:
+        return None
+
+    if user is not None and not _can_access_task(user.id, task):
+        return None
+    return subtask
+
 
 class SubTaskListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
@@ -43,97 +66,71 @@ class SubTaskListCreateView(generics.ListCreateAPIView):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         task_id = self.kwargs['task_id']
-        node = get_object_or_404(
-            Task.objects.filter(
-                workspace__members__user=self.request.user,
-                workspace__members__status=WorkspaceMember.Status.ACCEPTED
-            ),
-            id=task_id,
-        ) if Task.objects.filter(id=task_id).exists() else get_object_or_404(
-            SubTask.objects.select_related('task'),
-            id=task_id,
-            task__workspace__members__user=self.request.user,
-            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED,
-        )
-        context['task'] = node if isinstance(node, Task) else node.task
+        node = resolve_task_node(task_id, self.request.user)
+        if node is None:
+            raise ValidationError({'task_id': 'Task or subtask context not found.'})
+
+        if isinstance(node, TaskDocument):
+            context['task'] = node
+        else:
+            context['task'] = TaskDocument.objects(id=str(node.taskId)).first()
         return context
 
     def get_queryset(self):
         task_id = self.kwargs['task_id']
         node = resolve_task_node(task_id, self.request.user)
         if node is None:
-            return SubTask.objects.none()
+            return SubTaskDocument.objects(id='__none__')
 
-        task_id_value = node.id if isinstance(node, Task) else node.task_id
-        parent_filter = {'parent__isnull': True} if isinstance(node, Task) else {'parent_id': node.id}
+        if isinstance(node, TaskDocument):
+            return SubTaskDocument.objects(taskId=str(node.id), parentId__in=[None, '']).order_by('order', 'created_at')
 
-        return SubTask.objects.filter(
-            task_id=task_id_value,
-            task__workspace__members__user=self.request.user,
-            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED,
-            **parent_filter,
-        ).select_related('task', 'assignee', 'category').prefetch_related('children__assignee', 'children__category')
-        
-        
+        return SubTaskDocument.objects(taskId=str(node.taskId), parentId=str(node.id)).order_by('order', 'created_at')
+
     def perform_create(self, serializer):
         task_id = self.kwargs['task_id']
         node = resolve_task_node(task_id, self.request.user)
         if node is None:
             raise ValidationError({'task_id': 'Task or subtask context not found.'})
 
-        task = node if isinstance(node, Task) else node.task
+        if isinstance(node, TaskDocument):
+            task = node
+            parent_id = serializer.validated_data.get('parentId')
+        else:
+            task = TaskDocument.objects(id=str(node.taskId)).first()
+            parent_id = serializer.validated_data.get('parentId') or str(node.id)
 
-        parent = serializer.validated_data.get('parent')
-        if parent is None and isinstance(node, SubTask):
-            parent = node
+        if not task:
+            raise ValidationError({'task_id': 'Task not found.'})
 
-        if parent is not None and parent.task_id != task.id:
-            raise ValidationError({'parent_id': 'Parent subtask must belong to the same task.'})
+        if parent_id:
+            parent = SubTaskDocument.objects(id=str(parent_id)).first()
+            if not parent or str(parent.taskId) != str(task.id):
+                raise ValidationError({'parent_id': 'Parent subtask must belong to the same task.'})
 
-        serializer.save(task=task)
-        
+        payload = dict(serializer.validated_data)
+        payload['taskId'] = str(task.id)
+        payload['parentId'] = parent_id
+        subtask = SubTaskDocument(id=str(uuid.uuid4()), **payload)
+        subtask.save()
+
+
 class SubTaskDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = SubTaskSerializer
-    
+    lookup_field = 'id'
+    lookup_url_kwarg = 'pk'
+
     def get_queryset(self):
-        return SubTask.objects.filter(
-            task__workspace__members__user=self.request.user,
-            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        ).select_related('task', 'parent', 'assignee', 'category').prefetch_related('children__assignee', 'children__category')
-        
-        
-class TaskFilter(django_filters.FilterSet):
-    status = django_filters.CharFilter(field_name='status')
-    priority = django_filters.CharFilter(field_name='priority')
-    assignee = django_filters.UUIDFilter(field_name='assignee__id')
-    category = django_filters.UUIDFilter(field_name='category__id')
-    project = django_filters.UUIDFilter(field_name='project__id')
-    workspace = django_filters.UUIDFilter(field_name='workspace__id')
-    due_date_from = django_filters.DateFilter(field_name='due_date', lookup_expr='gte')
-    due_date_to = django_filters.DateFilter(field_name='due_date', lookup_expr='lte')
-    overdue = django_filters.BooleanFilter(method='filter_overdue')
-
-    def filter_overdue(self, queryset, name, value):
-        today = timezone.now().date()
-        if value:
-            return queryset.filter(
-                due_date__lt=today
-            ).exclude(status__in=['done', 'cancelled'])
-        return queryset
-
-    class Meta:
-        model = Task
-        fields = ['status', 'priority', 'assignee', 'category', 'project', 'workspace']
+        task_ids = [
+            str(task.id)
+            for task in TaskDocument.objects(workspaceId__in=_member_workspace_ids(self.request.user.id)).only('id')
+        ]
+        return SubTaskDocument.objects(taskId__in=task_ids)
 
 
 class TaskListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_class = TaskFilter
-    search_fields = ['title', 'description']
-    ordering_fields = ['created_at', 'updated_at', 'due_date', 'priority', 'order']
-    ordering = ['order', '-created_at']
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -141,103 +138,100 @@ class TaskListCreateView(generics.ListCreateAPIView):
         return TaskSerializer
 
     def get_queryset(self):
-        return Task.objects.filter(
-            workspace__members__user=self.request.user,
-            workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        ).select_related(
-            'assignee', 'created_by', 'category', 'project', 'workspace'
-        ).prefetch_related('comments__author').distinct()
+        qs = TaskDocument.objects(workspaceId__in=_member_workspace_ids(self.request.user.id))
+
+        workspace_id = self.request.query_params.get('workspace')
+        if workspace_id:
+            qs = qs.filter(workspaceId=str(workspace_id))
+
+        project_id = self.request.query_params.get('project')
+        if project_id:
+            qs = qs.filter(projectId=str(project_id))
+
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        priority_filter = self.request.query_params.get('priority')
+        if priority_filter:
+            qs = qs.filter(priority=priority_filter)
+
+        return qs.order_by('order', '-created_at')
 
 
 class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = TaskSerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'pk'
 
     def get_queryset(self):
-        return Task.objects.filter(
-            workspace__members__user=self.request.user,
-            workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        ).select_related('assignee', 'created_by', 'category', 'project', 'workspace').prefetch_related(
-            'subtasks__assignee',
-            'subtasks__category',
-            'subtasks__children__assignee',
-            'subtasks__children__category',
-        )
+        return TaskDocument.objects(workspaceId__in=_member_workspace_ids(self.request.user.id))
 
 
 class TaskBulkUpdateView(APIView):
-    """Bulk update task status/order — for Kanban drag-and-drop."""
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
 
     def patch(self, request):
         serializer = BulkUpdateTaskSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         updated = serializer.update_tasks()
-        return Response(
-            TaskListSerializer(updated, many=True).data,
-            status=status.HTTP_200_OK
-        )
+        return Response(TaskListSerializer(updated, many=True).data, status=status.HTTP_200_OK)
 
 
 class TaskStatsView(APIView):
-    """Analytics endpoint: task counts by status, priority, overdue."""
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
 
     def get(self, request):
         workspace_id = request.query_params.get('workspace')
         project_id = request.query_params.get('project')
 
-        qs = Task.objects.filter(
-            workspace__members__user=request.user,
-            workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        )
+        qs = TaskDocument.objects(workspaceId__in=_member_workspace_ids(request.user.id))
 
         if workspace_id:
-            qs = qs.filter(workspace_id=workspace_id)
+            qs = qs.filter(workspaceId=str(workspace_id))
         if project_id:
-            qs = qs.filter(project_id=project_id)
+            qs = qs.filter(projectId=str(project_id))
 
-        today = timezone.now().date()
+        tasks = list(qs)
+        today = timezone.now()
 
-        status_counts = {
-            item['status']: item['count']
-            for item in qs.values('status').annotate(count=Count('id'))
-        }
+        status_counts = {}
+        priority_counts = {}
+        overdue_count = 0
+        daily_map = {}
 
-        priority_counts = {
-            item['priority']: item['count']
-            for item in qs.values('priority').annotate(count=Count('id'))
-        }
+        cutoff = timezone.now() - timezone.timedelta(days=30)
+        for task in tasks:
+            status_counts[task.status] = status_counts.get(task.status, 0) + 1
+            priority_counts[task.priority] = priority_counts.get(task.priority, 0) + 1
 
-        overdue_count = qs.filter(
-            due_date__lt=today
-        ).exclude(status__in=['done', 'cancelled']).count()
+            due_date = normalize_datetime(task.due_date)
+            created_at = normalize_datetime(task.created_at)
 
-        total = qs.count()
+            if due_date and due_date < today and task.status not in ('done', 'cancelled'):
+                overdue_count += 1
+
+            if created_at and created_at >= cutoff:
+                key = created_at.date().isoformat()
+                daily_map[key] = daily_map.get(key, 0) + 1
+
+        total = len(tasks)
         completed = status_counts.get('done', 0)
         completion_rate = round((completed / total * 100), 1) if total > 0 else 0
 
-        # Tasks created per day for the last 30 days
-        from django.db.models.functions import TruncDate
-        daily_created = list(
-            qs.filter(
-                created_at__gte=timezone.now() - timezone.timedelta(days=30)
-            ).annotate(date=TruncDate('created_at'))
-            .values('date')
-            .annotate(count=Count('id'))
-            .order_by('date')
+        return Response(
+            {
+                'total': total,
+                'completion_rate': completion_rate,
+                'overdue': overdue_count,
+                'by_status': status_counts,
+                'by_priority': priority_counts,
+                'daily_created': [
+                    {'date': date_str, 'count': daily_map[date_str]} for date_str in sorted(daily_map.keys())
+                ],
+            }
         )
-
-        return Response({
-            'total': total,
-            'completion_rate': completion_rate,
-            'overdue': overdue_count,
-            'by_status': status_counts,
-            'by_priority': priority_counts,
-            'daily_created': [
-                {'date': str(d['date']), 'count': d['count']} for d in daily_created
-            ],
-        })
 
 
 class CategoryListCreateView(generics.ListCreateAPIView):
@@ -245,25 +239,21 @@ class CategoryListCreateView(generics.ListCreateAPIView):
     serializer_class = CategorySerializer
 
     def get_queryset(self):
-        qs = Category.objects.filter(
-            workspace__members__user=self.request.user,
-            workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        )
+        qs = CategoryDocument.objects(workspaceId__in=_member_workspace_ids(self.request.user.id))
         workspace_id = self.request.query_params.get('workspace')
         if workspace_id:
-            qs = qs.filter(workspace_id=workspace_id)
+            qs = qs.filter(workspaceId=str(workspace_id))
         return qs
 
 
 class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = CategorySerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'pk'
 
     def get_queryset(self):
-        return Category.objects.filter(
-            workspace__members__user=self.request.user,
-            workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        )
+        return CategoryDocument.objects(workspaceId__in=_member_workspace_ids(self.request.user.id))
 
 
 class CommentListCreateView(generics.ListCreateAPIView):
@@ -272,44 +262,56 @@ class CommentListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         task_id = self.kwargs['task_id']
-        return Comment.objects.filter(
-            task_id=task_id,
-            task__workspace__members__user=self.request.user,
-            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        ).select_related('author')
+        task = TaskDocument.objects(id=str(task_id)).first()
+        if not _can_access_task(self.request.user.id, task):
+            return CommentDocument.objects(id='__none__')
+        return CommentDocument.objects(taskId=str(task_id)).order_by('created_at')
 
     def perform_create(self, serializer):
         task_id = self.kwargs['task_id']
-        task = get_object_or_404(
-            Task,
-            id=task_id,
-            workspace__members__user=self.request.user,
-            workspace__members__status=WorkspaceMember.Status.ACCEPTED
+        task = TaskDocument.objects(id=str(task_id)).first()
+        if not task or not _can_access_task(self.request.user.id, task):
+            raise ValidationError({'task_id': 'Task not found.'})
+
+        comment = CommentDocument(
+            id=str(uuid.uuid4()),
+            taskId=str(task.id),
+            authorId=str(self.request.user.id),
+            content=serializer.validated_data['content'],
         )
-        serializer.save(task=task, author=self.request.user)
+        comment.save()
 
 
 class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = CommentSerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'pk'
 
     def get_queryset(self):
-        return Comment.objects.filter(
-            task__workspace__members__user=self.request.user,
-            task__workspace__members__status=WorkspaceMember.Status.ACCEPTED
-        )
+        task_ids = [
+            str(task.id)
+            for task in TaskDocument.objects(workspaceId__in=_member_workspace_ids(self.request.user.id)).only('id')
+        ]
+        return CommentDocument.objects(taskId__in=task_ids)
 
     def destroy(self, request, *args, **kwargs):
         comment = self.get_object()
-        # Admin check
-        is_admin = WorkspaceMember.objects.filter(
-            workspace=comment.task.workspace,
-            user=request.user,
-            role=WorkspaceMember.Role.ADMIN,
-            status=WorkspaceMember.Status.ACCEPTED
-        ).exists()
-        
-        if comment.author != request.user and not is_admin:
-            return Response({'error': 'Only the author or a workspace admin can delete this comment.'}, status=status.HTTP_403_FORBIDDEN)
+        task = TaskDocument.objects(id=str(comment.taskId)).first()
+        if not task:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        is_admin = WorkspaceMemberDocument.objects(
+            workspaceId=str(task.workspaceId),
+            userId=str(request.user.id),
+            role='admin',
+            status='accepted',
+        ).first()
+
+        if str(comment.authorId) != str(request.user.id) and not is_admin:
+            return Response(
+                {'error': 'Only the author or a workspace admin can delete this comment.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         comment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -20,7 +20,13 @@ export default function Sidebar({ isOpen, onClose }) {
 
   const { user, logout } = useAuthStore()
   const { workspaces, activeWorkspace, fetchWorkspaces, setActiveWorkspace, getUserRole } = useWorkspaceStore()
-  const { hierarchy, fetchHierarchy } = useProjectStore()
+  const {
+    hierarchy,
+    folderProjects,
+    folderProjectsLoading,
+    fetchHierarchy,
+    fetchProjectsByFolder,
+  } = useProjectStore()
 
   const userRole = getUserRole(user?.id)
   const isViewer = userRole === 'viewer'
@@ -32,6 +38,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const [showFolderModal, setShowFolderModal] = useState(false)
   const [showProjectModal, setShowProjectModal] = useState(false)
   const [selectedSpaceIdForCreate, setSelectedSpaceIdForCreate] = useState(null)
+  const [selectedFolderIdForCreate, setSelectedFolderIdForCreate] = useState(null)
   const [workspacesExpanded, setWorkspacesExpanded] = useState(true)
   const [spacesExpanded, setSpacesExpanded] = useState(true)
   const [expandedSpaces, setExpandedSpaces] = useState({})
@@ -49,12 +56,49 @@ export default function Sidebar({ isOpen, onClose }) {
     }
   }, [activeWorkspace?.id])
 
+  useEffect(() => {
+    if (!activeWorkspace?.id || hierarchy.length === 0) {
+      return
+    }
+
+    hierarchy.forEach((space) => {
+      ;(space.folders || []).forEach((folder) => {
+        const isOpen = expandedFolders[folder.id] ?? true
+        const hasCache = Array.isArray(folderProjects[folder.id])
+        const isLoading = Boolean(folderProjectsLoading[folder.id])
+
+        if (isOpen && !hasCache && !isLoading) {
+          fetchProjectsByFolder({
+            workspaceId: activeWorkspace.id,
+            folderId: folder.id,
+            debug: import.meta.env.DEV,
+          }).catch(() => {
+            // Keep graceful UI fallback to hierarchy data when folder fetch fails.
+          })
+        }
+      })
+    })
+  }, [activeWorkspace?.id, hierarchy, expandedFolders, folderProjects, folderProjectsLoading])
+
   const toggleSpaceExpanded = (spaceId) => {
     setExpandedSpaces((prev) => ({ ...prev, [spaceId]: !prev[spaceId] }))
   }
 
-  const toggleFolderExpanded = (folderId) => {
-    setExpandedFolders((prev) => ({ ...prev, [folderId]: !prev[folderId] }))
+  const toggleFolderExpanded = async (folderId) => {
+    const willOpen = !(expandedFolders[folderId] ?? true)
+    setExpandedFolders((prev) => ({ ...prev, [folderId]: willOpen }))
+
+    if (willOpen && activeWorkspace?.id) {
+      try {
+        await fetchProjectsByFolder({
+          workspaceId: activeWorkspace.id,
+          folderId,
+          debug: import.meta.env.DEV,
+        })
+      } catch {
+        // Keep graceful UI fallback to hierarchy data when folder fetch fails.
+      }
+    }
   }
 
   const handleHierarchyRefresh = async () => {
@@ -247,9 +291,9 @@ export default function Sidebar({ isOpen, onClose }) {
 
                     return (
                       <div key={space.id} className="space-y-1">
-                        <button
+                        <div
                           onClick={() => toggleSpaceExpanded(space.id)}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-surface-800 transition-colors"
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-surface-800 transition-colors cursor-pointer"
                         >
                           {isSpaceOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                           <span>{space.icon || '🧭'}</span>
@@ -278,7 +322,7 @@ export default function Sidebar({ isOpen, onClose }) {
                               </button>
                             </div>
                           )}
-                        </button>
+                        </div>
 
                         {isSpaceOpen && (
                           <div className="pl-6 space-y-1">
@@ -303,13 +347,15 @@ export default function Sidebar({ isOpen, onClose }) {
 
                             {folders.map((folder) => {
                               const isFolderOpen = expandedFolders[folder.id] ?? true
-                              const folderLists = folder.lists || []
+                              const fallbackFolderLists = folder.lists || folder.projects || []
+                              const folderLists = folderProjects[folder.id] || fallbackFolderLists
+                              const isFolderLoading = Boolean(folderProjectsLoading[folder.id])
 
                               return (
                                 <div key={folder.id} className="space-y-1">
-                                  <button
+                                  <div
                                     onClick={() => toggleFolderExpanded(folder.id)}
-                                    className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:text-slate-100 hover:bg-surface-800 transition-colors"
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:text-slate-100 hover:bg-surface-800 transition-colors cursor-pointer"
                                   >
                                     {isFolderOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                                     <span>{folder.icon || '🗂️'}</span>
@@ -319,6 +365,7 @@ export default function Sidebar({ isOpen, onClose }) {
                                         onClick={(e) => {
                                           e.stopPropagation()
                                           setSelectedSpaceIdForCreate(space.id)
+                                          setSelectedFolderIdForCreate(folder.id)
                                           setShowProjectModal(true)
                                         }}
                                         className="ml-auto p-1 rounded text-slate-500 hover:text-slate-200 hover:bg-surface-700"
@@ -327,10 +374,17 @@ export default function Sidebar({ isOpen, onClose }) {
                                         <Hash size={12} />
                                       </button>
                                     )}
-                                  </button>
+                                  </div>
 
                                   {isFolderOpen && (
                                     <div className="pl-6 space-y-1">
+                                      {isFolderLoading && (
+                                        <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-500">
+                                          <Loader2 size={12} className="animate-spin" />
+                                          <span>Loading lists...</span>
+                                        </div>
+                                      )}
+
                                       {folderLists.map((list) => {
                                         const listPath = `/workspaces/${activeWorkspace.id}/projects/${list.id}`
                                         return (
@@ -349,7 +403,8 @@ export default function Sidebar({ isOpen, onClose }) {
                                           </Link>
                                         )
                                       })}
-                                      {folderLists.length === 0 && (
+
+                                      {!isFolderLoading && folderLists.length === 0 && (
                                         <div className="text-xs text-slate-600 px-3 py-1.5 italic">No lists</div>
                                       )}
                                     </div>
@@ -416,8 +471,12 @@ export default function Sidebar({ isOpen, onClose }) {
       {showProjectModal && activeWorkspace && (
         <CreateProjectModal
           workspace={activeWorkspace}
+          defaultSpaceId={selectedSpaceIdForCreate}
+          defaultFolderId={selectedFolderIdForCreate}
           onClose={() => {
             setShowProjectModal(false)
+            setSelectedSpaceIdForCreate(null)
+            setSelectedFolderIdForCreate(null)
             handleHierarchyRefresh()
           }}
         />

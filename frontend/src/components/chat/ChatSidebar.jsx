@@ -8,13 +8,14 @@ export default function ChatSidebar({
   activeTaskRoom,
   onSelectThread,
   onStartDirectMessage,
+  className = '',
 }) {
   const workspaceThread = threads.find((thread) => thread.chatType === 'workspace')
   const taskThread = threads.find((thread) => thread.chatType === 'task') || (activeTaskRoom ? { roomId: activeTaskRoom, chatType: 'task', title: 'Task chat', subtitle: 'Current task' } : null)
   const directThreads = threads.filter((thread) => thread.chatType === 'direct')
 
   return (
-    <aside className="flex w-full shrink-0 flex-col border-r border-slate-800 bg-surface-950/95 lg:w-80">
+    <aside className={`w-full shrink-0 flex-col border-r border-slate-800 bg-surface-950/95 lg:w-80 ${className}`}>
       <div className="border-b border-slate-800 px-5 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary-500/20 bg-primary-500/10 text-2xl">

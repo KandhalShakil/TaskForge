@@ -1,22 +1,11 @@
-from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from django_mongoengine import mongo_admin
+from django_mongoengine.mongo_admin import DocumentAdmin
+
+from .documents import UserDocument
 
 
-@admin.register(User)
-class UserAdmin(BaseUserAdmin):
-    list_display = ['email', 'full_name', 'is_active', 'is_staff', 'date_joined']
-    list_filter = ['is_active', 'is_staff']
+@mongo_admin.register(UserDocument)
+class UserDocumentAdmin(DocumentAdmin):
+    list_display = ['email', 'full_name', 'user_type', 'is_active', 'is_staff', 'date_joined']
+    list_filter = ['user_type', 'is_active', 'is_staff']
     search_fields = ['email', 'full_name']
-    ordering = ['-date_joined']
-    fieldsets = (
-        (None, {'fields': ('email', 'password')}),
-        ('Personal Info', {'fields': ('full_name', 'avatar')}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-    )
-    add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            'fields': ('email', 'full_name', 'password1', 'password2'),
-        }),
-    )

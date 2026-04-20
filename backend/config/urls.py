@@ -1,10 +1,10 @@
-from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django_mongoengine import mongo_admin
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('admin/', mongo_admin.site.urls),
     path('api/auth/', include('apps.users.urls')),
     path('api/workspaces/', include('apps.workspaces.urls')),
     path('api/projects/', include('apps.projects.urls')),

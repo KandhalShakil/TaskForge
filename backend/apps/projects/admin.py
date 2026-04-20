@@ -1,29 +1,31 @@
-from django.contrib import admin
-from .models import Project, ProjectMember, Space, Folder
+from django_mongoengine import mongo_admin
+from django_mongoengine.mongo_admin import DocumentAdmin
+
+from .documents import FolderDocument, ProjectDocument, ProjectMemberDocument, SpaceDocument
 
 
-@admin.register(Space)
-class SpaceAdmin(admin.ModelAdmin):
-    list_display = ['name', 'workspace', 'order', 'created_at']
-    list_filter = ['workspace']
-    search_fields = ['name', 'workspace__name']
+@mongo_admin.register(SpaceDocument)
+class SpaceDocumentAdmin(DocumentAdmin):
+    list_display = ['name', 'workspaceId', 'order', 'created_at']
+    list_filter = ['workspaceId']
+    search_fields = ['name', 'workspaceId']
 
 
-@admin.register(Folder)
-class FolderAdmin(admin.ModelAdmin):
-    list_display = ['name', 'space', 'workspace', 'order', 'created_at']
-    list_filter = ['workspace', 'space']
-    search_fields = ['name', 'space__name', 'workspace__name']
+@mongo_admin.register(FolderDocument)
+class FolderDocumentAdmin(DocumentAdmin):
+    list_display = ['name', 'spaceId', 'workspaceId', 'order', 'created_at']
+    list_filter = ['workspaceId', 'spaceId']
+    search_fields = ['name', 'spaceId', 'workspaceId']
 
 
-@admin.register(Project)
-class ProjectAdmin(admin.ModelAdmin):
-    list_display = ['name', 'workspace', 'space', 'folder', 'owner', 'status', 'created_at']
-    list_filter = ['status', 'workspace', 'space']
-    search_fields = ['name', 'workspace__name', 'space__name', 'folder__name']
+@mongo_admin.register(ProjectDocument)
+class ProjectDocumentAdmin(DocumentAdmin):
+    list_display = ['name', 'workspaceId', 'spaceId', 'folderId', 'ownerId', 'status', 'created_at']
+    list_filter = ['status', 'workspaceId']
+    search_fields = ['name', 'workspaceId', 'spaceId', 'folderId']
 
 
-@admin.register(ProjectMember)
-class ProjectMemberAdmin(admin.ModelAdmin):
-    list_display = ['project', 'user', 'role', 'joined_at']
+@mongo_admin.register(ProjectMemberDocument)
+class ProjectMemberDocumentAdmin(DocumentAdmin):
+    list_display = ['projectId', 'userId', 'role', 'joined_at']
     list_filter = ['role']

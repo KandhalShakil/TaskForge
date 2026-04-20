@@ -11,8 +11,10 @@ import { useAuthStore } from '../../store/authStore'
 import ConfirmModal from '../common/ConfirmModal'
 import Button from '../common/Button'
 import SubtaskModal from './SubtaskModal'
+import CreateCategoryModal from './CreateCategoryModal'
 import { tasksAPI } from '../../api/tasks'
 import { stripHtml } from '../../utils/html'
+import { calculateTaskHoursLimit, extractApiError, validateTask } from '../../utils/validation'
 
 const makeTempKey = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -181,8 +183,11 @@ export default function TaskModal({ task, project, workspace, onClose }) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isLoadingSubtasks, setIsLoadingSubtasks] = useState(false)
   const [isSavingSubtasks, setIsSavingSubtasks] = useState(false)
+  const [formError, setFormError] = useState('')
+  const [showCreateCategory, setShowCreateCategory] = useState(false)
   const [subtaskEditor, setSubtaskEditor] = useState({ isOpen: false, subtask: null, parent: null })
   const [expandedSubtasks, setExpandedSubtasks] = useState({})
+  const [now, setNow] = useState(() => new Date())
   const isEditing = !!task
 
   const [subtasks, setSubtasks] = useState([])
@@ -191,7 +196,18 @@ export default function TaskModal({ task, project, workspace, onClose }) {
   const userRole = getUserRole(user?.id)
   const isViewer = userRole === 'viewer'
 
-  const { register, handleSubmit, control, watch, formState: { errors, isSubmitting } } = useForm({
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    setValue,
+    setError,
+    setFocus,
+    clearErrors,
+    formState: { errors, isSubmitting, isValid },
+  } = useForm({
+    mode: 'onChange',
     defaultValues: task ? {
       title: task.title,
       description: task.description,
@@ -209,6 +225,39 @@ export default function TaskModal({ task, project, workspace, onClose }) {
   })
 
   const startDate = watch('start_date')
+  const dueDate = watch('due_date')
+  const estimatedHours = watch('estimated_hours')
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(new Date())
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  const taskHoursLimit = useMemo(() => {
+    return calculateTaskHoursLimit({ start_date: startDate, due_date: dueDate }, now)
+  }, [startDate, dueDate, now])
+
+  const estimatedHoursValidationMessage = useMemo(() => {
+    if (!taskHoursLimit.limitHours && taskHoursLimit.isSameDay && !taskHoursLimit.isValidTimeSelection) {
+      return 'Invalid time selection'
+    }
+
+    if (taskHoursLimit.limitHours === null) return ''
+
+    const parsed = Number(estimatedHours)
+    if (!Number.isFinite(parsed) || parsed <= 0) return ''
+
+    if (parsed > taskHoursLimit.limitHours) {
+      return taskHoursLimit.isSameDay
+        ? 'Estimated hours cannot exceed remaining time today'
+        : 'Estimated hours cannot exceed task duration'
+    }
+
+    return ''
+  }, [estimatedHours, taskHoursLimit])
 
   useEffect(() => {
     let active = true
@@ -424,6 +473,20 @@ export default function TaskModal({ task, project, workspace, onClose }) {
 
   const onSubmit = async (data) => {
     try {
+      setFormError('')
+      clearErrors()
+
+      const validation = validateTask(data, { project, referenceDate: now })
+      if (!validation.isValid) {
+        setFormError(validation.generalError || 'All fields are required')
+        Object.entries(validation.errors).forEach(([field, message]) => {
+          setError(field, { type: 'manual', message })
+        })
+        const firstField = Object.keys(validation.errors)[0]
+        if (firstField) setFocus(firstField)
+        return
+      }
+
       const cleanedSubtasks = normalizeSubtasksForSave(subtasks)
 
       const payload = {
@@ -480,7 +543,9 @@ export default function TaskModal({ task, project, workspace, onClose }) {
       }
       onClose()
     } catch (err) {
-      toast.error('Failed to save task')
+      const message = extractApiError(err, 'Failed to save task')
+      setFormError(message)
+      toast.error(message)
     } finally {
       setIsSavingSubtasks(false)
     }
@@ -645,7 +710,12 @@ export default function TaskModal({ task, project, workspace, onClose }) {
           <button onClick={onClose} className="btn-ghost p-1.5"><X size={16} /></button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-4 sm:p-6 space-y-5">
+          {formError && (
+            <div className="rounded-lg border border-red-700/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+              {formError}
+            </div>
+          )}
           <div>
             <input
               className={`input text-base font-medium ${errors.title ? 'border-red-500' : ''}`}
@@ -664,15 +734,17 @@ export default function TaskModal({ task, project, workspace, onClose }) {
             <Controller
               name="description"
               control={control}
+              rules={{ required: 'Description is required' }}
               render={({ field }) => (
                 <div className={`bg-surface-900 border border-slate-700 rounded-lg overflow-hidden [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-slate-700 [&_.ql-toolbar]:bg-surface-800 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[150px] [&_.ql-editor]:text-sm [&_.ql-editor]:text-slate-200 [&_.ql-stroke]:stroke-slate-400 [&_.ql-fill]:fill-slate-400 [&_.ql-picker]:text-slate-400 ${isViewer ? '[&_.ql-toolbar]:hidden' : ''}`}>
                   <ReactQuill theme="snow" value={field.value || ''} onChange={field.onChange} placeholder="Add a formatted description..." readOnly={isViewer} />
                 </div>
               )}
             />
+            {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label flex items-center gap-1.5"><Flag size={12} /> Status</label>
               <select className="select" {...register('status')} disabled={isViewer}>
@@ -683,39 +755,50 @@ export default function TaskModal({ task, project, workspace, onClose }) {
             </div>
             <div>
               <label className="label flex items-center gap-1.5"><Flag size={12} /> Priority</label>
-              <select className="select" {...register('priority')} disabled={isViewer}>
+              <select className={`select ${errors.priority ? 'border-red-500' : ''}`} {...register('priority', { required: 'Priority is required' })} disabled={isViewer}>
                 {TASK_PRIORITIES.map((priorityItem) => (
                   <option key={priorityItem.value} value={priorityItem.value}>{priorityItem.icon} {priorityItem.label}</option>
                 ))}
               </select>
+              {errors.priority && <p className="text-red-400 text-xs mt-1">{errors.priority.message}</p>}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label flex items-center gap-1.5"><User size={12} /> Assignee</label>
-              <select className="select" {...register('assignee_id')} disabled={isViewer}>
+              <select className={`select ${errors.assignee_id ? 'border-red-500' : ''}`} {...register('assignee_id', { required: 'Assignee is required' })} disabled={isViewer}>
                 <option value="">Unassigned</option>
                 {members.map((member) => (
                   <option key={member.user.id} value={member.user.id}>{member.user.full_name}</option>
                 ))}
               </select>
+              {errors.assignee_id && <p className="text-red-400 text-xs mt-1">{errors.assignee_id.message}</p>}
             </div>
             <div>
               <label className="label flex items-center gap-1.5"><Tag size={12} /> Category</label>
-              <select className="select" {...register('category_id')} disabled={isViewer}>
-                <option value="">No category</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select className={`select ${errors.category_id ? 'border-red-500' : ''}`} {...register('category_id', { required: 'Category is required' })} disabled={isViewer}>
+                  <option value="">Select category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>{category.name}</option>
+                  ))}
+                </select>
+                {!isViewer && (
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setShowCreateCategory(true)} className="shrink-0 whitespace-nowrap">
+                    <Plus size={14} /> Add
+                  </Button>
+                )}
+              </div>
+              {errors.category_id && <p className="text-red-400 text-xs mt-1">{errors.category_id.message}</p>}
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="label flex items-center gap-1.5"><Calendar size={12} /> Start Date</label>
-              <input type="date" className="input" {...register('start_date')} disabled={isViewer} />
+              <input type="date" className={`input ${errors.start_date ? 'border-red-500' : ''}`} {...register('start_date', { required: 'Start date is required' })} disabled={isViewer} />
+              {errors.start_date && <p className="text-red-400 text-xs mt-1">{errors.start_date.message}</p>}
             </div>
             <div>
               <label className="label flex items-center gap-1.5"><Calendar size={12} /> Due Date</label>
@@ -723,9 +806,10 @@ export default function TaskModal({ task, project, workspace, onClose }) {
                 type="date"
                 className={`input ${errors.due_date ? 'border-red-500' : ''}`}
                 {...register('due_date', {
+                  required: 'End date is required',
                   validate: (value) => {
                     if (!value || !startDate) return true
-                    return value >= startDate || 'Due date cannot be earlier than start date'
+                    return value >= startDate || 'End date cannot be before start date'
                   },
                 })}
                 disabled={isViewer}
@@ -737,18 +821,46 @@ export default function TaskModal({ task, project, workspace, onClose }) {
               <input
                 type="number"
                 step="0.5"
-                min="0"
+                  min="0.5"
+                  max={taskHoursLimit.limitHours ?? undefined}
                 className={`input ${errors.estimated_hours ? 'border-red-500' : ''}`}
                 placeholder="0"
                 disabled={isViewer}
                 {...register('estimated_hours', {
+                  required: 'Estimated hours is required',
                   validate: (value) => {
                     if (value === '' || value === null || value === undefined) return true
                     const parsed = Number(value)
-                    return (Number.isFinite(parsed) && parsed >= 0) || 'Estimated hours must be a number greater than or equal to 0'
+                      if (!Number.isFinite(parsed) || parsed <= 0) {
+                        return 'Estimated hours must be a positive number'
+                      }
+
+                      if (taskHoursLimit.isSameDay && !taskHoursLimit.isValidTimeSelection) {
+                        return 'Invalid time selection'
+                      }
+
+                      if (taskHoursLimit.limitHours !== null && parsed > taskHoursLimit.limitHours) {
+                        return taskHoursLimit.isSameDay
+                          ? 'Estimated hours cannot exceed remaining time today'
+                          : 'Estimated hours cannot exceed task duration'
+                      }
+
+                      return true
                   },
                 })}
               />
+                {taskHoursLimit.limitHours !== null && (
+                  <p className={`text-xs mt-1 ${taskHoursLimit.isSameDay && !taskHoursLimit.isValidTimeSelection ? 'text-red-400' : 'text-slate-500'}`}>
+                    {taskHoursLimit.isSameDay && taskHoursLimit.isValidTimeSelection
+                      ? `You can only add up to ${taskHoursLimit.displayHours} hours today`
+                      : taskHoursLimit.isSameDay && !taskHoursLimit.isValidTimeSelection
+                        ? 'Invalid time selection'
+                        : `You can only add up to ${taskHoursLimit.displayHours} hours for this task`}
+                  </p>
+                )}
+                {estimatedHoursValidationMessage && !errors.estimated_hours && (
+                  <p className="text-red-400 text-xs mt-1">{estimatedHoursValidationMessage}</p>
+                )}
               {errors.estimated_hours && <p className="text-red-400 text-xs mt-1">{errors.estimated_hours.message}</p>}
             </div>
           </div>
@@ -783,23 +895,23 @@ export default function TaskModal({ task, project, workspace, onClose }) {
             )}
           </div>
 
-          <div className="text-xs text-slate-500 flex items-center gap-3">
+          <div className="text-xs text-slate-500 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
             {project && <span>Project: {project.name}</span>}
             <span>Workspace: {workspace.name}</span>
           </div>
 
-          <div className="flex gap-3 pt-2 border-t border-slate-800 items-center justify-between">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2 border-t border-slate-800 items-stretch sm:items-center justify-between">
             {isEditing && !isViewer && (
               <Button
                 type="button"
                 variant="ghost"
                 onClick={handleDeleteClick}
-                className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded transition-all"
+                className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded transition-all self-start"
                 title="Delete Task"
                 icon={Trash2}
               />
             )}
-            <div className="flex items-center gap-3 ml-auto flex-1 max-w-[280px]">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 ml-auto w-full sm:w-auto sm:flex-1 sm:max-w-[360px]">
               <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
                 {isViewer ? 'Close' : 'Cancel'}
               </Button>
@@ -807,6 +919,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
                 <Button
                   type="submit"
                   loading={isSubmitting || isSavingSubtasks}
+                  disabled={!isValid}
                   loadingText={isEditing ? 'Saving...' : 'Creating...'}
                   className="flex-1"
                 >
@@ -829,12 +942,22 @@ export default function TaskModal({ task, project, workspace, onClose }) {
         isLoading={isDeleting}
       />
 
+      <CreateCategoryModal
+        isOpen={showCreateCategory}
+        onClose={() => setShowCreateCategory(false)}
+        workspaceId={workspace?.id}
+        onCreated={(category) => {
+          setValue('category_id', category.id, { shouldValidate: true, shouldDirty: true })
+        }}
+      />
+
       <SubtaskModal
         isOpen={subtaskEditor.isOpen}
         onClose={closeSubtaskEditor}
         onSave={saveSubtaskEditor}
         initialSubtask={subtaskEditor.subtask}
         parentLabel={subtaskEditor.parent?.title || (subtaskEditor.parent ? 'Nested task' : 'Root task')}
+        parentRange={subtaskEditor.parent || { start_date: startDate, due_date: dueDate }}
         members={members}
         categories={categories}
         isViewer={isViewer}

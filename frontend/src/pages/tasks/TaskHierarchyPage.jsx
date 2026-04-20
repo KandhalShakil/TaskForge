@@ -25,8 +25,15 @@ export default function TaskHierarchyPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
+
+  // Prevent repeated redirects
+  const [hasRedirected, setHasRedirected] = useState(false)
+
   useEffect(() => {
-    loadData()
+    if (!hasRedirected) {
+      loadData()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, projectId, taskId])
 
   const loadData = async () => {
@@ -61,17 +68,43 @@ export default function TaskHierarchyPage() {
       let resolvedType = 'task'
       let resolvedRootTask = null
 
+
       try {
-        const { data } = await tasksAPI.getTask(taskId)
-        resolvedNode = data
-        resolvedType = 'task'
-        resolvedRootTask = data
-      } catch {
-        const { data } = await tasksAPI.getSubtask(taskId)
-        resolvedNode = data
-        resolvedType = 'subtask'
-        const { data: taskData } = await tasksAPI.getTask(data.task)
-        resolvedRootTask = taskData
+        try {
+          const { data } = await tasksAPI.getTask(taskId)
+          resolvedNode = data
+          resolvedType = 'task'
+          resolvedRootTask = data
+        } catch (taskErr) {
+          // Task not found, try subtask
+          if (taskErr.response?.status === 404) {
+            try {
+              const { data } = await tasksAPI.getSubtask(taskId)
+              resolvedNode = data
+              resolvedType = 'subtask'
+              const { data: taskData } = await tasksAPI.getTask(data.task)
+              resolvedRootTask = taskData
+            } catch (subtaskErr) {
+              // Both task and subtask not found, redirect to project
+              if (subtaskErr.response?.status === 404) {
+                setError('Task not found. Redirecting to project...')
+                setHasRedirected(true)
+                setTimeout(() => {
+                  navigate(`/workspaces/${workspaceId}/projects/${projectId}`)
+                }, 1200)
+                return
+              }
+              throw subtaskErr
+            }
+          } else {
+            throw taskErr
+          }
+        }
+      } catch (err) {
+        console.error('Error loading task:', err)
+        setError('Failed to load task.')
+        setHasRedirected(true)
+        return
       }
 
       setNode(resolvedNode)
@@ -82,7 +115,7 @@ export default function TaskHierarchyPage() {
       const directChildren = childData?.results || childData || []
       setChildren(directChildren)
 
-      const trail = [{ id: projectId, title: proj?.name || 'Project', to: `/workspaces/${workspaceId}/projects/${projectId}/tasks` }]
+      const trail = [{ id: projectId, title: proj?.name || 'Project', to: `/workspaces/${workspaceId}/projects/${projectId}` }]
       if (resolvedRootTask) {
         trail.push({ id: resolvedRootTask.id, title: resolvedRootTask.title, to: `/workspaces/${workspaceId}/projects/${projectId}/tasks/${resolvedRootTask.id}` })
       }
@@ -95,8 +128,15 @@ export default function TaskHierarchyPage() {
           if (!cursor.parent) {
             break
           }
-          const { data: parentData } = await tasksAPI.getSubtask(cursor.parent)
-          cursor = parentData
+          try {
+            const { data: parentData } = await tasksAPI.getSubtask(cursor.parent)
+            cursor = parentData
+          } catch (parentErr) {
+            if (parentErr.response?.status === 404) {
+              break
+            }
+            throw parentErr
+          }
         }
         trail.push(...ancestors)
       }
@@ -131,12 +171,17 @@ export default function TaskHierarchyPage() {
       <div className="min-h-screen bg-surface-950 flex items-center justify-center p-6">
         <div className="text-center space-y-3 max-w-md">
           <div className="text-slate-200">{error || 'Task not found'}</div>
-          <button
-            onClick={() => navigate(`/workspaces/${workspaceId}/projects/${projectId}/tasks`)}
-            className="text-sm text-primary-300 hover:text-primary-200"
-          >
-            Go back to project dashboard
-          </button>
+          {!hasRedirected && (
+            <button
+              onClick={() => {
+                setHasRedirected(true)
+                navigate(`/workspaces/${workspaceId}/projects/${projectId}`)
+              }}
+              className="text-sm text-primary-300 hover:text-primary-200"
+            >
+              Go back to project dashboard
+            </button>
+          )}
         </div>
       </div>
     )

@@ -29,6 +29,7 @@ export default function ChatWindow({
   onBack,
   onStartDirectMessage,
   members = [],
+  className = '',
 }) {
   const [draft, setDraft] = useState('')
   const [attachment, setAttachment] = useState(null)
@@ -91,7 +92,7 @@ export default function ChatWindow({
   }, [subtitle, typingCount])
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col bg-surface-950">
+    <section className={`min-w-0 flex-1 flex-col bg-surface-950 ${className}`}>
       <header className="flex items-center justify-between gap-4 border-b border-slate-800 bg-surface-900/85 px-4 py-4 backdrop-blur">
         <div className="flex min-w-0 items-center gap-3">
           <button

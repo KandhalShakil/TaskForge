@@ -7,6 +7,7 @@ import { Layers, Eye, EyeOff, Loader2, Mail, ArrowLeft, RefreshCw } from 'lucide
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
 import { useEffect } from 'react'
+import { getApiErrorMessage } from '../../utils/apiError'
 
 const schema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -49,6 +50,7 @@ export default function RegisterPage() {
       email: '',
       password: '',
       password2: '',
+      user_type: 'employee',
     }
   })
 
@@ -72,11 +74,18 @@ export default function RegisterPage() {
       setTimer(60) // 1 minute resend timer
       toast.success(response.message || 'OTP sent to your email!')
     } catch (err) {
-      const errors_ = err.response?.data
-      if (errors_?.email) setError('email', { message: errors_.email[0] })
-      if (errors_?.password) setError('password', { message: errors_.password[0] })
-      if (errors_?.non_field_errors) setError('root', { message: errors_.non_field_errors[0] })
-      toast.error(errors_?.error || 'Registration failed. Please check your details.')
+      const errorData = err.response?.data || {}
+      const emailMessage = Array.isArray(errorData.email) ? errorData.email[0] : errorData.email
+      const passwordMessage = Array.isArray(errorData.password) ? errorData.password[0] : errorData.password
+      const nonFieldMessage = Array.isArray(errorData.non_field_errors)
+        ? errorData.non_field_errors[0]
+        : errorData.non_field_errors
+
+      if (emailMessage) setError('email', { message: emailMessage })
+      if (passwordMessage) setError('password', { message: passwordMessage })
+      if (nonFieldMessage) setError('root', { message: nonFieldMessage })
+
+      toast.error(getApiErrorMessage(err, 'Registration failed. Please check your details.'))
     }
   }
 
@@ -92,7 +101,7 @@ export default function RegisterPage() {
       toast.success('Account verified! Welcome to TaskForge 🚀')
       navigate('/workspaces')
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Verification failed. Please check the code.')
+      toast.error(getApiErrorMessage(err, 'Verification failed. Please check the code.'))
     }
   }
 
@@ -138,6 +147,7 @@ export default function RegisterPage() {
                   id="register-name"
                   type="text"
                   autoComplete="name"
+                  defaultValue=""
                   className={`input ${errors.full_name ? 'border-red-500' : ''}`}
                   placeholder="John Doe"
                   {...register('full_name')}
@@ -151,6 +161,7 @@ export default function RegisterPage() {
                   id="register-email"
                   type="email"
                   autoComplete="email"
+                  defaultValue=""
                   className={`input ${errors.email ? 'border-red-500' : ''}`}
                   placeholder="you@company.com"
                   {...register('email')}
@@ -165,6 +176,7 @@ export default function RegisterPage() {
                     id="register-password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
+                    defaultValue=""
                     className={`input pr-10 ${errors.password ? 'border-red-500' : ''}`}
                     placeholder="Min. 8 characters"
                     {...register('password')}
@@ -186,6 +198,7 @@ export default function RegisterPage() {
                   id="register-password2"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
+                  defaultValue=""
                   className={`input ${errors.password2 ? 'border-red-500' : ''}`}
                   placeholder="Repeat your password"
                   {...register('password2')}
@@ -204,7 +217,9 @@ export default function RegisterPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, user_type: 'employee' })}
+                    onClick={() => {
+                      setFormData((current) => ({ ...current, user_type: 'employee' }))
+                    }}
                     className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
                       formData.user_type === 'employee' 
                         ? 'border-primary-500 bg-primary-500/10 text-white' 
@@ -216,7 +231,9 @@ export default function RegisterPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, user_type: 'company' })}
+                    onClick={() => {
+                      setFormData((current) => ({ ...current, user_type: 'company' }))
+                    }}
                     className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
                       formData.user_type === 'company' 
                         ? 'border-primary-500 bg-primary-500/10 text-white' 
@@ -255,6 +272,7 @@ export default function RegisterPage() {
                   maxLength={6}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  autoComplete="one-time-code"
                   className="input text-center text-3xl tracking-[1em] font-bold py-4 placeholder:tracking-normal placeholder:text-slate-700"
                   placeholder="000000"
                 />

@@ -1,136 +1,490 @@
-# TaskForge
+# 🚀 TaskForge - Project Management Platform
 
-TaskForge is a full-stack project management platform built with Django REST Framework, React, Vite, MongoDB, and Pusher. It supports workspaces, projects, tasks, subtasks, comments, analytics, and real-time chat.
+> *A modern, full-stack project management platform designed for teams to collaborate, organize tasks, and communicate in real-time!*
 
-## Overview
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)
+![Python](https://img.shields.io/badge/Python-3.13-yellow.svg?style=flat-square)
+![React](https://img.shields.io/badge/React-18-cyan.svg?style=flat-square)
 
-The app is organized around workspaces. Users join workspaces, workspaces contain projects, and projects contain tasks and subtasks. Chat is powered by Pusher and persisted through the Django API, with optimistic UI updates on the frontend.
+---
 
-## Features
+## 📌 Overview
 
-- Workspace creation and membership management
-- Project organization with spaces and folders
-- Task CRUD, filtering, bulk updates, and stats
-- Subtasks with nested hierarchy support
-# TaskForge
+TaskForge is a **comprehensive full-stack project management platform** built with cutting-edge technologies. Organize your workspace hierarchies, manage complex projects, track tasks with precision, and collaborate seamlessly with real-time chat!
 
-TaskForge is a full-stack project management platform built with Django REST Framework, React, Vite, MongoDB, and Pusher. It supports workspaces, projects, tasks, subtasks, comments, analytics, and real-time chat.
-
-## Overview
-
-The app is organized around workspaces. Users join workspaces, workspaces contain projects, and projects contain tasks and subtasks. Chat is powered by Pusher and persisted through the Django API, with optimistic UI updates on the frontend.
-
-## Features
-
-- Workspace creation and membership management
-- Project organization with spaces and folders
-- Task CRUD, filtering, bulk updates, and stats
-- Subtasks with nested hierarchy support
-- Comments and attachments on tasks
-- Real-time chat for workspace, task, and direct messages
-- Pusher-backed notifications and optimistic message sending
-- JWT-based authentication with refresh support
-
-## Tech Stack
-
-### Frontend
-
-- React 18
-- Vite 5
-- React Router
-- Zustand
-- Axios
-- Tailwind CSS
-- Pusher JS
-
-### Backend
-
-- Python 3.13
-- Django 4.2
-- Django REST Framework
-- Simple JWT
-- django-filter
-- WhiteNoise
-- MongoDB for app data sync and chat persistence
-- Pusher server SDK for real-time messaging
-
-## Project Structure
-
-```text
-backend/
-  apps/
-  core/
-  users/
-  workspaces/
-  projects/
-  tasks/
-  chat/
-  config/
-  requirements.txt
-
-frontend/
-  src/
-  api/
-  components/
-  pages/
-  store/
-  utils/
+```
+🏢 Workspace → 📂 Projects/Spaces → 📋 Tasks → ✅ Subtasks
 ```
 
-## Installation
+---
 
-### Backend
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🏢 **Workspace Management** | Create workspaces, manage members, control access |
+| 📂 **Hierarchical Organization** | Spaces, folders, and projects with nested structure |
+| ✅ **Advanced Task Management** | Full CRUD, filtering, bulk updates, real-time stats |
+| 🎯 **Subtasks & Hierarchy** | Unlimited nested subtask support with parent tracking |
+| 💬 **Comments & Attachments** | Collaborate with inline comments and file uploads |
+| 🔄 **Real-time Chat** | Workspace, task, and direct messaging powered by Pusher |
+| 🔔 **Smart Notifications** | Optimistic message sending with instant UI updates |
+| 🔐 **Secure Authentication** | JWT tokens with refresh support and role-based access |
+| 📊 **Analytics & Stats** | Task completion metrics and project insights |
+| 🎨 **Responsive Design** | Mobile-first, fully responsive UI with Tailwind CSS |
+
+---
+
+## 🛠️ Tech Stack
+
+### 🎨 Frontend
+
+| Technology | Purpose |
+|------------|---------|
+| ⚛️ **React 18** | Modern UI component library |
+| ⚡ **Vite 5** | Lightning-fast build tool & dev server |
+| 🗺️ **React Router** | Client-side navigation |
+| 🏪 **Zustand** | Lightweight state management |
+| 🌐 **Axios** | HTTP client with interceptors |
+| 🎯 **Tailwind CSS** | Utility-first CSS framework |
+| 📡 **Pusher JS** | Real-time messaging client |
+
+### 🔧 Backend
+
+| Technology | Purpose |
+|------------|---------|
+| 🐍 **Python 3.13** | Core language |
+| 🎯 **Django 4.2** | Web framework |
+| 🚀 **Django REST Framework** | RESTful API toolkit |
+| 🔐 **Simple JWT** | Token authentication |
+| 🔍 **django-filter** | Advanced query filtering |
+| 📦 **WhiteNoise** | Static file serving |
+| 🍃 **MongoDB** | NoSQL database for app data & chat |
+| 📢 **Pusher SDK** | Real-time message broadcasting |
+
+---
+
+## 📁 Project Structure
+
+```
+📦 Takify
+├── 🔙 backend/
+│   ├── 🎯 apps/
+│   │   ├── 👤 users/          → Authentication & user management
+│   │   ├── 🏢 workspaces/     → Workspace & member management
+│   │   ├── 📂 projects/       → Projects, spaces, folders
+│   │   ├── ✅ tasks/          → Tasks, subtasks, categories
+│   │   ├── 💬 chat/           → Real-time chat system
+│   │   └── 🔧 core/           → Shared utilities & permissions
+│   ├── ⚙️ config/             → Django settings
+│   ├── 📋 requirements.txt    → Python dependencies
+│   └── 🗄️ db.sqlite3         → SQLite database
+│
+└── 🎨 frontend/
+    ├── 📦 src/
+    │   ├── 🌐 api/            → API integration layer
+    │   ├── 🧩 components/     → Reusable React components
+    │   ├── 📄 pages/          → Page-level components
+    │   ├── 🏪 store/          → Zustand state stores
+    │   └── 🛠️ utils/          → Helper functions
+    ├── 📝 package.json        → JavaScript dependencies
+    └── ⚙️ vite.config.js      → Vite configuration
+```
+
+---
+
+## 🚀 Quick Start
+
+### 📋 Prerequisites
+
+- 🐍 Python 3.13+
+- 📦 Node.js 18+
+- 🍃 MongoDB Atlas account (or local MongoDB)
+- 📡 Pusher account for real-time features
+
+### 🔙 Backend Setup
 
 ```bash
+# Clone and navigate to backend
 cd backend
+
+# Create and activate virtual environment
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate          # Windows
+source .venv/bin/activate        # macOS/Linux
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Set up environment variables (create .env file)
+# Copy from .env.example
+
+# Run migrations
 python manage.py migrate
+
+# Start development server
 python manage.py runserver
+
+# Server runs on http://localhost:8000 🎉
 ```
 
-### Frontend
+### 🎨 Frontend Setup
 
 ```bash
+# Navigate to frontend
 cd frontend
+
+# Install dependencies
 npm install
+
+# Set up environment variables (create .env file)
+# Copy from .env.example
+
+# Start development server
 npm run dev
+
+# Frontend runs on http://localhost:5173 🎉
 ```
 
-## Environment Variables
+---
 
-Create a backend `.env` file with values like these:
+## 🔑 Environment Configuration
+
+### 🔙 Backend `.env` File
 
 ```env
+# ⚙️ Django Settings
 DEBUG=True
-SECRET_KEY=your-secret-key
+SECRET_KEY=your-super-secret-key-here
 ALLOWED_HOSTS=localhost,127.0.0.1
 
+# 🗄️ Database Configuration
+# SQLite (Development)
 DB_ENGINE=django.db.backends.sqlite3
 DB_NAME=db.sqlite3
 
+# PostgreSQL (Production)
+# DATABASE_URL=postgresql://user:password@host:port/dbname
+# OR
+# DB_ENGINE=django.db.backends.postgresql
+# DB_NAME=takify
+# DB_USER=postgres
+# DB_PASSWORD=your-password
+# DB_HOST=localhost
+# DB_PORT=5432
+
+# 🍃 MongoDB (App & Chat Data)
 MONGO_URI=mongodb+srv://<username>:<password>@<cluster>/<db>
 MONGO_DB_NAME=takify
 
+# 📢 Pusher Real-time Configuration
 PUSHER_APP_ID=your-pusher-app-id
 PUSHER_KEY=your-pusher-key
 PUSHER_SECRET=your-pusher-secret
 PUSHER_CLUSTER=your-pusher-cluster
 PUSHER_SSL=True
+
+# 📧 Email Configuration (Optional)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-email-password
+DEFAULT_FROM_EMAIL=noreply@taskforge.com
 ```
 
-Create a frontend `.env` file with values like these:
+### 🎨 Frontend `.env` File
 
 ```env
+# 🌐 API Configuration
 VITE_API_URL=http://localhost:8000
+
+# 📡 Pusher Configuration
 VITE_PUSHER_KEY=your-pusher-key
 VITE_PUSHER_CLUSTER=your-pusher-cluster
 ```
 
-Use the matching `.env.example` files as the source of truth for required variable names.
+> ℹ️ **Tip:** Use `.env.example` files as your source of truth for required variables!
 
-For production PostgreSQL, set either `DATABASE_URL` or `DB_ENGINE=django.db.backends.postgresql` with the matching `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DB_HOST` values. If no production database is configured, the app safely falls back to SQLite.
+---
+
+## 📚 API Documentation
+
+### 🔐 Authentication Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/auth/signup/` | Register new user |
+| `POST` | `/api/auth/login/` | User login & get JWT token |
+| `POST` | `/api/auth/token/refresh/` | Refresh JWT token |
+| `POST` | `/api/auth/logout/` | User logout |
+| `POST` | `/api/auth/otp/send/` | Send OTP via email |
+| `POST` | `/api/auth/otp/verify/` | Verify OTP |
+
+### 🏢 Workspace Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/workspaces/` | List user's workspaces |
+| `POST` | `/api/workspaces/` | Create new workspace |
+| `GET` | `/api/workspaces/{id}/` | Get workspace details |
+| `PATCH` | `/api/workspaces/{id}/` | Update workspace |
+| `DELETE` | `/api/workspaces/{id}/` | Delete workspace |
+| `GET` | `/api/workspaces/{id}/members/` | List workspace members |
+| `POST` | `/api/workspaces/{id}/members/` | Add member |
+
+### 📂 Project Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/workspaces/{ws_id}/projects/` | List projects |
+| `POST` | `/api/workspaces/{ws_id}/projects/` | Create project |
+| `GET` | `/api/projects/{id}/` | Get project details |
+| `PATCH` | `/api/projects/{id}/` | Update project |
+| `DELETE` | `/api/projects/{id}/` | Delete project |
+
+### ✅ Task Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/projects/{project_id}/tasks/` | List tasks |
+| `POST` | `/api/projects/{project_id}/tasks/` | Create task |
+| `GET` | `/api/tasks/{id}/` | Get task details |
+| `PATCH` | `/api/tasks/{id}/` | Update task |
+| `DELETE` | `/api/tasks/{id}/` | Delete task |
+| `POST` | `/api/tasks/{id}/subtasks/` | Add subtask |
+| `POST` | `/api/tasks/{id}/comments/` | Add comment |
+| `GET` | `/api/tasks/{id}/attachments/` | List attachments |
+
+### 💬 Chat Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/chat/workspace/{ws_id}/` | Get workspace messages |
+| `POST` | `/api/chat/workspace/{ws_id}/` | Send workspace message |
+| `GET` | `/api/chat/dm/{user_id}/` | Get direct messages |
+| `POST` | `/api/chat/dm/{user_id}/` | Send direct message |
+| `GET` | `/api/chat/task/{task_id}/` | Get task messages |
+| `POST` | `/api/chat/task/{task_id}/` | Send task message |
+
+> 📖 **Full API documentation available at:** `http://localhost:8000/api/docs/` (when running locally)
+
+---
+
+## 🎯 Key Architecture Patterns
+
+### 🔄 Real-time Architecture
+
+```
+Frontend (React) ←→ Pusher WebSockets ←→ Backend (Django)
+                         ↓
+                    MongoDB (Persistence)
+```
+
+- **Optimistic UI Updates:** Messages appear instantly on send
+- **Pusher Broadcasting:** Real-time sync across all clients
+- **MongoDB Persistence:** All messages saved permanently
+- **JWT Authentication:** Secure token-based access
+
+### 🏗️ Data Hierarchy
+
+```
+🏢 Workspace
+  ├── 👥 Members (with roles)
+  ├── 📂 Spaces
+  │   ├── 📂 Folders
+  │   │   └── 📋 Projects
+  │   │       ├── ✅ Tasks
+  │   │       │   ├── ✓ Subtasks
+  │   │       │   ├── 💬 Comments
+  │   │       │   └── 📎 Attachments
+  │   │       └── 💬 Project Chat
+  │   └── 💬 Space Chat
+  └── 💬 Workspace Chat
+```
+
+### 🔐 Security Features
+
+- ✅ **JWT Authentication** with refresh tokens
+- 🔒 **Role-Based Access Control** (RBAC)
+- 🛡️ **CORS Protection** on backend
+- 🔑 **Environment Variable Protection**
+- 📦 **Dependency Vulnerability Scanning**
+
+---
+
+## 🧪 Testing & Quality
+
+```bash
+# Backend Tests
+cd backend
+pytest tests/
+
+# Frontend Tests
+cd frontend
+npm run test
+
+# Linting
+npm run lint
+
+# Build Check
+npm run build
+```
+
+---
+
+## 📊 Database Architecture
+
+### SQLite (Development/SQLite Fallback)
+
+```sql
+-- Users, Workspaces, Projects
+-- Tasks, Subtasks, Comments
+-- Attachments & Categories
+```
+
+### PostgreSQL (Production)
+
+```sql
+-- Recommended for production deployments
+-- Better concurrency & scalability
+-- Configure via DATABASE_URL
+```
+
+### MongoDB (Real-time & Chat)
+
+```javascript
+// Collections
+db.messages          // All chat messages
+db.message_threads   // Message grouping
+db.notifications     // User notifications
+```
+
+---
+
+## 🚢 Deployment
+
+### 📤 Frontend Deployment
+
+```bash
+# Build optimization
+npm run build
+
+# Deploy to:
+# - Vercel (Recommended for Next.js/Vite)
+# - Netlify
+# - GitHub Pages
+# - AWS S3 + CloudFront
+```
+
+### 🔙 Backend Deployment
+
+```bash
+# Production build
+python manage.py collectstatic
+
+# Deploy to:
+# - Heroku
+# - AWS EC2/Lambda
+# - Render
+# - Railway
+# - PythonAnywhere
+# - DigitalOcean
+```
+
+See [render.yaml](render.yaml) for Render.com deployment configuration.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please follow these steps:
+
+1. 🍴 Fork the repository
+2. 🌳 Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. ✍️ Commit your changes (`git commit -m 'Add amazing feature'`)
+4. 📤 Push to the branch (`git push origin feature/amazing-feature`)
+5. 🔀 Open a Pull Request
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 💬 Support & Contact
+
+- 💡 **Issues:** Report bugs and request features via [GitHub Issues](../../issues)
+- 📧 **Email:** support@taskforge.com
+- 🐦 **Twitter:** [@TaskForgeApp](https://twitter.com/taskforgeapp)
+- 💼 **LinkedIn:** [TaskForge Team](https://linkedin.com/company/taskforge)
+
+---
+
+## 🎉 Made with ❤️ by the TaskForge Team
+
+**Happy Collaborating!** 🚀
+
+## 🔑 Environment Configuration
+
+### 🔙 Backend `.env` File
+
+```env
+# ⚙️ Django Settings
+DEBUG=True
+SECRET_KEY=your-super-secret-key-here
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# 🗄️ Database Configuration
+# SQLite (Development)
+DB_ENGINE=django.db.backends.sqlite3
+DB_NAME=db.sqlite3
+
+# PostgreSQL (Production)
+# DATABASE_URL=postgresql://user:password@host:port/dbname
+# OR
+# DB_ENGINE=django.db.backends.postgresql
+# DB_NAME=takify
+# DB_USER=postgres
+# DB_PASSWORD=your-password
+# DB_HOST=localhost
+# DB_PORT=5432
+
+# 🍃 MongoDB (App & Chat Data)
+MONGO_URI=mongodb+srv://<username>:<password>@<cluster>/<db>
+MONGO_DB_NAME=takify
+
+# 📢 Pusher Real-time Configuration
+PUSHER_APP_ID=your-pusher-app-id
+PUSHER_KEY=your-pusher-key
+PUSHER_SECRET=your-pusher-secret
+PUSHER_CLUSTER=your-pusher-cluster
+PUSHER_SSL=True
+
+# 📧 Email Configuration (Optional)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-email-password
+DEFAULT_FROM_EMAIL=noreply@taskforge.com
+```
+
+### 🎨 Frontend `.env` File
+
+```env
+# 🌐 API Configuration
+VITE_API_URL=http://localhost:8000
+
+# 📡 Pusher Configuration
+VITE_PUSHER_KEY=your-pusher-key
+VITE_PUSHER_CLUSTER=your-pusher-cluster
+```
+
+> ℹ️ **Tip:** Use `.env.example` files as your source of truth for required variables!
 
 ## Important API Endpoints
 

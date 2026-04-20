@@ -6,7 +6,10 @@ export const useProjectStore = create((set, get) => ({
   spaces: [],
   folders: [],
   hierarchy: [],
+  folderProjects: {},
+  folderProjectsLoading: {},
   activeProject: null,
+  notFoundProjectIds: {},
   loading: false,
   isSubmitting: false,
 
@@ -105,6 +108,63 @@ export const useProjectStore = create((set, get) => ({
     }
   },
 
+  fetchProjectsByFolder: async ({ workspaceId, folderId, force = false, debug = false }) => {
+    if (!workspaceId || !folderId) {
+      return []
+    }
+
+    const { folderProjects, folderProjectsLoading } = get()
+    const hasCache = Array.isArray(folderProjects[folderId])
+    if (!force && hasCache) {
+      return folderProjects[folderId]
+    }
+
+    if (folderProjectsLoading[folderId]) {
+      return folderProjects[folderId] || []
+    }
+
+    set((state) => ({
+      folderProjectsLoading: {
+        ...state.folderProjectsLoading,
+        [folderId]: true,
+      },
+    }))
+
+    try {
+      const { data } = await projectsAPI.listByFolder({ workspace: workspaceId, folder: folderId })
+      const fetchedProjects = data?.results || data || []
+
+      if (debug) {
+        console.debug('[Sidebar][FolderProjects] API response', {
+          folderId,
+          count: fetchedProjects.length,
+          projects: fetchedProjects,
+        })
+      }
+
+      set((state) => ({
+        folderProjects: {
+          ...state.folderProjects,
+          [folderId]: fetchedProjects,
+        },
+      }))
+
+      return fetchedProjects
+    } catch (error) {
+      if (debug) {
+        console.debug('[Sidebar][FolderProjects] API error', { folderId, error })
+      }
+      throw error
+    } finally {
+      set((state) => ({
+        folderProjectsLoading: {
+          ...state.folderProjectsLoading,
+          [folderId]: false,
+        },
+      }))
+    }
+  },
+
   createSpace: async (spaceData) => {
     set({ isSubmitting: true })
     try {
@@ -132,11 +192,46 @@ export const useProjectStore = create((set, get) => ({
   setActiveProject: (project) => set({ activeProject: project }),
 
   fetchProjectById: async (projectId) => {
+    const { projects, activeProject, notFoundProjectIds } = get()
+
+    if (notFoundProjectIds[projectId]) {
+      const cachedNotFoundError = new Error('Project not found')
+      cachedNotFoundError.response = { status: 404 }
+      cachedNotFoundError.isCachedNotFound = true
+      throw cachedNotFoundError
+    }
+
+    if (activeProject?.id === projectId) {
+      return activeProject
+    }
+
+    const existingProject = projects.find((p) => p.id === projectId)
+    if (existingProject) {
+      set({ activeProject: existingProject })
+      return existingProject
+    }
+
     try {
       const { data } = await projectsAPI.get(projectId)
-      set({ activeProject: data })
+      set((state) => {
+        if (!state.notFoundProjectIds[projectId]) {
+          return { activeProject: data }
+        }
+
+        const nextNotFound = { ...state.notFoundProjectIds }
+        delete nextNotFound[projectId]
+        return { activeProject: data, notFoundProjectIds: nextNotFound }
+      })
       return data
     } catch (err) {
+      if (err?.response?.status === 404) {
+        set((state) => ({
+          notFoundProjectIds: {
+            ...state.notFoundProjectIds,
+            [projectId]: true,
+          },
+        }))
+      }
       console.error('Failed to fetch project:', err)
       throw err
     }

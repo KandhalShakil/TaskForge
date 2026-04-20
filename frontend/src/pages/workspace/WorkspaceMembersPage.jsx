@@ -6,6 +6,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore'
 import { authAPI } from '../../api/auth'
 import { useAuthStore } from '../../store/authStore'
 import ConfirmModal from '../../components/common/ConfirmModal'
+import { getApiErrorMessage } from '../../utils/apiError'
 
 const ROLE_ICONS = {
   admin: <Crown size={12} className="text-yellow-400" />,
@@ -26,8 +27,15 @@ export default function WorkspaceMembersPage() {
   const [isRemoving, setIsRemoving] = useState(false)
 
   useEffect(() => {
-    fetchMembers(workspaceId)
-    authAPI.listUsers().then(({ data }) => setAllUsers(data.results || data))
+    fetchMembers(workspaceId).catch((err) => {
+      toast.error(getApiErrorMessage(err, 'Failed to load members'))
+    })
+
+    authAPI.listUsers()
+      .then(({ data }) => setAllUsers(data.results || data))
+      .catch((err) => {
+        toast.error(getApiErrorMessage(err, 'Failed to load users'))
+      })
   }, [workspaceId])
 
   const memberUserIds = new Set(members.map((m) => m.user.id))
@@ -45,7 +53,7 @@ export default function WorkspaceMembersPage() {
       toast.success('Member added!')
       setSearch('')
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to add member')
+      toast.error(getApiErrorMessage(err, 'Failed to add member'))
     } finally {
       setLoading(false)
     }
@@ -59,7 +67,7 @@ export default function WorkspaceMembersPage() {
       toast.success('Member removed')
       setMemberToRemove(null)
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Cannot remove member')
+      toast.error(getApiErrorMessage(err, 'Cannot remove member'))
     } finally {
       setIsRemoving(false)
     }

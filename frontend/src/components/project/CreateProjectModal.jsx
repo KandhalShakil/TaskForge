@@ -1,16 +1,39 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useProjectStore } from '../../store/projectStore'
 import { WORKSPACE_ICONS, WORKSPACE_COLORS } from '../../utils/constants'
-import { useMemo, useState } from 'react'
 import Button from '../common/Button'
+import { extractApiError, validateProject } from '../../utils/validation'
 
-export default function CreateProjectModal({ workspace, onClose }) {
+export default function CreateProjectModal({ workspace, defaultSpaceId = '', defaultFolderId = '', onClose }) {
   const { createProject, spaces, folders } = useProjectStore()
   const [selectedIcon, setSelectedIcon] = useState('📁')
   const [selectedColor, setSelectedColor] = useState('#8b5cf6')
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm()
+  const [formError, setFormError] = useState('')
+  const defaultValues = useMemo(() => ({
+    name: '',
+    description: '',
+    start_date: '',
+    end_date: '',
+    space: defaultSpaceId || '',
+    folder: defaultFolderId || '',
+  }), [defaultSpaceId, defaultFolderId])
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    setError,
+    setFocus,
+    clearErrors,
+    formState: { errors, isSubmitting, isValid },
+  } = useForm({ mode: 'onChange', defaultValues })
+
+  useEffect(() => {
+    reset(defaultValues)
+  }, [defaultValues, reset])
 
   const selectedSpaceId = watch('space')
   const selectedStartDate = watch('start_date')
@@ -20,20 +43,23 @@ export default function CreateProjectModal({ workspace, onClose }) {
   )
 
   const onSubmit = async (data) => {
-    const trimmedName = (data.name || '').trim()
-    if (!trimmedName) {
-      toast.error('Name is required')
-      return
-    }
+    setFormError('')
+    clearErrors()
 
-    if (data.start_date && data.end_date && data.end_date < data.start_date) {
-      toast.error('End date cannot be earlier than start date')
+    const validation = validateProject(data)
+    if (!validation.isValid) {
+      setFormError(validation.generalError || 'All fields are required')
+      Object.entries(validation.errors).forEach(([field, message]) => {
+        setError(field, { type: 'manual', message })
+      })
+      const firstField = Object.keys(validation.errors)[0]
+      if (firstField) setFocus(firstField)
       return
     }
 
     const payload = {
       ...data,
-      name: trimmedName,
+      name: (data.name || '').trim(),
       description: (data.description || '').trim(),
       workspace: workspace.id,
       icon: selectedIcon,
@@ -41,9 +67,6 @@ export default function CreateProjectModal({ workspace, onClose }) {
       space: data.space || null,
       folder: data.folder || null,
     }
-    if (!payload.description) delete payload.description
-    if (!payload.start_date) delete payload.start_date
-    if (!payload.end_date) delete payload.end_date
     if (!payload.space) delete payload.space
     if (!payload.folder) delete payload.folder
 
@@ -52,7 +75,9 @@ export default function CreateProjectModal({ workspace, onClose }) {
       toast.success('Project created!')
       onClose()
     } catch (err) {
-      toast.error('Failed to create project')
+      const message = extractApiError(err, 'Failed to create project')
+      setFormError(message)
+      toast.error(message)
     }
   }
 
@@ -65,6 +90,11 @@ export default function CreateProjectModal({ workspace, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+          {formError && (
+            <div className="rounded-lg border border-red-700/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+              {formError}
+            </div>
+          )}
           <div>
             <label className="label">List Name *</label>
             <input
@@ -76,28 +106,35 @@ export default function CreateProjectModal({ workspace, onClose }) {
           </div>
 
           <div>
-            <label className="label">Description</label>
+            <label className="label">Description *</label>
             <textarea
-              className="input min-h-[70px] resize-none"
+              className={`input min-h-[70px] resize-none ${errors.description ? 'border-red-500' : ''}`}
               placeholder="What's this project about?"
-              {...register('description')}
+              {...register('description', { required: 'Description is required' })}
             />
+            {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">Start Date</label>
-              <input type="date" className="input" {...register('start_date')} />
+              <label className="label">Start Date *</label>
+              <input
+                type="date"
+                className={`input ${errors.start_date ? 'border-red-500' : ''}`}
+                {...register('start_date', { required: 'Start date is required' })}
+              />
+              {errors.start_date && <p className="text-red-400 text-xs mt-1">{errors.start_date.message}</p>}
             </div>
             <div>
-              <label className="label">End Date</label>
+              <label className="label">End Date *</label>
               <input
                 type="date"
                 className={`input ${errors.end_date ? 'border-red-500' : ''}`}
                 {...register('end_date', {
+                  required: 'End date is required',
                   validate: (value) => {
                     if (!value || !selectedStartDate) return true
-                    return value >= selectedStartDate || 'End date cannot be earlier than start date'
+                    return value >= selectedStartDate || 'End date cannot be before start date'
                   },
                 })}
               />
@@ -169,7 +206,7 @@ export default function CreateProjectModal({ workspace, onClose }) {
             <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
               Cancel
             </Button>
-            <Button type="submit" loading={isSubmitting} className="flex-1">
+            <Button type="submit" loading={isSubmitting} disabled={!isValid} className="flex-1">
               Create List
             </Button>
           </div>

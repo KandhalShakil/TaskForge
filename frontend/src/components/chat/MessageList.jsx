@@ -16,7 +16,7 @@ export default function MessageList({ messages = [], currentUserId, onEdit, onDe
     : ''
 
   return (
-    <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-5">
+    <div ref={scrollRef} className="flex-1 space-y-3 sm:space-y-4 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5">
       {hasMore && (
         <div className="flex justify-center">
           <button
@@ -31,7 +31,7 @@ export default function MessageList({ messages = [], currentUserId, onEdit, onDe
       )}
 
       {visibleMessages.length === 0 ? (
-        <div className="flex min-h-[20rem] items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-surface-900/40 px-6 text-center">
+        <div className="flex min-h-[14rem] sm:min-h-[20rem] items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-surface-900/40 px-4 sm:px-6 text-center">
           <div>
             <p className="text-lg font-semibold text-white">No messages yet</p>
             <p className="mt-2 text-sm text-slate-500">Start the conversation with your team.</p>

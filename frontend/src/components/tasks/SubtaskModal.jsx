@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { X, Calendar, User, Tag, Flag, AlignLeft, CheckSquare } from 'lucide-react'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
 import Button from '../common/Button'
 import { stripHtml } from '../../utils/html'
+import { validateSubtask } from '../../utils/validation'
 
 const toFormValues = (subtask) => ({
   title: subtask?.title || '',
@@ -27,10 +28,12 @@ export default function SubtaskModal({
   onSave,
   initialSubtask,
   parentLabel,
+  parentRange,
   members = [],
   categories = [],
   isViewer = false,
 }) {
+  const [formError, setFormError] = useState('')
   const isEditing = Boolean(initialSubtask)
   const {
     register,
@@ -38,8 +41,12 @@ export default function SubtaskModal({
     control,
     reset,
     watch,
-    formState: { errors, isSubmitting },
+    setError,
+    setFocus,
+    clearErrors,
+    formState: { errors, isSubmitting, isValid },
   } = useForm({
+    mode: 'onChange',
     defaultValues: toFormValues(initialSubtask),
   })
 
@@ -56,6 +63,20 @@ export default function SubtaskModal({
   }
 
   const onSubmit = async (data) => {
+    setFormError('')
+    clearErrors()
+
+    const validation = validateSubtask(data, { parent: parentRange })
+    if (!validation.isValid) {
+      setFormError(validation.generalError || 'All fields are required')
+      Object.entries(validation.errors).forEach(([field, message]) => {
+        setError(field, { type: 'manual', message })
+      })
+      const firstField = Object.keys(validation.errors)[0]
+      if (firstField) setFocus(firstField)
+      return
+    }
+
     await onSave({
       ...initialSubtask,
       ...data,
@@ -85,7 +106,12 @@ export default function SubtaskModal({
           <button onClick={onClose} className="btn-ghost p-1.5"><X size={16} /></button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-4 sm:p-6 space-y-5">
+          {formError && (
+            <div className="rounded-lg border border-red-700/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+              {formError}
+            </div>
+          )}
           <div>
             <input
               className={`input text-base font-medium ${errors.title ? 'border-red-500' : ''}`}
@@ -104,15 +130,17 @@ export default function SubtaskModal({
             <Controller
               name="description"
               control={control}
+              rules={{ required: 'Description is required' }}
               render={({ field }) => (
                 <div className={`bg-surface-900 border border-slate-700 rounded-lg overflow-hidden [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-slate-700 [&_.ql-toolbar]:bg-surface-800 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[150px] [&_.ql-editor]:text-sm [&_.ql-editor]:text-slate-200 [&_.ql-stroke]:stroke-slate-400 [&_.ql-fill]:fill-slate-400 [&_.ql-picker]:text-slate-400 ${isViewer ? '[&_.ql-toolbar]:hidden' : ''}`}>
                   <ReactQuill theme="snow" value={field.value || ''} onChange={field.onChange} placeholder="Add a formatted description..." readOnly={isViewer} />
                 </div>
               )}
             />
+            {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label flex items-center gap-1.5"><Flag size={12} /> Status</label>
               <select className="select" {...register('status')} disabled={isViewer}>
@@ -135,15 +163,16 @@ export default function SubtaskModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label flex items-center gap-1.5"><User size={12} /> Assignee</label>
-              <select className="select" {...register('assignee_id')} disabled={isViewer}>
+              <select className={`select ${errors.assignee_id ? 'border-red-500' : ''}`} {...register('assignee_id', { required: 'Assignee is required' })} disabled={isViewer}>
                 <option value="">Unassigned</option>
                 {members.map((member) => (
                   <option key={member.user.id} value={member.user.id}>{member.user.full_name}</option>
                 ))}
               </select>
+              {errors.assignee_id && <p className="text-red-400 text-xs mt-1">{errors.assignee_id.message}</p>}
             </div>
             <div>
               <label className="label flex items-center gap-1.5"><Tag size={12} /> Category</label>
@@ -156,10 +185,11 @@ export default function SubtaskModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="label flex items-center gap-1.5"><Calendar size={12} /> Start Date</label>
-              <input type="date" className={`input ${errors.start_date ? 'border-red-500' : ''}`} {...register('start_date')} disabled={isViewer} />
+              <input type="date" className={`input ${errors.start_date ? 'border-red-500' : ''}`} {...register('start_date', { required: 'Start date is required' })} disabled={isViewer} />
+              {errors.start_date && <p className="text-red-400 text-xs mt-1">{errors.start_date.message}</p>}
             </div>
             <div>
               <label className="label flex items-center gap-1.5"><Calendar size={12} /> Due Date</label>
@@ -167,9 +197,10 @@ export default function SubtaskModal({
                 type="date"
                 className={`input ${errors.due_date ? 'border-red-500' : ''}`}
                 {...register('due_date', {
+                  required: 'End date is required',
                   validate: (value) => {
                     if (!value || !startDate) return true
-                    return value >= startDate || 'Due date cannot be earlier than start date'
+                    return value >= startDate || 'End date cannot be before start date'
                   },
                 })}
                 disabled={isViewer}
@@ -186,13 +217,15 @@ export default function SubtaskModal({
                 placeholder="0"
                 disabled={isViewer}
                 {...register('estimated_hours', {
+                  required: 'Estimated hours is required',
                   validate: (value) => {
                     if (value === '' || value === null || value === undefined) return true
                     const parsed = Number(value)
-                    return Number.isFinite(parsed) && parsed >= 0 || 'Estimated hours must be a number greater than or equal to 0'
+                    return Number.isFinite(parsed) && parsed > 0 || 'Estimated hours must be a positive number'
                   },
                 })}
               />
+              {errors.estimated_hours && <p className="text-red-400 text-xs mt-1">{errors.estimated_hours.message}</p>}
             </div>
           </div>
 
@@ -209,12 +242,12 @@ export default function SubtaskModal({
             </label>
           </div>
 
-          <div className="flex gap-3 pt-2 border-t border-slate-800 items-center justify-end">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2 border-t border-slate-800 items-stretch sm:items-center justify-end">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
             {!isViewer && (
-              <Button type="submit" loading={isSubmitting} loadingText={isEditing ? 'Saving...' : 'Creating...'}>
+              <Button type="submit" loading={isSubmitting} loadingText={isEditing ? 'Saving...' : 'Creating...'} disabled={!isValid}>
                 {isEditing ? 'Save Subtask' : 'Create Subtask'}
               </Button>
             )}
