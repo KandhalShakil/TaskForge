@@ -144,36 +144,56 @@ export default function ChatPage() {
 
     const { key, cluster } = getPusherConfig()
     if (!key || !cluster) {
+      console.warn('[Pusher] Missing VITE_PUSHER_KEY or VITE_PUSHER_CLUSTER — real-time disabled')
       setRealtimeStatus('offline')
       return undefined
     }
+
+    const roomId = activeContext.roomId
+    const channelName = `chat_${roomId}`
+    console.log(`[Pusher] Subscribing to channel: ${channelName}`)
 
     const pusher = new Pusher(key, {
       cluster,
       forceTLS: true,
     })
 
-    const channel = pusher.subscribe('chat-channel')
-
-    const applyMessage = (payload, updater) => {
-      const message = payload?.message
-      if (!message || message.roomId !== activeContext.roomId) return
-      updater({ ...message, status: 'sent' })
-    }
+    const channel = pusher.subscribe(channelName)
 
     const onNewMessage = (payload) => {
-      applyMessage(payload, appendMessage)
-      clearUnread(payload?.roomId || activeContext.roomId)
+      const message = payload?.message
+      if (!message) return
+      console.log('[Pusher] Received new-message:', message)
+      // appendMessage uses mergeMessageList which deduplicates by id OR clientMessageId
+      appendMessage({ ...message, status: 'sent' })
+      clearUnread(roomId)
     }
 
-    const onMessageEdited = (payload) => applyMessage(payload, upsertMessage)
-    const onMessageDeleted = (payload) => applyMessage(payload, upsertMessage)
+    const onMessageEdited = (payload) => {
+      const message = payload?.message
+      if (!message) return
+      console.log('[Pusher] Received message-edited:', message)
+      upsertMessage({ ...message, status: 'sent' })
+    }
+
+    const onMessageDeleted = (payload) => {
+      const message = payload?.message
+      if (!message) return
+      console.log('[Pusher] Received message-deleted:', message)
+      upsertMessage({ ...message, status: 'sent' })
+    }
+
+    const onMessagesRead = (payload) => {
+      console.log('[Pusher] Received messages-read:', payload)
+    }
 
     channel.bind('new-message', onNewMessage)
     channel.bind('message-edited', onMessageEdited)
     channel.bind('message-deleted', onMessageDeleted)
+    channel.bind('messages-read', onMessagesRead)
 
     const onStateChange = (states) => {
+      console.log(`[Pusher] Connection state: ${states.previous} → ${states.current}`)
       if (states.current === 'connected') {
         setRealtimeStatus('open')
       } else if (states.current === 'connecting') {
@@ -186,11 +206,13 @@ export default function ChatPage() {
     pusher.connection.bind('state_change', onStateChange)
 
     return () => {
+      console.log(`[Pusher] Unsubscribing from channel: ${channelName}`)
       channel.unbind('new-message', onNewMessage)
       channel.unbind('message-edited', onMessageEdited)
       channel.unbind('message-deleted', onMessageDeleted)
+      channel.unbind('messages-read', onMessagesRead)
       pusher.connection.unbind('state_change', onStateChange)
-      pusher.unsubscribe('chat-channel')
+      pusher.unsubscribe(channelName)
       pusher.disconnect()
     }
   }, [activeContext?.roomId, appendMessage, upsertMessage, clearUnread])

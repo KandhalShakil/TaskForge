@@ -30,18 +30,19 @@ def _sanitize_message_text(raw_value):
     return ' '.join(text.split())
 
 
+
 def _broadcast_chat_event(event_name, message, context, actor_id):
-    trigger_event(
-        'chat-channel',
-        event_name,
-        {
-            'roomId': context.get('roomId') if context else message.get('roomId'),
-            'workspaceId': context.get('workspaceId') if context else message.get('workspaceId'),
-            'chatType': context.get('chatType') if context else message.get('chatType'),
-            'actorId': str(actor_id),
-            'message': message,
-        },
-    )
+    room_id = (context.get('roomId') if context else None) or message.get('roomId')
+    channel = f'chat_{room_id}'
+    payload = {
+        'roomId': room_id,
+        'workspaceId': (context.get('workspaceId') if context else None) or message.get('workspaceId'),
+        'chatType': (context.get('chatType') if context else None) or message.get('chatType'),
+        'actorId': str(actor_id),
+        'message': message,
+    }
+    print(f"[Chat] Triggered: chatId={room_id!r} event={event_name!r} channel={channel!r}")
+    trigger_event(channel, event_name, payload)
 
 
 class ChatContextView(APIView):
@@ -172,8 +173,10 @@ class ChatMessageReadView(APIView):
             return Response({'detail': 'Room not found or access denied.'}, status=status.HTTP_404_NOT_FOUND)
 
         mark_messages_read(room=room, user_id=request.user.id)
+        channel = f'chat_{room}'
+        print(f"[Chat] Triggered: chatId={room!r} event='messages-read' channel={channel!r}")
         trigger_event(
-            'chat-channel',
+            channel,
             'messages-read',
             {
                 'roomId': room,
