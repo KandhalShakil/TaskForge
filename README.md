@@ -160,26 +160,6 @@ npm run dev
 
 Open http://localhost:5173
 
-## 🖼️ Screenshots and Demo
-
-Add screenshots and GIFs in docs/assets and reference them here.
-
-Suggested files:
-
-- docs/assets/dashboard.png
-- docs/assets/tasks-board.png
-- docs/assets/chat-thread.png
-- docs/assets/create-task.gif
-
-Example markdown:
-
-```md
-![Dashboard](docs/assets/dashboard.png)
-![Tasks Board](docs/assets/tasks-board.png)
-![Chat Thread](docs/assets/chat-thread.png)
-![Create Task Flow](docs/assets/create-task.gif)
-```
-
 ## ⚡ Quick Start
 
 ### 📋 Prerequisites
