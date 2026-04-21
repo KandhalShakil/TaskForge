@@ -1,6 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import Pusher from 'pusher-js'
 import toast from 'react-hot-toast'
 import Sidebar from './Sidebar'
 import Header from './Header'
@@ -8,7 +7,7 @@ import GlobalLoadingBar from '../common/GlobalLoadingBar'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import { useAuthStore } from '../../store/authStore'
 import { useChatStore } from '../../store/chatStore'
-import { getPusherConfig } from '../../utils/chat'
+import { connectSocket } from '../../utils/socket'
 
 const CommandPalette = lazy(() => import('../common/CommandPalette'))
 
@@ -30,22 +29,17 @@ export default function AppLayout() {
     }
   }, [])
 
+  // Global Socket.IO listener — handles notifications for messages
+  // received while the user is NOT in that particular chat room
   useEffect(() => {
     if (!user?.id) return undefined
 
-    const { key, cluster } = getPusherConfig()
-    if (!key || !cluster) return undefined
+    const socket = connectSocket()
 
-    const pusher = new Pusher(key, {
-      cluster,
-      forceTLS: true,
-    })
-    const channel = pusher.subscribe('chat-channel')
-
-    const onNewMessage = (payload) => {
-      const message = payload?.message
+    const onReceiveMessage = (message) => {
       if (!message?.roomId) return
-      if (payload?.actorId === String(user.id)) return
+      // Skip if the user sent it or if they are currently in that room
+      if (message.senderId === String(user.id)) return
       if (message.roomId === useChatStore.getState().activeRoom) return
 
       incrementUnread(message.roomId, {
@@ -54,8 +48,8 @@ export default function AppLayout() {
         workspaceId: message.workspaceId,
         taskId: message.taskId,
         receiverId: message.receiverId,
-        title: payload?.title || message.sender?.full_name || 'New message',
-        subtitle: payload?.subtitle || 'Chat',
+        title: message.sender?.full_name || 'New message',
+        subtitle: 'Chat',
         lastMessage: message.message || message.attachmentName || 'Attachment',
         lastMessageAt: message.createdAt,
       })
@@ -64,19 +58,15 @@ export default function AppLayout() {
       toast.success(`New message from ${senderName}`)
 
       if ('Notification' in window && Notification.permission === 'granted') {
-        const notifMsg = message.message || (message.attachmentName ? 'Sent an attachment' : 'New message')
-        new Notification(`New message from ${senderName}`, {
-          body: notifMsg
-        })
+        const body = message.message || (message.attachmentName ? 'Sent an attachment' : 'New message')
+        new Notification(`New message from ${senderName}`, { body })
       }
     }
 
-    channel.bind('new-message', onNewMessage)
+    socket.on('receive_message', onReceiveMessage)
 
     return () => {
-      channel.unbind('new-message', onNewMessage)
-      pusher.unsubscribe('chat-channel')
-      pusher.disconnect()
+      socket.off('receive_message', onReceiveMessage)
     }
   }, [user?.id, incrementUnread])
 
@@ -90,7 +80,7 @@ export default function AppLayout() {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
-        setCommandPaletteOpen(prev => !prev)
+        setCommandPaletteOpen((prev) => !prev)
       }
     }
     window.addEventListener('keydown', handleKeyDown)

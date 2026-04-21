@@ -14,10 +14,18 @@ CSRF_COOKIE_SECURE = True
 CSRF_TRUSTED_ORIGINS = [
     "https://www.task-forge.kandhal.tech",
     "https://task-forge.kandhal.tech",
-    "https://taskforge-backend-hgre.onrender.com"
+    "https://taskforge-backend-hgre.onrender.com",
 ]
 
+# Allow requests from both the custom domain and vercel preview URLs.
+# CORS is also controlled by CORS_ALLOWED_ORIGINS in .env on Render —
+# this list acts as a fallback when that env var is not set.
 CORS_ALLOWED_ORIGINS = [
     "https://www.task-forge.kandhal.tech",
     "https://task-forge.kandhal.tech",
+]
+
+# Allow any *.vercel.app subdomain (for preview deployments)
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
 ]

@@ -8,12 +8,9 @@ export const buildDirectRoom = (userAId, userBId) => {
   return `dm_${first}_${second}`
 }
 
-export const getPusherConfig = () => {
-  return {
-    key: import.meta.env.VITE_PUSHER_KEY || '',
-    cluster: import.meta.env.VITE_PUSHER_CLUSTER || '',
-  }
-}
+export const getSocketConfig = () => ({
+  url: import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001',
+})
 
 export const formatChatTimestamp = (value) => {
   if (!value) return ''

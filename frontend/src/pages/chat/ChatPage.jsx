@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import Pusher from 'pusher-js'
 import toast from 'react-hot-toast'
 import { chatAPI } from '../../api/chat'
 import { useAuthStore } from '../../store/authStore'
 import { useChatStore } from '../../store/chatStore'
-import { buildTaskRoom, getPusherConfig } from '../../utils/chat'
+import { buildTaskRoom } from '../../utils/chat'
+import { connectSocket, joinRoom, leaveRoom, emitMessage } from '../../utils/socket'
 import ChatSidebar from '../../components/chat/ChatSidebar'
 import ChatWindow from '../../components/chat/ChatWindow'
 
@@ -46,12 +46,8 @@ export default function ChatPage() {
   const [showMobileThreads, setShowMobileThreads] = useState(true)
 
   const routeContext = useMemo(() => {
-    if (taskId) {
-      return { workspace_id: workspaceId, task_id: taskId }
-    }
-    if (directUserId) {
-      return { workspace_id: workspaceId, direct_user_id: directUserId }
-    }
+    if (taskId) return { workspace_id: workspaceId, task_id: taskId }
+    if (directUserId) return { workspace_id: workspaceId, direct_user_id: directUserId }
     return { workspace_id: workspaceId }
   }, [workspaceId, taskId, directUserId])
 
@@ -69,6 +65,7 @@ export default function ChatPage() {
     return 'Workspace discussion'
   }, [activeContext?.subtitle, taskId, directUserId])
 
+  // ── Load chat context + messages on route change ──────────────────────────
   useEffect(() => {
     let cancelled = false
 
@@ -113,7 +110,7 @@ export default function ChatPage() {
         setMessages(normalizedMessages)
         setHasMore(Boolean(messageData.hasMore))
         setNextCursor(messageData.nextCursor || null)
-      } catch (error) {
+      } catch {
         if (!cancelled) {
           toast.error('Unable to load chat room')
           navigate('/workspaces')
@@ -126,9 +123,7 @@ export default function ChatPage() {
       }
     }
 
-    if (workspaceId && user) {
-      loadContext()
-    }
+    if (workspaceId && user) loadContext()
 
     return () => {
       cancelled = true
@@ -136,87 +131,52 @@ export default function ChatPage() {
     }
   }, [workspaceId, taskId, directUserId, user?.id, routeContext, getRoomMessages, setRoomMessages, navigate, clearUnread, setActiveContext, setActiveRoom, setThreads, setMessages])
 
+  // ── Socket.IO real-time subscription ─────────────────────────────────────
   useEffect(() => {
-    if (!activeContext?.roomId) {
-      setRealtimeStatus('offline')
-      return undefined
-    }
-
-    const { key, cluster } = getPusherConfig()
-    if (!key || !cluster) {
-      console.warn('[Pusher] Missing VITE_PUSHER_KEY or VITE_PUSHER_CLUSTER — real-time disabled')
+    if (!activeContext?.roomId || !user?.id) {
       setRealtimeStatus('offline')
       return undefined
     }
 
     const roomId = activeContext.roomId
-    const channelName = `chat_${roomId}`
-    console.log(`[Pusher] Subscribing to channel: ${channelName}`)
+    const socket = connectSocket()
 
-    const pusher = new Pusher(key, {
-      cluster,
-      forceTLS: true,
-    })
+    // Join the room
+    joinRoom(roomId, String(user.id))
 
-    const channel = pusher.subscribe(channelName)
-
-    const onNewMessage = (payload) => {
-      const message = payload?.message
+    // Handler: message received from another user in this room
+    const onReceiveMessage = (message) => {
       if (!message) return
-      console.log('[Pusher] Received new-message:', message)
-      // appendMessage uses mergeMessageList which deduplicates by id OR clientMessageId
+      console.log('[Socket.IO] receive_message:', message)
+      // mergeMessageList in the store deduplicates by id OR clientMessageId
       appendMessage({ ...message, status: 'sent' })
       clearUnread(roomId)
     }
 
-    const onMessageEdited = (payload) => {
-      const message = payload?.message
-      if (!message) return
-      console.log('[Pusher] Received message-edited:', message)
-      upsertMessage({ ...message, status: 'sent' })
-    }
+    socket.on('receive_message', onReceiveMessage)
 
-    const onMessageDeleted = (payload) => {
-      const message = payload?.message
-      if (!message) return
-      console.log('[Pusher] Received message-deleted:', message)
-      upsertMessage({ ...message, status: 'sent' })
-    }
+    // Track connection state for the UI indicator
+    const onConnect = () => setRealtimeStatus('open')
+    const onDisconnect = () => setRealtimeStatus('offline')
+    const onConnecting = () => setRealtimeStatus('connecting')
 
-    const onMessagesRead = (payload) => {
-      console.log('[Pusher] Received messages-read:', payload)
-    }
+    socket.on('connect', onConnect)
+    socket.on('disconnect', onDisconnect)
+    socket.on('connect_error', onConnecting)
 
-    channel.bind('new-message', onNewMessage)
-    channel.bind('message-edited', onMessageEdited)
-    channel.bind('message-deleted', onMessageDeleted)
-    channel.bind('messages-read', onMessagesRead)
-
-    const onStateChange = (states) => {
-      console.log(`[Pusher] Connection state: ${states.previous} → ${states.current}`)
-      if (states.current === 'connected') {
-        setRealtimeStatus('open')
-      } else if (states.current === 'connecting') {
-        setRealtimeStatus('connecting')
-      } else {
-        setRealtimeStatus('offline')
-      }
-    }
-
-    pusher.connection.bind('state_change', onStateChange)
+    // Set initial status
+    setRealtimeStatus(socket.connected ? 'open' : 'connecting')
 
     return () => {
-      console.log(`[Pusher] Unsubscribing from channel: ${channelName}`)
-      channel.unbind('new-message', onNewMessage)
-      channel.unbind('message-edited', onMessageEdited)
-      channel.unbind('message-deleted', onMessageDeleted)
-      channel.unbind('messages-read', onMessagesRead)
-      pusher.connection.unbind('state_change', onStateChange)
-      pusher.unsubscribe(channelName)
-      pusher.disconnect()
+      leaveRoom(roomId)
+      socket.off('receive_message', onReceiveMessage)
+      socket.off('connect', onConnect)
+      socket.off('disconnect', onDisconnect)
+      socket.off('connect_error', onConnecting)
     }
-  }, [activeContext?.roomId, appendMessage, upsertMessage, clearUnread])
+  }, [activeContext?.roomId, user?.id, appendMessage, clearUnread])
 
+  // ── Load more (pagination) ────────────────────────────────────────────────
   const handleLoadMore = async () => {
     if (!nextCursor || !activeContext?.roomId) return
 
@@ -233,6 +193,7 @@ export default function ChatPage() {
     setNextCursor(data.nextCursor || null)
   }
 
+  // ── Send message ──────────────────────────────────────────────────────────
   const sendChatMessage = ({ message, attachment, clientMessageId, retryId }) => {
     const optimisticId = clientMessageId || retryId || createTempId()
     const optimisticMessage = {
@@ -266,6 +227,7 @@ export default function ChatPage() {
       status: 'sending',
     }
 
+    // 1. Optimistic UI update for sender
     if (retryId) {
       markMessageStatus(retryId, 'sending')
     } else {
@@ -274,6 +236,7 @@ export default function ChatPage() {
 
     clearUnread(activeContext.roomId)
 
+    // 2. Save to MongoDB via Django REST API
     chatAPI.sendMessage({
       room: activeContext.roomId,
       workspace_id: activeContext.workspaceId || workspaceId,
@@ -283,7 +246,10 @@ export default function ChatPage() {
     })
       .then(({ data }) => {
         if (data) {
+          // 3. Replace optimistic message with server-confirmed message
           upsertMessage({ ...data, status: 'sent' })
+          // 4. Broadcast to other room members via Socket.IO
+          emitMessage(data)
         } else {
           markMessageStatus(optimisticId, 'sent')
         }
@@ -295,16 +261,12 @@ export default function ChatPage() {
   }
 
   const handleSend = ({ message, attachment, editingMessage: currentEditing }) => {
-    if (!activeContext?.roomId) {
-      throw new Error('No active chat room selected.')
-    }
+    if (!activeContext?.roomId) throw new Error('No active chat room selected.')
 
     if (currentEditing?.id) {
       chatAPI.editMessage(currentEditing.id, { message, attachment })
         .then(({ data }) => {
-          if (data) {
-            upsertMessage({ ...data, status: 'sent' })
-          }
+          if (data) upsertMessage({ ...data, status: 'sent' })
         })
         .catch((error) => {
           toast.error(error?.response?.data?.detail || 'Unable to update message')
@@ -332,10 +294,7 @@ export default function ChatPage() {
   }
 
   const handleTyping = () => {}
-
-  const handleEdit = (message) => {
-    setEditingMessage(message)
-  }
+  const handleEdit = (message) => setEditingMessage(message)
 
   const handleDelete = (message) => {
     if (!message?.id) return
@@ -383,9 +342,7 @@ export default function ChatPage() {
   }, [workspaceId])
 
   useEffect(() => {
-    if (taskId || directUserId) {
-      setShowMobileThreads(false)
-    }
+    if (taskId || directUserId) setShowMobileThreads(false)
   }, [taskId, directUserId])
 
   if (loadingContext) {

@@ -10,7 +10,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .pusher_client import trigger_event
 from .services import (
     edit_message,
     get_workspace_chat_context,
@@ -28,21 +27,6 @@ def _sanitize_message_text(raw_value):
         return ''
     text = BeautifulSoup(str(raw_value), 'html.parser').get_text(separator=' ', strip=True)
     return ' '.join(text.split())
-
-
-
-def _broadcast_chat_event(event_name, message, context, actor_id):
-    room_id = (context.get('roomId') if context else None) or message.get('roomId')
-    channel = f'chat_{room_id}'
-    payload = {
-        'roomId': room_id,
-        'workspaceId': (context.get('workspaceId') if context else None) or message.get('workspaceId'),
-        'chatType': (context.get('chatType') if context else None) or message.get('chatType'),
-        'actorId': str(actor_id),
-        'message': message,
-    }
-    print(f"[Chat] Triggered: chatId={room_id!r} event={event_name!r} channel={channel!r}")
-    trigger_event(channel, event_name, payload)
 
 
 class ChatContextView(APIView):
@@ -131,7 +115,8 @@ class ChatSendMessageView(APIView):
             client_message_id=request.data.get('clientMessageId'),
         )
 
-        _broadcast_chat_event('new-message', message, context, request.user.id)
+        # Real-time broadcasting is handled by the Socket.IO server.
+        # The frontend emits 'send_message' after receiving this response.
         return Response(message, status=status.HTTP_201_CREATED)
 
 
@@ -148,14 +133,12 @@ class ChatMessageDetailView(APIView):
         )
         if not message:
             return Response({'detail': 'Message not found or permission denied.'}, status=status.HTTP_404_NOT_FOUND)
-        _broadcast_chat_event('message-edited', message, None, request.user.id)
         return Response(message)
 
     def delete(self, request, message_id):
         message = delete_message(message_id=message_id, user_id=request.user.id)
         if not message:
             return Response({'detail': 'Message not found or permission denied.'}, status=status.HTTP_404_NOT_FOUND)
-        _broadcast_chat_event('message-deleted', message, None, request.user.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -173,17 +156,6 @@ class ChatMessageReadView(APIView):
             return Response({'detail': 'Room not found or access denied.'}, status=status.HTTP_404_NOT_FOUND)
 
         mark_messages_read(room=room, user_id=request.user.id)
-        channel = f'chat_{room}'
-        print(f"[Chat] Triggered: chatId={room!r} event='messages-read' channel={channel!r}")
-        trigger_event(
-            channel,
-            'messages-read',
-            {
-                'roomId': room,
-                'workspaceId': context.get('workspaceId'),
-                'actorId': str(request.user.id),
-            },
-        )
         return Response({'status': 'ok'})
 
 

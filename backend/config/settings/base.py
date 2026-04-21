@@ -99,12 +99,6 @@ MONGODB_DATABASES = {
 if MONGO_URI:
     connect(host=MONGO_URI)
 
-PUSHER_APP_ID = config('PUSHER_APP_ID', default='')
-PUSHER_KEY = config('PUSHER_KEY', default='')
-PUSHER_SECRET = config('PUSHER_SECRET', default='')
-PUSHER_CLUSTER = config('PUSHER_CLUSTER', default='')
-PUSHER_SSL = config('PUSHER_SSL', default=True, cast=bool)
-
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

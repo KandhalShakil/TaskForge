@@ -10,6 +10,21 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.2
       - key: DEBUG
-        value: "True"
+        value: "False"
       - key: DB_ENGINE
         value: django.db.backends.sqlite3
+
+  - type: web
+    name: taskforge-socket
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd socket-server && npm install
+    startCommand: cd socket-server && node index.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: PORT
+        value: "10000"
+      - key: CORS_ORIGIN
+        value: "https://www.task-forge.kandhal.tech,https://task-forge.kandhal.tech"
