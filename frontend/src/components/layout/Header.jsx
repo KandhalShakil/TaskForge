@@ -108,11 +108,7 @@ export default function Header({ onMenuClick, onSearchClick }) {
           {invitations.length > 0 && (
             <button 
               onClick={() => setShowInvitations(true)}
-<<<<<<< HEAD
               className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-primary-600/10 text-primary-400 hover:bg-primary-600/20 transition-all border border-primary-500/20 shadow-lg shadow-primary-900/10 animate-fade-in"
-=======
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-600/10 text-primary-400 hover:bg-primary-600/20 transition-all border border-primary-500/20 shadow-lg shadow-primary-900/10 animate-fade-in"
->>>>>>> f5a8c18878f09922f4f9e273f7ea6d3fd65193f9
             >
               <Mail size={14} />
               <span className="text-xs font-bold">{invitations.length} <span className="hidden sm:inline">Invites</span></span>

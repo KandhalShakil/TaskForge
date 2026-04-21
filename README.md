@@ -1,15 +1,11 @@
-<<<<<<< HEAD
-﻿# 🚀 TaskForge (Takify)
-=======
 # 🚀 TaskForge (Takify)
->>>>>>> f5a8c18878f09922f4f9e273f7ea6d3fd65193f9
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
 ![Django](https://img.shields.io/badge/Django-4.2-0C4B33)
 ![React](https://img.shields.io/badge/React-18-61DAFB)
 ![Vite](https://img.shields.io/badge/Vite-5-646CFF)
-![MongoDB](https://img.shields.io/badge/Database-MongoDB-47A248)
+![MongoDB](https://img.shields.io/badge/Database-MongoDB-47A248)  
 ![Realtime](https://img.shields.io/badge/Realtime-Pusher-300D4F)
 
 Your all-in-one team collaboration and project management platform with real-time chat, structured workspaces, and powerful task workflows.
@@ -370,8 +366,4 @@ Recommended quick validation:
 
 ## 📄 License
 
-<<<<<<< HEAD
 This project is licensed under the MIT License. See LICENSE.
-=======
-This project is licensed under the MIT License. See LICENSE.
->>>>>>> f5a8c18878f09922f4f9e273f7ea6d3fd65193f9
