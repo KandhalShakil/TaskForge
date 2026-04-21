@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { ArrowLeft, MessageSquare, Users, Loader } from 'lucide-react'
 import MessageList from './MessageList'
 import MessageInput from './MessageInput'
