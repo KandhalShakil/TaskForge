@@ -103,7 +103,11 @@ export default function AppLayout() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(true)} onSearchClick={() => setCommandPaletteOpen(true)} />
+<<<<<<< HEAD
         <main className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden w-full">
+=======
+        <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
+>>>>>>> f5a8c18878f09922f4f9e273f7ea6d3fd65193f9
           <Outlet />
         </main>
       </div>

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ﻿# 🚀 TaskForge (Takify)
+=======
+# 🚀 TaskForge (Takify)
+>>>>>>> f5a8c18878f09922f4f9e273f7ea6d3fd65193f9
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
@@ -366,4 +370,8 @@ Recommended quick validation:
 
 ## 📄 License
 
+<<<<<<< HEAD
 This project is licensed under the MIT License. See LICENSE.
+=======
+This project is licensed under the MIT License. See LICENSE.
+>>>>>>> f5a8c18878f09922f4f9e273f7ea6d3fd65193f9
