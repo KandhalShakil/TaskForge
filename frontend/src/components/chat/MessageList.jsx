@@ -1,85 +1,171 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import MessageBubble from './MessageBubble'
+import { MessageSquare } from 'lucide-react'
 
-export default function MessageList({ messages = [], currentUserId, onEdit, onDelete, onRetry, onLoadMore, hasMore, loadingMore, typingUsers = {} }) {
+export default function MessageList({
+  messages = [],
+  currentUserId,
+  onEdit,
+  onDelete,
+  onRetry,
+  onLoadMore,
+  hasMore,
+  loadingMore,
+  typingUsers = {},
+}) {
   const scrollRef = useRef(null)
-  const visibleMessages = useMemo(() => [...messages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)), [messages])
+  const bottomRef = useRef(null)
+  const isAtBottomRef = useRef(true)
+  const prevScrollHeightRef = useRef(0)
+  const prevMessageCountRef = useRef(0)
 
-  const previousScrollHeight = useRef(0)
-  const isScrolledToTop = useRef(false)
+  // Sort messages oldest → newest for display
+  const visibleMessages = [...messages].sort(
+    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+  )
 
-  useEffect(() => {
-    const element = scrollRef.current
-    if (!element) return
-
-    const handleScroll = () => {
-      isScrolledToTop.current = element.scrollTop < 10
-    }
-    
-    element.addEventListener('scroll', handleScroll)
-    return () => element.removeEventListener('scroll', handleScroll)
+  // Track whether user is near bottom
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }, [])
 
   useEffect(() => {
-    const element = scrollRef.current
-    if (!element) return
+    const el = scrollRef.current
+    if (!el) return
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [handleScroll])
 
-    // If scroll height increased and we were at the top, we just loaded older messages
-    if (isScrolledToTop.current && previousScrollHeight.current < element.scrollHeight) {
-      element.scrollTop = element.scrollHeight - previousScrollHeight.current
-    } else {
-      // Otherwise, assume new message and scroll to bottom
-      const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 150
-      const isMyMessage = visibleMessages.length > 0 && visibleMessages[visibleMessages.length - 1].senderId === currentUserId
-      
-      if (isNearBottom || isMyMessage) {
-        element.scrollTop = element.scrollHeight
+  // Smart scroll: preserve position when loading older messages, scroll down for new ones
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    const prevCount = prevMessageCountRef.current
+    const newCount = visibleMessages.length
+
+    if (newCount > prevCount) {
+      const prevScrollHeight = prevScrollHeightRef.current
+      const addedAtTop = el.scrollHeight > prevScrollHeight && el.scrollTop < 50
+
+      if (addedAtTop) {
+        // Loaded older messages — keep position
+        el.scrollTop = el.scrollHeight - prevScrollHeight
+      } else if (isAtBottomRef.current || newCount - prevCount === 1) {
+        // New message or first load — scroll to bottom
+        bottomRef.current?.scrollIntoView({ behavior: newCount === 1 ? 'instant' : 'smooth' })
       }
     }
-    
-    previousScrollHeight.current = element.scrollHeight
-  }, [visibleMessages.length, currentUserId])
 
-  const typingNames = Object.keys(typingUsers).length
-    ? `${Object.keys(typingUsers).length} user${Object.keys(typingUsers).length > 1 ? 's' : ''} typing...`
-    : ''
+    prevScrollHeightRef.current = el.scrollHeight
+    prevMessageCountRef.current = newCount
+  }, [visibleMessages.length])
+
+  const typingCount = Object.keys(typingUsers).length
+
+  // Group messages by date
+  const grouped = []
+  let lastDate = null
+  visibleMessages.forEach((msg) => {
+    const d = msg.createdAt ? new Date(msg.createdAt).toDateString() : null
+    if (d && d !== lastDate) {
+      grouped.push({ type: 'date', label: formatDateLabel(d), key: `date-${d}` })
+      lastDate = d
+    }
+    grouped.push({ type: 'message', msg, key: msg.id || msg.clientMessageId })
+  })
 
   return (
-    <div ref={scrollRef} className="flex-1 space-y-3 sm:space-y-4 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5">
+    <div
+      ref={scrollRef}
+      className="flex flex-1 flex-col overflow-y-auto overscroll-contain scroll-smooth px-3 py-4 sm:px-5 sm:py-5"
+      style={{ scrollbarGutter: 'stable' }}
+    >
+      {/* Load more */}
       {hasMore && (
-        <div className="flex justify-center">
+        <div className="mb-4 flex justify-center">
           <button
             type="button"
             onClick={onLoadMore}
             disabled={loadingMore}
-            className="rounded-full border border-slate-700 bg-surface-900 px-4 py-2 text-xs text-slate-300 transition-colors hover:border-slate-500 hover:text-white disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-surface-900 px-5 py-2 text-xs font-medium text-slate-300 shadow transition-all hover:border-slate-500 hover:text-white disabled:opacity-50"
           >
-            {loadingMore ? 'Loading older messages...' : 'Load older messages'}
+            {loadingMore ? (
+              <>
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-transparent" />
+                Loading…
+              </>
+            ) : 'Load older messages'}
           </button>
         </div>
       )}
 
-      {visibleMessages.length === 0 ? (
-        <div className="flex min-h-[14rem] sm:min-h-[20rem] items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-surface-900/40 px-4 sm:px-6 text-center">
+      {/* Empty state */}
+      {visibleMessages.length === 0 && !loadingMore && (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-slate-700 bg-surface-800 text-slate-500">
+            <MessageSquare size={28} />
+          </div>
           <div>
-            <p className="text-lg font-semibold text-white">No messages yet</p>
-            <p className="mt-2 text-sm text-slate-500">Start the conversation with your team.</p>
+            <p className="text-base font-semibold text-white">No messages yet</p>
+            <p className="mt-1 text-sm text-slate-500">Be the first to say something 👋</p>
           </div>
         </div>
-      ) : (
-        visibleMessages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            isMine={message.senderId === currentUserId}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onRetry={onRetry}
-          />
-        ))
       )}
 
-      {typingNames && <div className="px-1 text-xs text-slate-400">{typingNames}</div>}
+      {/* Messages grouped by date */}
+      <div className="flex flex-col gap-3">
+        {grouped.map((item) =>
+          item.type === 'date' ? (
+            <div key={item.key} className="flex items-center gap-3 py-1">
+              <div className="h-px flex-1 bg-slate-800" />
+              <span className="rounded-full border border-slate-700 bg-surface-900 px-3 py-0.5 text-[10px] font-medium text-slate-500">
+                {item.label}
+              </span>
+              <div className="h-px flex-1 bg-slate-800" />
+            </div>
+          ) : (
+            <MessageBubble
+              key={item.key}
+              message={item.msg}
+              isMine={String(item.msg.senderId) === String(currentUserId)}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onRetry={onRetry}
+            />
+          )
+        )}
+      </div>
+
+      {/* Typing indicator */}
+      {typingCount > 0 && (
+        <div className="mt-2 flex items-center gap-2 px-12">
+          <div className="flex gap-1">
+            <span className="h-2 w-2 animate-bounce rounded-full bg-slate-500 [animation-delay:0ms]" />
+            <span className="h-2 w-2 animate-bounce rounded-full bg-slate-500 [animation-delay:150ms]" />
+            <span className="h-2 w-2 animate-bounce rounded-full bg-slate-500 [animation-delay:300ms]" />
+          </div>
+          <span className="text-xs text-slate-500">
+            {typingCount === 1 ? 'Someone is typing' : `${typingCount} people are typing`}
+          </span>
+        </div>
+      )}
+
+      {/* Scroll anchor */}
+      <div ref={bottomRef} className="h-px shrink-0" />
     </div>
   )
+}
+
+function formatDateLabel(dateString) {
+  const d = new Date(dateString)
+  const now = new Date()
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+
+  if (d.toDateString() === now.toDateString()) return 'Today'
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }

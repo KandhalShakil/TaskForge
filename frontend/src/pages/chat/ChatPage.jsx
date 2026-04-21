@@ -354,7 +354,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden bg-surface-950">
+    <div className="flex h-full min-h-0 flex-1 overflow-hidden bg-surface-950">
       <ChatSidebar
         workspace={workspace}
         threads={threads}

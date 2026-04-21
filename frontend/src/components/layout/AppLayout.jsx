@@ -1,5 +1,5 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Sidebar from './Sidebar'
 import Header from './Header'
@@ -11,26 +11,86 @@ import { connectSocket } from '../../utils/socket'
 
 const CommandPalette = lazy(() => import('../common/CommandPalette'))
 
+// ── Notification permission request ────────────────────────────────────────
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return
+  if (Notification.permission === 'default') {
+    await Notification.requestPermission()
+  }
+}
+
+// ── Show a browser push notification ──────────────────────────────────────
+function showBrowserNotification({ title, body, icon, onClick }) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return
+  const notif = new Notification(title, {
+    body,
+    icon: icon || '/favicon.ico',
+    badge: '/favicon.ico',
+    tag: 'chat-message',   // replace instead of stack
+    renotify: true,
+    silent: false,
+  })
+  if (onClick) notif.onclick = onClick
+}
+
+// ── Rich in-app toast for chat messages ────────────────────────────────────
+function ChatToast({ sender, message, onClick }) {
+  const letter = sender?.full_name?.[0]?.toUpperCase() || sender?.initials || '?'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full max-w-sm items-center gap-3 rounded-2xl border border-slate-700/60 bg-surface-900 px-4 py-3 text-left shadow-2xl ring-1 ring-white/5 transition-all hover:border-primary-500/30"
+    >
+      {sender?.avatar ? (
+        <img src={sender.avatar} alt={sender.full_name} className="h-10 w-10 flex-shrink-0 rounded-full object-cover" />
+      ) : (
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-600 to-primary-400 text-sm font-bold text-white">
+          {letter}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-white">{sender?.full_name || 'New message'}</p>
+        <p className="truncate text-xs text-slate-400">{message || 'Sent an attachment'}</p>
+      </div>
+      <span className="shrink-0 rounded-lg bg-primary-600/15 px-2 py-1 text-[10px] font-semibold text-primary-400">
+        View
+      </span>
+    </button>
+  )
+}
+
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
   const { fetchWorkspaces, fetchInvitations } = useWorkspaceStore()
   const { user } = useAuthStore()
   const { incrementUnread } = useChatStore()
 
-  // Prefetch core data on mount
+  // Prefetch core data + request notification permission on mount
   useEffect(() => {
     fetchWorkspaces()
     fetchInvitations()
-
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission()
-    }
+    requestNotificationPermission()
   }, [])
 
-  // Global Socket.IO listener — handles notifications for messages
-  // received while the user is NOT in that particular chat room
+  // Navigate to a chat room given a message object
+  const navigateToRoom = useCallback((message) => {
+    if (!message?.roomId) return
+    const { chatType, workspaceId, taskId, receiverId } = message
+
+    if (chatType === 'workspace' && workspaceId) {
+      navigate(`/workspaces/${workspaceId}/chat`)
+    } else if (chatType === 'task' && workspaceId && taskId) {
+      navigate(`/workspaces/${workspaceId}/chat`, { state: { taskId } })
+    } else if (chatType === 'direct' && workspaceId && receiverId) {
+      navigate(`/workspaces/${workspaceId}/chat/dm/${receiverId}`)
+    }
+  }, [navigate])
+
+  // ── Global Socket.IO receive_message handler ───────────────────────────
   useEffect(() => {
     if (!user?.id) return undefined
 
@@ -38,37 +98,62 @@ export default function AppLayout() {
 
     const onReceiveMessage = (message) => {
       if (!message?.roomId) return
-      // Skip if the user sent it or if they are currently in that room
-      if (message.senderId === String(user.id)) return
-      if (message.roomId === useChatStore.getState().activeRoom) return
 
+      // Skip own messages
+      if (String(message.senderId) === String(user.id)) return
+
+      // Skip if user is currently viewing this room
+      const activeRoom = useChatStore.getState().activeRoom
+      if (message.roomId === activeRoom && document.visibilityState === 'visible') return
+
+      // Update unread badge on thread in sidebar
       incrementUnread(message.roomId, {
         roomId: message.roomId,
         chatType: message.chatType,
         workspaceId: message.workspaceId,
         taskId: message.taskId,
         receiverId: message.receiverId,
-        title: message.sender?.full_name || 'New message',
-        subtitle: 'Chat',
+        title: message.sender?.full_name || 'Chat',
+        subtitle: message.chatType === 'direct' ? 'Direct message' : 'Workspace',
         lastMessage: message.message || message.attachmentName || 'Attachment',
         lastMessageAt: message.createdAt,
       })
 
       const senderName = message.sender?.full_name || 'Someone'
-      toast.success(`New message from ${senderName}`)
+      const body = message.message || (message.attachmentName ? `📎 ${message.attachmentName}` : 'Sent a message')
 
-      if ('Notification' in window && Notification.permission === 'granted') {
-        const body = message.message || (message.attachmentName ? 'Sent an attachment' : 'New message')
-        new Notification(`New message from ${senderName}`, { body })
-      }
+      // Browser notification (works even when tab is in background)
+      showBrowserNotification({
+        title: `💬 ${senderName}`,
+        body,
+        onClick: () => {
+          window.focus()
+          navigateToRoom(message)
+        },
+      })
+
+      // Rich in-app toast with click-to-navigate
+      toast.custom(
+        (t) => (
+          <ChatToast
+            sender={message.sender}
+            message={body}
+            onClick={() => {
+              toast.dismiss(t.id)
+              navigateToRoom(message)
+            }}
+          />
+        ),
+        {
+          duration: 5000,
+          position: 'bottom-right',
+        }
+      )
     }
 
     socket.on('receive_message', onReceiveMessage)
-
-    return () => {
-      socket.off('receive_message', onReceiveMessage)
-    }
-  }, [user?.id, incrementUnread])
+    return () => socket.off('receive_message', onReceiveMessage)
+  }, [user?.id, incrementUnread, navigateToRoom])
 
   // Close sidebar on navigation (mobile)
   useEffect(() => {
@@ -93,7 +178,7 @@ export default function AppLayout() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(true)} onSearchClick={() => setCommandPaletteOpen(true)} />
-        <main className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden w-full">
+        <main className="flex flex-1 min-h-0 flex-col overflow-hidden w-full">
           <Outlet />
         </main>
       </div>
