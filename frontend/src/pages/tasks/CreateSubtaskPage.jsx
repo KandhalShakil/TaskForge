@@ -12,6 +12,7 @@ import { workspacesAPI } from '../../api/workspaces'
 import Button from '../../components/common/Button'
 import { TASK_PRIORITIES } from '../../utils/constants'
 import { stripHtml } from '../../utils/html'
+import { extractApiError, validateSubtask } from '../../utils/validation'
 
 export default function CreateSubtaskPage() {
   const navigate = useNavigate()
@@ -23,14 +24,19 @@ export default function CreateSubtaskPage() {
   const [project, setProject] = useState(null)
   const [members, setMembers] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [formError, setFormError] = useState('')
 
   const {
     register,
     handleSubmit,
     control,
     watch,
-    formState: { errors, isSubmitting },
+    setError,
+    setFocus,
+    clearErrors,
+    formState: { errors, isSubmitting, isValid },
   } = useForm({
+    mode: 'onChange',
     defaultValues: {
       title: '',
       description: '',
@@ -100,6 +106,20 @@ export default function CreateSubtaskPage() {
   }
 
   const onSubmit = async (data) => {
+    setFormError('')
+    clearErrors()
+
+    const validation = validateSubtask(data, { parent: parentTask })
+    if (!validation.isValid) {
+      setFormError(validation.generalError || 'All fields are required')
+      Object.entries(validation.errors).forEach(([field, message]) => {
+        setError(field, { type: 'manual', message })
+      })
+      const firstField = Object.keys(validation.errors)[0]
+      if (firstField) setFocus(firstField)
+      return
+    }
+
     try {
       const payload = {
         title: (data.title || '').trim(),
@@ -120,8 +140,9 @@ export default function CreateSubtaskPage() {
       toast.success('Subtask created')
       navigate(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`)
     } catch (error) {
-      toast.error('Failed to create subtask')
-      console.error(error)
+      const message = extractApiError(error, 'Failed to create subtask')
+      setFormError(message)
+      toast.error(message)
     }
   }
 
@@ -159,6 +180,11 @@ export default function CreateSubtaskPage() {
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {formError && (
+              <div className="rounded-lg border border-red-700/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+                {formError}
+              </div>
+            )}
             {/* Title */}
             <div>
               <label className="label text-sm">Title *</label>
@@ -176,6 +202,7 @@ export default function CreateSubtaskPage() {
               <Controller
                 name="description"
                 control={control}
+                rules={{ required: 'Description is required' }}
                 render={({ field }) => (
                   <div className="bg-surface-800 border border-slate-700 rounded-lg overflow-hidden [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-slate-700 [&_.ql-toolbar]:bg-surface-700 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[120px] [&_.ql-editor]:text-sm [&_.ql-editor]:text-slate-200">
                     <ReactQuill
@@ -187,23 +214,25 @@ export default function CreateSubtaskPage() {
                   </div>
                 )}
               />
+              {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>}
             </div>
 
             {/* Priority & Assignee */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label text-sm">Priority</label>
-                <select className="select" {...register('priority')}>
+                <select className={`select ${errors.priority ? 'border-red-500' : ''}`} {...register('priority', { required: 'Priority is required' })}>
                   {TASK_PRIORITIES.map((p) => (
                     <option key={p.value} value={p.value}>
                       {p.icon} {p.label}
                     </option>
                   ))}
                 </select>
+                {errors.priority && <p className="text-red-400 text-xs mt-1">{errors.priority.message}</p>}
               </div>
               <div>
                 <label className="label text-sm">Assignee</label>
-                <select className="select" {...register('assignee_id')}>
+                <select className={`select ${errors.assignee_id ? 'border-red-500' : ''}`} {...register('assignee_id', { required: 'Assignee is required' })}>
                   <option value="">Unassigned</option>
                   {members.map((member) => (
                     <option key={member.user.id} value={member.user.id}>
@@ -211,11 +240,12 @@ export default function CreateSubtaskPage() {
                     </option>
                   ))}
                 </select>
+                {errors.assignee_id && <p className="text-red-400 text-xs mt-1">{errors.assignee_id.message}</p>}
               </div>
             </div>
 
             {/* Category & Dates */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label text-sm">Category</label>
                 <select className="select" {...register('category_id')}>
@@ -232,19 +262,27 @@ export default function CreateSubtaskPage() {
                 <input
                   type="number"
                   step="0.5"
-                  min="0"
-                  className="input"
+                  min="0.5"
+                  className={`input ${errors.estimated_hours ? 'border-red-500' : ''}`}
                   placeholder="0"
-                  {...register('estimated_hours')}
+                  {...register('estimated_hours', {
+                    required: 'Estimated hours is required',
+                    validate: (value) => {
+                      const parsed = Number(value)
+                      return Number.isFinite(parsed) && parsed > 0 || 'Estimated hours must be a positive number'
+                    },
+                  })}
                 />
+                {errors.estimated_hours && <p className="text-red-400 text-xs mt-1">{errors.estimated_hours.message}</p>}
               </div>
             </div>
 
             {/* Date Range */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label text-sm">Start Date</label>
-                <input type="date" className="input" {...register('start_date')} />
+                <input type="date" className={`input ${errors.start_date ? 'border-red-500' : ''}`} {...register('start_date', { required: 'Start date is required' })} />
+                {errors.start_date && <p className="text-red-400 text-xs mt-1">{errors.start_date.message}</p>}
               </div>
               <div>
                 <label className="label text-sm">Due Date</label>
@@ -252,9 +290,10 @@ export default function CreateSubtaskPage() {
                   type="date"
                   className={`input ${errors.due_date ? 'border-red-500' : ''}`}
                   {...register('due_date', {
+                    required: 'End date is required',
                     validate: (value) => {
                       if (!value || !startDate) return true
-                      return value >= startDate || 'Due date cannot be earlier than start date'
+                      return value >= startDate || 'End date cannot be before start date'
                     },
                   })}
                 />
@@ -263,11 +302,11 @@ export default function CreateSubtaskPage() {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 pt-6 border-t border-slate-800">
+            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-6 border-t border-slate-800">
               <Button type="button" variant="secondary" onClick={() => navigate(-1)} className="flex-1">
                 Cancel
               </Button>
-              <Button type="submit" loading={isSubmitting} className="flex-1">
+              <Button type="submit" loading={isSubmitting} disabled={!isValid} className="flex-1">
                 Create Subtask
               </Button>
             </div>

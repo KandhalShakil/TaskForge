@@ -1,64 +1,103 @@
+import uuid
+
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
-from .models import Workspace, WorkspaceMember
+
+from apps.users.documents import UserDocument
 from apps.users.serializers import UserSerializer
+from .documents import WorkspaceDocument, WorkspaceMemberDocument
 
-User = get_user_model()
-
-
-class WorkspaceSerializer(serializers.ModelSerializer):
-    owner = UserSerializer(read_only=True)
+class WorkspaceSerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    name = serializers.CharField(max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True)
+    icon = serializers.CharField(required=False, allow_blank=True)
+    color = serializers.CharField(required=False, allow_blank=True)
+    owner = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
     user_role = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
 
-    class Meta:
-        model = Workspace
-        fields = [
-            'id', 'name', 'description', 'icon', 'color',
-            'owner', 'member_count', 'user_role', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'owner', 'created_at', 'updated_at']
+    def validate_name(self, value):
+        if not value.strip():
+            raise serializers.ValidationError('Name is required.')
+        return value.strip()
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        workspace = WorkspaceDocument(
+            id=validated_data.get('id') or str(uuid.uuid4()),
+            name=validated_data['name'],
+            description=validated_data.get('description', ''),
+            icon=validated_data.get('icon', '🚀'),
+            color=validated_data.get('color', '#6366f1'),
+            ownerId=str(user.id),
+        )
+        workspace.save()
+
+        WorkspaceMemberDocument(
+            id=str(uuid.uuid4()),
+            workspaceId=str(workspace.id),
+            userId=str(user.id),
+            role='admin',
+            status='accepted',
+        ).save()
+
+        return workspace
+
+    def update(self, instance, validated_data):
+        for key in ('name', 'description', 'icon', 'color'):
+            if key in validated_data:
+                setattr(instance, key, validated_data[key])
+        instance.save()
+        return instance
+
+    def get_owner(self, obj):
+        owner = UserDocument.objects(id=str(getattr(obj, 'ownerId', ''))).first()
+        return UserSerializer(owner).data if owner else None
 
     def get_member_count(self, obj):
-        return obj.members.filter(status=WorkspaceMember.Status.ACCEPTED).count()
+        return WorkspaceMemberDocument.objects(workspaceId=str(obj.id), status='accepted').count()
 
     def get_user_role(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            member = obj.members.filter(user=request.user).first()
+            member = WorkspaceMemberDocument.objects(
+                workspaceId=str(obj.id),
+                userId=str(request.user.id),
+            ).first()
             return member.role if member else None
         return None
 
-    def create(self, validated_data):
-        user = self.context['request'].user
-        workspace = Workspace.objects.create(owner=user, **validated_data)
-        WorkspaceMember.objects.create(
-            workspace=workspace,
-            user=user,
-            role=WorkspaceMember.Role.ADMIN,
-            status=WorkspaceMember.Status.ACCEPTED
-        )
-        return workspace
 
+class WorkspaceMemberSerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    user = serializers.SerializerMethodField()
+    user_id = serializers.CharField(write_only=True, required=False)
+    workspace = serializers.SerializerMethodField()
+    role = serializers.ChoiceField(choices=('admin', 'member', 'viewer'), required=False, default='member')
+    status = serializers.CharField(read_only=True)
+    joined_at = serializers.DateTimeField(read_only=True)
 
-class WorkspaceMemberSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    user_id = serializers.UUIDField(write_only=True)
-    workspace = WorkspaceSerializer(read_only=True)
+    def get_user(self, obj):
+        user = UserDocument.objects(id=str(getattr(obj, 'userId', ''))).first()
+        return UserSerializer(user).data if user else None
 
-    class Meta:
-        model = WorkspaceMember
-        fields = ['id', 'user', 'user_id', 'workspace', 'role', 'status', 'joined_at']
-        read_only_fields = ['id', 'status', 'joined_at']
+    def get_workspace(self, obj):
+        workspace = WorkspaceDocument.objects(id=str(getattr(obj, 'workspaceId', ''))).first()
+        if not workspace:
+            return None
+        return WorkspaceSerializer(workspace, context=self.context).data
 
     def validate_user_id(self, value):
-        if not User.objects.filter(id=value, is_active=True).exists():
+        if not UserDocument.objects(id=str(value), is_active=True).first():
             raise serializers.ValidationError('User not found.')
         return value
 
 
 class WorkspaceDetailSerializer(WorkspaceSerializer):
-    members = WorkspaceMemberSerializer(many=True, read_only=True)
+    members = serializers.SerializerMethodField()
 
-    class Meta(WorkspaceSerializer.Meta):
-        fields = WorkspaceSerializer.Meta.fields + ['members']
+    def get_members(self, obj):
+        members = WorkspaceMemberDocument.objects(workspaceId=str(obj.id))
+        return WorkspaceMemberSerializer(members, many=True, context=self.context).data

@@ -1,5 +1,8 @@
 from rest_framework import permissions
-from apps.workspaces.models import WorkspaceMember
+
+from apps.projects.documents import ProjectDocument
+from apps.tasks.documents import TaskDocument
+from apps.workspaces.documents import WorkspaceMemberDocument
 
 class IsWorkspaceAdmin(permissions.BasePermission):
     """
@@ -19,29 +22,33 @@ class IsWorkspaceAdmin(permissions.BasePermission):
         if not workspace_id:
             return True # Fallback to queryset filtering in the view
 
-        return WorkspaceMember.objects.filter(
-            workspace_id=workspace_id,
-            user=request.user,
-            role=WorkspaceMember.Role.ADMIN,
-            status=WorkspaceMember.Status.ACCEPTED
-        ).exists()
+        return WorkspaceMemberDocument.objects(
+            workspaceId=str(workspace_id),
+            userId=str(request.user.id),
+            role='admin',
+            status='accepted',
+        ).first() is not None
 
     def has_object_permission(self, request, view, obj):
         # Traverse relationships to find workspace
-        workspace = getattr(obj, 'workspace', None)
-        if not workspace and hasattr(obj, 'task'):
-            workspace = obj.task.workspace
-        if not workspace and hasattr(obj, 'project'):
-            workspace = obj.project.workspace
-        if not workspace:
-            workspace = obj
+        workspace_id = getattr(obj, 'workspaceId', None)
+        if workspace_id is None:
+            workspace_id = getattr(obj, 'workspace_id', None)
+        if workspace_id is None and hasattr(obj, 'taskId'):
+            task = TaskDocument.objects(id=str(obj.taskId)).first()
+            workspace_id = task.workspaceId if task else None
+        if workspace_id is None and hasattr(obj, 'projectId'):
+            project = ProjectDocument.objects(id=str(obj.projectId)).first()
+            workspace_id = project.workspaceId if project else None
+        if workspace_id is None:
+            workspace_id = getattr(obj, 'id', None)
 
-        return WorkspaceMember.objects.filter(
-            workspace=workspace,
-            user=request.user,
-            role=WorkspaceMember.Role.ADMIN,
-            status=WorkspaceMember.Status.ACCEPTED
-        ).exists()
+        return WorkspaceMemberDocument.objects(
+            workspaceId=str(workspace_id),
+            userId=str(request.user.id),
+            role='admin',
+            status='accepted',
+        ).first() is not None
 
 
 class IsWorkspaceMemberOrAdmin(permissions.BasePermission):
@@ -59,29 +66,21 @@ class IsWorkspaceMemberOrAdmin(permissions.BasePermission):
         if not workspace_id:
             project_id = view.kwargs.get('project_id') or request.data.get('project')
             if project_id:
-                from apps.projects.models import Project
-                try:
-                    project = Project.objects.get(id=project_id)
-                    workspace_id = project.workspace_id
-                except Project.DoesNotExist:
-                    pass
+                project = ProjectDocument.objects(id=str(project_id)).first()
+                workspace_id = project.workspaceId if project else None
                     
             task_id = view.kwargs.get('task_id') or request.data.get('task')
             if task_id:
-                from apps.tasks.models import Task
-                try:
-                    task = Task.objects.get(id=task_id)
-                    workspace_id = task.workspace_id
-                except Task.DoesNotExist:
-                    pass
+                task = TaskDocument.objects(id=str(task_id)).first()
+                workspace_id = task.workspaceId if task else workspace_id
 
         if not workspace_id:
             return True # Fallback to queryset filtering
 
-        membership = WorkspaceMember.objects.filter(
-            workspace_id=workspace_id,
-            user=request.user,
-            status=WorkspaceMember.Status.ACCEPTED
+        membership = WorkspaceMemberDocument.objects(
+            workspaceId=str(workspace_id),
+            userId=str(request.user.id),
+            status='accepted',
         ).first()
 
         if not membership:
@@ -91,22 +90,26 @@ class IsWorkspaceMemberOrAdmin(permissions.BasePermission):
             return True
             
         # Standard members can create/edit, Viewers cannot.
-        return membership.role in [WorkspaceMember.Role.ADMIN, WorkspaceMember.Role.MEMBER]
+        return membership.role in ['admin', 'member']
 
     def has_object_permission(self, request, view, obj):
         # Traverse relationships
-        workspace = getattr(obj, 'workspace', None)
-        if not workspace and hasattr(obj, 'task'):
-            workspace = obj.task.workspace
-        if not workspace and hasattr(obj, 'project'):
-            workspace = obj.project.workspace
-        if not workspace:
-            workspace = obj
+        workspace_id = getattr(obj, 'workspaceId', None)
+        if workspace_id is None:
+            workspace_id = getattr(obj, 'workspace_id', None)
+        if workspace_id is None and hasattr(obj, 'taskId'):
+            task = TaskDocument.objects(id=str(obj.taskId)).first()
+            workspace_id = task.workspaceId if task else None
+        if workspace_id is None and hasattr(obj, 'projectId'):
+            project = ProjectDocument.objects(id=str(obj.projectId)).first()
+            workspace_id = project.workspaceId if project else None
+        if workspace_id is None:
+            workspace_id = getattr(obj, 'id', None)
 
-        membership = WorkspaceMember.objects.filter(
-            workspace=workspace,
-            user=request.user,
-            status=WorkspaceMember.Status.ACCEPTED
+        membership = WorkspaceMemberDocument.objects(
+            workspaceId=str(workspace_id),
+            userId=str(request.user.id),
+            status='accepted',
         ).first()
 
         if not membership:
@@ -115,4 +118,4 @@ class IsWorkspaceMemberOrAdmin(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
             
-        return membership.role in [WorkspaceMember.Role.ADMIN, WorkspaceMember.Role.MEMBER]
+        return membership.role in ['admin', 'member']

@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Pusher from 'pusher-js'
 import toast from 'react-hot-toast'
 import Sidebar from './Sidebar'
 import Header from './Header'
-import CommandPalette from '../common/CommandPalette'
 import GlobalLoadingBar from '../common/GlobalLoadingBar'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import { useAuthStore } from '../../store/authStore'
 import { useChatStore } from '../../store/chatStore'
 import { getPusherConfig } from '../../utils/chat'
+
+const CommandPalette = lazy(() => import('../common/CommandPalette'))
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -23,6 +24,10 @@ export default function AppLayout() {
   useEffect(() => {
     fetchWorkspaces()
     fetchInvitations()
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
   }, [])
 
   useEffect(() => {
@@ -55,7 +60,15 @@ export default function AppLayout() {
         lastMessageAt: message.createdAt,
       })
 
-      toast.success('New message')
+      const senderName = message.sender?.full_name || 'Someone'
+      toast.success(`New message from ${senderName}`)
+
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const notifMsg = message.message || (message.attachmentName ? 'Sent an attachment' : 'New message')
+        new Notification(`New message from ${senderName}`, {
+          body: notifMsg
+        })
+      }
     }
 
     channel.bind('new-message', onNewMessage)
@@ -85,20 +98,22 @@ export default function AppLayout() {
   }, [])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-950">
+    <div className="flex min-h-screen overflow-hidden bg-surface-950">
       <GlobalLoadingBar />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onMenuClick={() => setSidebarOpen(true)} onSearchClick={() => setCommandPaletteOpen(true)} />
-        <main className="flex-1 overflow-y-auto w-full">
+        <main className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden w-full">
           <Outlet />
         </main>
       </div>
 
-      <CommandPalette 
-        isOpen={commandPaletteOpen} 
-        onClose={() => setCommandPaletteOpen(false)} 
-      />
+      <Suspense fallback={null}>
+        <CommandPalette
+          isOpen={commandPaletteOpen}
+          onClose={() => setCommandPaletteOpen(false)}
+        />
+      </Suspense>
     </div>
   )
 }

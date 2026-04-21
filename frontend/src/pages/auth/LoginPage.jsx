@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { Layers, Eye, EyeOff, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
+import { getApiErrorMessage } from '../../utils/apiError'
 
 const schema = z.object({
   email: z.string().email('Invalid email address'),
@@ -30,7 +31,7 @@ export default function LoginPage() {
       toast.success('Welcome back!')
       navigate('/workspaces')
     } catch (err) {
-      const detail = err.response?.data?.detail || 'Invalid credentials'
+      const detail = getApiErrorMessage(err, 'Invalid credentials')
       setError('root', { message: detail })
       toast.error(detail)
     }

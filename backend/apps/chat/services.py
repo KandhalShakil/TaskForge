@@ -3,17 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 
 from bson import ObjectId
-from django.contrib.auth import get_user_model
-from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.mongo import get_mongo_db
-from apps.projects.models import Project
-from apps.tasks.models import Task
-from apps.workspaces.models import Workspace, WorkspaceMember
-
-
-User = get_user_model()
+from apps.tasks.documents import TaskDocument
+from apps.users.documents import UserDocument
+from apps.workspaces.documents import WorkspaceDocument, WorkspaceMemberDocument
 
 
 def _iso(value):
@@ -26,18 +21,29 @@ def _iso(value):
     return value
 
 
+def _member_exists(*, workspace_id, user_id):
+    return WorkspaceMemberDocument.objects(
+        workspaceId=str(workspace_id),
+        userId=str(user_id),
+        status='accepted',
+    ).first() is not None
+
+
 def _user_summary(user_id):
     if not user_id:
         return None
-    user = User.objects.filter(id=user_id).only('id', 'full_name', 'email', 'avatar').first()
+    user = UserDocument.objects(id=str(user_id)).first()
     if not user:
         return None
+    full_name = user.full_name or ''
+    parts = full_name.split()
+    initials = ''.join(part[0].upper() for part in parts[:2]) if parts else ''
     return {
         'id': str(user.id),
-        'full_name': user.full_name,
+        'full_name': full_name,
         'email': user.email,
-        'avatar': user.avatar.url if user.avatar else None,
-        'initials': user.initials,
+        'avatar': user.avatar,
+        'initials': initials,
     }
 
 
@@ -67,10 +73,10 @@ def parse_room(room):
 
     if room.startswith('task_'):
         task_id = room.removeprefix('task_')
-        task = Task.objects.select_related('workspace').filter(id=task_id).first()
+        task = TaskDocument.objects(id=str(task_id)).first()
         return {
             'chatType': 'task',
-            'workspaceId': str(task.workspace_id) if task else None,
+            'workspaceId': str(task.workspaceId) if task else None,
             'taskId': task_id,
             'receiverId': None,
             'roomId': room,
@@ -95,30 +101,22 @@ def validate_room_access(user, room, workspace_id=None):
     context = parse_room(room)
 
     if context['chatType'] == 'workspace':
-        workspace = Workspace.objects.filter(id=context['workspaceId']).first()
+        workspace = WorkspaceDocument.objects(id=str(context['workspaceId'])).first()
         if not workspace:
             return None
-        if not WorkspaceMember.objects.filter(
-            workspace=workspace,
-            user=user,
-            status=WorkspaceMember.Status.ACCEPTED,
-        ).exists():
+        if not _member_exists(workspace_id=workspace.id, user_id=user.id):
             return None
         context['workspace'] = workspace
         return context
 
     if context['chatType'] == 'task':
-        task = Task.objects.select_related('workspace', 'project').filter(id=context['taskId']).first()
+        task = TaskDocument.objects(id=str(context['taskId'])).first()
         if not task:
             return None
-        if not WorkspaceMember.objects.filter(
-            workspace=task.workspace,
-            user=user,
-            status=WorkspaceMember.Status.ACCEPTED,
-        ).exists():
+        if not _member_exists(workspace_id=task.workspaceId, user_id=user.id):
             return None
         context['task'] = task
-        context['workspaceId'] = str(task.workspace_id)
+        context['workspaceId'] = str(task.workspaceId)
         return context
 
     if context['chatType'] == 'direct':
@@ -127,12 +125,8 @@ def validate_room_access(user, room, workspace_id=None):
             return None
         context['otherUserId'] = participant_ids[1] if participant_ids[0] == str(user.id) else participant_ids[0]
         if workspace_id:
-            workspace = Workspace.objects.filter(id=workspace_id).first()
-            if workspace and WorkspaceMember.objects.filter(
-                workspace=workspace,
-                user=user,
-                status=WorkspaceMember.Status.ACCEPTED,
-            ).exists():
+            workspace = WorkspaceDocument.objects(id=str(workspace_id)).first()
+            if workspace and _member_exists(workspace_id=workspace.id, user_id=user.id):
                 context['workspaceId'] = str(workspace.id)
                 context['workspace'] = workspace
         return context
@@ -185,27 +179,9 @@ def serialize_message(document):
         'updatedAt': _iso(document.get('updatedAt') or document.get('createdAt')),
         'editedAt': _iso(document.get('editedAt')),
         'deletedAt': _iso(document.get('deletedAt')),
-        'readBy': [str(user_id) for user_id in document.get('readBy', [])],
+        'readBy': [str(uid) for uid in document.get('readBy', [])],
         'isEdited': document.get('editedAt') is not None,
         'isDeleted': document.get('deletedAt') is not None,
-    }
-
-
-def build_thread_preview(message_document):
-    message = serialize_message(message_document)
-    preview_text = message.get('message') or message.get('attachmentName') or 'Attachment'
-    if message.get('isDeleted'):
-        preview_text = 'Message deleted'
-    return {
-        'roomId': message['roomId'],
-        'chatType': message['chatType'],
-        'workspaceId': message.get('workspaceId'),
-        'taskId': message.get('taskId'),
-        'receiverId': message.get('receiverId'),
-        'senderId': message.get('senderId'),
-        'sender': message.get('sender'),
-        'lastMessage': preview_text,
-        'lastMessageAt': message.get('createdAt'),
     }
 
 
@@ -243,33 +219,21 @@ def list_messages(*, room, limit=30, before=None, user_id=None):
     has_more = collection.count_documents(query) > len(documents)
     next_cursor = documents[-1]['createdAt'].isoformat() if documents else None
 
-    return {
-        'messages': messages,
-        'hasMore': has_more,
-        'nextCursor': next_cursor,
-    }
+    return {'messages': messages, 'hasMore': has_more, 'nextCursor': next_cursor}
 
 
 def mark_messages_read(*, room, user_id):
     collection = get_message_collection()
     collection.update_many(
-        {
-            'roomId': room,
-            'senderId': {'$ne': str(user_id)},
-        },
-        {
-            '$addToSet': {'readBy': str(user_id)},
-            '$set': {'updatedAt': timezone.now()},
-        },
+        {'roomId': room, 'senderId': {'$ne': str(user_id)}},
+        {'$addToSet': {'readBy': str(user_id)}, '$set': {'updatedAt': timezone.now()}},
     )
 
 
 def edit_message(*, message_id, user_id, message=None, attachment=None):
     collection = get_message_collection()
     document = collection.find_one({'_id': ObjectId(message_id)})
-    if not document:
-        return None
-    if document.get('senderId') != str(user_id):
+    if not document or document.get('senderId') != str(user_id):
         return None
 
     updates = {'updatedAt': timezone.now(), 'editedAt': timezone.now()}
@@ -286,17 +250,10 @@ def edit_message(*, message_id, user_id, message=None, attachment=None):
 def delete_message(*, message_id, user_id):
     collection = get_message_collection()
     document = collection.find_one({'_id': ObjectId(message_id)})
-    if not document:
-        return None
-    if document.get('senderId') != str(user_id):
+    if not document or document.get('senderId') != str(user_id):
         return None
 
-    updates = {
-        'message': '',
-        'attachment': None,
-        'deletedAt': timezone.now(),
-        'updatedAt': timezone.now(),
-    }
+    updates = {'message': '', 'attachment': None, 'deletedAt': timezone.now(), 'updatedAt': timezone.now()}
     collection.update_one({'_id': document['_id']}, {'$set': updates})
     document.update(updates)
     return serialize_message(document)
@@ -304,27 +261,26 @@ def delete_message(*, message_id, user_id):
 
 def get_workspace_chat_context(*, workspace_id, task_id=None, user=None, direct_user_id=None):
     if task_id:
-        task = Task.objects.select_related('workspace', 'project', 'assignee', 'created_by').filter(id=task_id).first()
-        if not task:
+        task = TaskDocument.objects(id=str(task_id)).first()
+        if not task or not _member_exists(workspace_id=task.workspaceId, user_id=user.id):
             return None
-        if not WorkspaceMember.objects.filter(workspace=task.workspace, user=user, status=WorkspaceMember.Status.ACCEPTED).exists():
-            return None
+        workspace = WorkspaceDocument.objects(id=str(task.workspaceId)).first()
         return {
             'roomId': build_task_room(task.id),
             'chatType': 'task',
-            'workspaceId': str(task.workspace_id),
+            'workspaceId': str(task.workspaceId),
             'taskId': str(task.id),
             'title': task.title,
-            'subtitle': task.workspace.name,
+            'subtitle': workspace.name if workspace else 'Task chat',
             'participants': [],
         }
 
     if direct_user_id:
-        other_user = User.objects.filter(id=direct_user_id).first()
+        other_user = UserDocument.objects(id=str(direct_user_id)).first()
         if not other_user:
             return None
-        workspace = Workspace.objects.filter(id=workspace_id).first() if workspace_id else None
-        if workspace and not WorkspaceMember.objects.filter(workspace=workspace, user=user, status=WorkspaceMember.Status.ACCEPTED).exists():
+        workspace = WorkspaceDocument.objects(id=str(workspace_id)).first() if workspace_id else None
+        if workspace and not _member_exists(workspace_id=workspace.id, user_id=user.id):
             return None
         return {
             'roomId': build_direct_room(user.id, other_user.id),
@@ -334,16 +290,11 @@ def get_workspace_chat_context(*, workspace_id, task_id=None, user=None, direct_
             'receiverId': str(other_user.id),
             'title': other_user.full_name,
             'subtitle': 'Direct message',
-            'participants': [
-                _user_summary(user.id),
-                _user_summary(other_user.id),
-            ],
+            'participants': [_user_summary(user.id), _user_summary(other_user.id)],
         }
 
-    workspace = Workspace.objects.filter(id=workspace_id).first()
-    if not workspace:
-        return None
-    if not WorkspaceMember.objects.filter(workspace=workspace, user=user, status=WorkspaceMember.Status.ACCEPTED).exists():
+    workspace = WorkspaceDocument.objects(id=str(workspace_id)).first()
+    if not workspace or not _member_exists(workspace_id=workspace.id, user_id=user.id):
         return None
     return {
         'roomId': build_workspace_room(workspace.id),
@@ -357,27 +308,26 @@ def get_workspace_chat_context(*, workspace_id, task_id=None, user=None, direct_
 
 
 def list_threads_for_workspace(*, workspace_id, user, task_id=None):
-    workspace = Workspace.objects.filter(id=workspace_id).first()
-    if not workspace:
-        return None
-    if not WorkspaceMember.objects.filter(workspace=workspace, user=user, status=WorkspaceMember.Status.ACCEPTED).exists():
+    workspace = WorkspaceDocument.objects(id=str(workspace_id)).first()
+    if not workspace or not _member_exists(workspace_id=workspace.id, user_id=user.id):
         return None
 
     collection = get_message_collection()
     threads = []
 
-    def summarize_room(room_name, chat_type, title, subtitle, workspace_value=None, task_value=None, receiver_value=None, limit_to_user=None):
+    def summarize_room(room_name, chat_type, title, subtitle, workspace_value=None, task_value=None, receiver_value=None):
         query = {'roomId': room_name}
         latest = collection.find(query).sort('createdAt', -1).limit(1)
         latest_doc = next(iter(latest), None)
         last_message = serialize_message(latest_doc) if latest_doc else None
-        unread_query = {
-            'roomId': room_name,
-            'senderId': {'$ne': str(user.id)},
-            'readBy': {'$ne': str(user.id)},
-            'deletedAt': {'$exists': False},
-        }
-        unread_count = collection.count_documents(unread_query)
+        unread_count = collection.count_documents(
+            {
+                'roomId': room_name,
+                'senderId': {'$ne': str(user.id)},
+                'readBy': {'$ne': str(user.id)},
+                'deletedAt': {'$exists': False},
+            }
+        )
         return {
             'roomId': room_name,
             'chatType': chat_type,
@@ -391,32 +341,44 @@ def list_threads_for_workspace(*, workspace_id, user, task_id=None):
             'unreadCount': unread_count,
         }
 
-    threads.append(summarize_room(build_workspace_room(workspace.id), 'workspace', workspace.name, 'Workspace chat', workspace_value=str(workspace.id)))
+    threads.append(
+        summarize_room(
+            build_workspace_room(workspace.id),
+            'workspace',
+            workspace.name,
+            'Workspace chat',
+            workspace_value=str(workspace.id),
+        )
+    )
 
     if task_id:
-        task = Task.objects.select_related('workspace').filter(id=task_id, workspace=workspace).first()
+        task = TaskDocument.objects(id=str(task_id), workspaceId=str(workspace.id)).first()
         if task:
-            threads.append(summarize_room(build_task_room(task.id), 'task', task.title, task.workspace.name, workspace_value=str(workspace.id), task_value=str(task.id)))
+            threads.append(
+                summarize_room(
+                    build_task_room(task.id),
+                    'task',
+                    task.title,
+                    workspace.name,
+                    workspace_value=str(workspace.id),
+                    task_value=str(task.id),
+                )
+            )
 
-    member_ids = list(
-        WorkspaceMember.objects.filter(workspace=workspace, status=WorkspaceMember.Status.ACCEPTED)
-        .exclude(user=user)
-        .values_list('user_id', flat=True)
-    )
+    member_ids = [
+        str(member.userId)
+        for member in WorkspaceMemberDocument.objects(workspaceId=str(workspace.id), status='accepted')
+        if str(member.userId) != str(user.id)
+    ]
 
     direct_query = {
         'chatType': 'direct',
         'workspaceId': str(workspace.id),
         '$or': [
-            {'senderId': str(user.id)},
-            {'receiverId': str(user.id)},
+            {'senderId': str(user.id), 'receiverId': {'$in': member_ids}},
+            {'receiverId': str(user.id), 'senderId': {'$in': member_ids}},
         ],
     }
-    if member_ids:
-        direct_query['$or'] = [
-            {'senderId': str(user.id), 'receiverId': {'$in': [str(member_id) for member_id in member_ids]}},
-            {'receiverId': str(user.id), 'senderId': {'$in': [str(member_id) for member_id in member_ids]}},
-        ]
 
     pipeline = [
         {'$match': direct_query},
@@ -424,31 +386,52 @@ def list_threads_for_workspace(*, workspace_id, user, task_id=None):
         {'$group': {'_id': '$roomId', 'latest': {'$first': '$$ROOT'}}},
         {'$sort': {'latest.createdAt': -1}},
     ]
+
     for item in collection.aggregate(pipeline):
         latest_doc = item['latest']
         other_user_id = latest_doc['receiverId'] if latest_doc['senderId'] == str(user.id) else latest_doc['senderId']
         other_user = _user_summary(other_user_id)
         if not other_user:
             continue
-        unread_count = collection.count_documents({
-            'roomId': latest_doc['roomId'],
-            'senderId': {'$ne': str(user.id)},
-            'readBy': {'$ne': str(user.id)},
-            'deletedAt': {'$exists': False},
-        })
-        threads.append({
-            'roomId': latest_doc['roomId'],
-            'chatType': 'direct',
-            'workspaceId': str(workspace.id),
-            'taskId': None,
-            'receiverId': other_user_id,
-            'title': other_user['full_name'],
-            'subtitle': 'Direct message',
-            'lastMessage': latest_doc.get('message', '') or latest_doc.get('attachment', {}).get('name', ''),
-            'lastMessageAt': _iso(latest_doc.get('createdAt')),
-            'unreadCount': unread_count,
-            'peer': other_user,
-        })
+        unread_count = collection.count_documents(
+            {
+                'roomId': latest_doc['roomId'],
+                'senderId': {'$ne': str(user.id)},
+                'readBy': {'$ne': str(user.id)},
+                'deletedAt': {'$exists': False},
+            }
+        )
+        threads.append(
+            {
+                'roomId': latest_doc['roomId'],
+                'chatType': 'direct',
+                'workspaceId': str(workspace.id),
+                'taskId': None,
+                'receiverId': other_user_id,
+                'title': other_user['full_name'],
+                'subtitle': 'Direct message',
+                'lastMessage': latest_doc.get('message', '') or latest_doc.get('attachment', {}).get('name', ''),
+                'lastMessageAt': _iso(latest_doc.get('createdAt')),
+                'unreadCount': unread_count,
+                'peer': other_user,
+            }
+        )
+
+    members_payload = []
+    for member in WorkspaceMemberDocument.objects(workspaceId=str(workspace.id), status='accepted'):
+        user_doc = UserDocument.objects(id=str(member.userId)).first()
+        if not user_doc:
+            continue
+        members_payload.append(
+            {
+                'id': str(user_doc.id),
+                'full_name': user_doc.full_name,
+                'email': user_doc.email,
+                'avatar': user_doc.avatar,
+                'initials': ''.join([p[0].upper() for p in (user_doc.full_name or '').split()[:2]]),
+                'role': member.role,
+            }
+        )
 
     return {
         'workspace': {
@@ -458,17 +441,7 @@ def list_threads_for_workspace(*, workspace_id, user, task_id=None):
             'color': workspace.color,
         },
         'threads': threads,
-        'members': [
-            {
-                'id': str(member.user.id),
-                'full_name': member.user.full_name,
-                'email': member.user.email,
-                'avatar': member.user.avatar.url if member.user.avatar else None,
-                'initials': member.user.initials,
-                'role': member.role,
-            }
-            for member in WorkspaceMember.objects.select_related('user').filter(workspace=workspace, status=WorkspaceMember.Status.ACCEPTED)
-        ],
+        'members': members_payload,
     }
 
 

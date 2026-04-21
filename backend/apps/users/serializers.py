@@ -1,35 +1,41 @@
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 
-User = get_user_model()
+from .documents import UserDocument
+from .mongo_services import create_user
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    full_name = serializers.CharField(read_only=True)
+    avatar = serializers.CharField(read_only=True, allow_blank=True, allow_null=True)
+    user_type = serializers.CharField(read_only=True)
     initials = serializers.SerializerMethodField()
-
-    class Meta:
-        model = User
-        fields = ['id', 'email', 'full_name', 'avatar', 'user_type', 'initials', 'date_joined']
-        read_only_fields = ['id', 'date_joined', 'user_type']
+    date_joined = serializers.DateTimeField(read_only=True)
 
     def get_initials(self, obj):
-        return obj.initials
+        parts = (getattr(obj, 'full_name', '') or '').split()
+        return ''.join(part[0].upper() for part in parts[:2]) if parts else ''
 
 
-class RegisterSerializer(serializers.ModelSerializer):
+class RegisterSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    full_name = serializers.CharField(max_length=255)
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = ['email', 'full_name', 'password', 'password2', 'user_type']
+    user_type = serializers.ChoiceField(choices=('admin', 'company', 'employee'), default='employee')
 
     def validate_user_type(self, value):
-        if value == User.UserType.ADMIN:
+        if value == 'admin':
             raise serializers.ValidationError('You cannot register as a system administrator.')
         return value
+
+    def validate_email(self, value):
+        normalized = value.lower().strip()
+        if UserDocument.objects(email=normalized).first():
+            raise serializers.ValidationError('Email already exists')
+        return normalized
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
@@ -38,14 +44,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('password2')
-        return User.objects.create_user(**validated_data)
-
-
-class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    def validate(self, attrs):
-        data = super().validate(attrs)
-        data['user'] = UserSerializer(self.user).data
-        return data
+        return create_user(**validated_data)
 
 
 

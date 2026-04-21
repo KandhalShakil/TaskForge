@@ -1,29 +1,30 @@
-from django.contrib import admin
-from .models import SubTask, Task, Category, Comment
+from django_mongoengine import mongo_admin
+from django_mongoengine.mongo_admin import DocumentAdmin
+
+from .documents import CategoryDocument, CommentDocument, SubTaskDocument, TaskDocument
 
 
-@admin.register(Task)
-class TaskAdmin(admin.ModelAdmin):
-    list_display = ['title', 'project', 'status', 'priority', 'assignee', 'due_date', 'created_at']
+@mongo_admin.register(TaskDocument)
+class TaskDocumentAdmin(DocumentAdmin):
+    list_display = ['title', 'projectId', 'status', 'priority', 'assigneeId', 'due_date', 'created_at']
     list_filter = ['status', 'priority', 'created_at']
     search_fields = ['title', 'description']
-    date_hierarchy = 'created_at'
 
 
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'workspace', 'color']
+@mongo_admin.register(CategoryDocument)
+class CategoryDocumentAdmin(DocumentAdmin):
+    list_display = ['name', 'workspaceId', 'color']
     search_fields = ['name']
 
 
-@admin.register(Comment)
-class CommentAdmin(admin.ModelAdmin):
-    list_display = ['task', 'author', 'created_at']
-    search_fields = ['content', 'author__email']
-    
+@mongo_admin.register(CommentDocument)
+class CommentDocumentAdmin(DocumentAdmin):
+    list_display = ['taskId', 'authorId', 'created_at']
+    search_fields = ['content', 'authorId']
 
-@admin.register(SubTask)
-class SubTaskAdmin(admin.ModelAdmin):
-    list_display = ['title', 'task', 'is_completed', 'order', 'created_at']
+
+@mongo_admin.register(SubTaskDocument)
+class SubTaskDocumentAdmin(DocumentAdmin):
+    list_display = ['title', 'taskId', 'is_completed', 'order', 'created_at']
     list_filter = ['is_completed', 'created_at']
-    search_fields = ['title', 'task__title']
+    search_fields = ['title', 'taskId']

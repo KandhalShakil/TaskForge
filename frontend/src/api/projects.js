@@ -2,6 +2,7 @@ import api from './axiosInstance'
 
 export const projectsAPI = {
   list: (params) => api.get('/projects/', { params }),
+  listByFolder: ({ workspace, folder }) => api.get('/projects/', { params: { workspace, folder } }),
   create: (data) => api.post('/projects/', data),
   get: (id) => api.get(`/projects/${id}/`),
   update: (id, data) => api.patch(`/projects/${id}/`, data),

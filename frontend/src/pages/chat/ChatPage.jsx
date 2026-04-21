@@ -43,6 +43,7 @@ export default function ChatPage() {
   const [hasMore, setHasMore] = useState(false)
   const [nextCursor, setNextCursor] = useState(null)
   const [editingMessage, setEditingMessage] = useState(null)
+  const [showMobileThreads, setShowMobileThreads] = useState(true)
 
   const routeContext = useMemo(() => {
     if (taskId) {
@@ -328,6 +329,7 @@ export default function ChatPage() {
 
   const handleSelectThread = (thread) => {
     if (!thread) return
+    setShowMobileThreads(false)
     if (thread.chatType === 'workspace') {
       navigate(`/workspaces/${workspaceId}/chat`)
       return
@@ -342,8 +344,27 @@ export default function ChatPage() {
   }
 
   const handleStartDirectMessage = (member) => {
+    setShowMobileThreads(false)
     navigate(`/workspaces/${workspaceId}/chat/dm/${member.id}`)
   }
+
+  const handleBackFromChat = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setShowMobileThreads(true)
+      return
+    }
+    navigate(-1)
+  }
+
+  useEffect(() => {
+    setShowMobileThreads(true)
+  }, [workspaceId])
+
+  useEffect(() => {
+    if (taskId || directUserId) {
+      setShowMobileThreads(false)
+    }
+  }, [taskId, directUserId])
 
   if (loadingContext) {
     return (
@@ -363,6 +384,7 @@ export default function ChatPage() {
         activeTaskRoom={taskId ? buildTaskRoom(taskId) : null}
         onSelectThread={handleSelectThread}
         onStartDirectMessage={handleStartDirectMessage}
+        className={`${showMobileThreads ? 'flex' : 'hidden'} lg:flex`}
       />
 
       <ChatWindow
@@ -386,9 +408,10 @@ export default function ChatPage() {
         editingMessage={editingMessage}
         onCancelEdit={() => setEditingMessage(null)}
         onClearEditing={() => setEditingMessage(null)}
-        onBack={() => navigate(-1)}
+        onBack={handleBackFromChat}
         members={members}
         onStartDirectMessage={handleStartDirectMessage}
+        className={`${showMobileThreads ? 'hidden' : 'flex'} lg:flex`}
       />
     </div>
   )

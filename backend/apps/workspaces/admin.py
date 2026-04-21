@@ -1,16 +1,18 @@
-from django.contrib import admin
-from .models import Workspace, WorkspaceMember
+from django_mongoengine import mongo_admin
+from django_mongoengine.mongo_admin import DocumentAdmin
+
+from .documents import WorkspaceDocument, WorkspaceMemberDocument
 
 
-@admin.register(Workspace)
-class WorkspaceAdmin(admin.ModelAdmin):
-    list_display = ['name', 'owner', 'created_at']
-    search_fields = ['name', 'owner__email']
+@mongo_admin.register(WorkspaceDocument)
+class WorkspaceDocumentAdmin(DocumentAdmin):
+    list_display = ['name', 'ownerId', 'created_at']
+    search_fields = ['name', 'ownerId']
     list_filter = ['created_at']
 
 
-@admin.register(WorkspaceMember)
-class WorkspaceMemberAdmin(admin.ModelAdmin):
-    list_display = ['workspace', 'user', 'role', 'joined_at']
-    list_filter = ['role']
-    search_fields = ['workspace__name', 'user__email']
+@mongo_admin.register(WorkspaceMemberDocument)
+class WorkspaceMemberDocumentAdmin(DocumentAdmin):
+    list_display = ['workspaceId', 'userId', 'role', 'status', 'joined_at']
+    list_filter = ['role', 'status']
+    search_fields = ['workspaceId', 'userId']

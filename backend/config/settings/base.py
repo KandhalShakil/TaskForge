@@ -1,8 +1,8 @@
 import os
-from urllib.parse import urlparse, unquote
 from decouple import config
 from datetime import timedelta
 from pathlib import Path
+from mongoengine import connect
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -23,16 +23,18 @@ DJANGO_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
+    'django_mongoengine',
+    'django_mongoengine.mongo_auth',
+    'django_mongoengine.mongo_admin',
     'rest_framework',
     'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
 ]
 
 LOCAL_APPS = [
     'apps.core.apps.CoreConfig',
-    'apps.users',
+    'apps.users.apps.UsersConfig',
     'apps.workspaces',
     'apps.projects',
     'apps.tasks',
@@ -44,6 +46,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'apps.core.middleware.ApiJsonErrorMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -73,90 +76,34 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-def _database_from_url(database_url):
-    parsed_url = urlparse(database_url)
-    if parsed_url.scheme in ('sqlite', 'sqlite3'):
-        database_path = parsed_url.path.lstrip('/') or ':memory:'
-        if database_path != ':memory:':
-            database_path = BASE_DIR / database_path
-        return {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': database_path,
-            }
-        }
-
-    if parsed_url.scheme in ('postgres', 'postgresql'):
-        return {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'NAME': parsed_url.path.lstrip('/'),
-                'USER': unquote(parsed_url.username or ''),
-                'PASSWORD': unquote(parsed_url.password or ''),
-                'HOST': parsed_url.hostname or '',
-                'PORT': parsed_url.port or '5432',
-                'OPTIONS': {
-                    'connect_timeout': 10,
-                    'sslmode': 'require' if parsed_url.query else 'prefer',
-                },
-            }
-        }
-
-    return None
-
-
-database_url = config('DATABASE_URL', default='').strip()
-db_engine = config('DB_ENGINE', default='').strip()
-
-# Database configuration prefers DATABASE_URL and only uses PostgreSQL when it is
-# explicitly selected. Otherwise we fall back to SQLite to avoid localhost leaks.
-DATABASES = _database_from_url(database_url) if database_url else None
-
-if DATABASES is None and db_engine == 'django.db.backends.sqlite3':
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
-elif DATABASES is None and db_engine == 'django.db.backends.postgresql' and all(
-    config(name, default='').strip()
-    for name in ('DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST')
-):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME', default='postgres'),
-            'USER': config('DB_USER'),
-            'PASSWORD': config('DB_PASSWORD'),
-            'HOST': config('DB_HOST'),
-            'PORT': config('DB_PORT', default='6543'),
-            'OPTIONS': {
-                'connect_timeout': 10,
-                'sslmode': config('DB_SSLMODE', default='prefer'),
-            },
-        }
-    }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
-
-# MongoDB Atlas configuration (for migration/auxiliary services)
+# MongoDB Atlas configuration
 MONGO_URI = config('MONGO_URI', default='')
 MONGO_DB_NAME = config('MONGO_DB_NAME', default='takify')
+
+# Django still requires a default database for its migration machinery.
+# Application data continues to live in MongoDB.
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+MONGODB_DATABASES = {
+    'default': {
+        'host': MONGO_URI,
+        'name': MONGO_DB_NAME,
+    }
+}
+
+if MONGO_URI:
+    connect(host=MONGO_URI)
 
 PUSHER_APP_ID = config('PUSHER_APP_ID', default='')
 PUSHER_KEY = config('PUSHER_KEY', default='')
 PUSHER_SECRET = config('PUSHER_SECRET', default='')
 PUSHER_CLUSTER = config('PUSHER_CLUSTER', default='')
 PUSHER_SSL = config('PUSHER_SSL', default=True, cast=bool)
-
-# Custom user model
-AUTH_USER_MODEL = 'users.User'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -170,6 +117,11 @@ PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
     'django.contrib.auth.hashers.PBKDF2PasswordHasher',
     'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+]
+
+AUTH_USER_MODEL = 'mongo_auth.MongoUser'
+AUTHENTICATION_BACKENDS = [
+    'django_mongoengine.mongo_auth.backends.MongoEngineBackend',
 ]
 
 LANGUAGE_CODE = 'en-us'
@@ -189,7 +141,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'apps.users.mongo_auth.MongoJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -210,9 +162,9 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': True,
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': False,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': config('JWT_SECRET', default=SECRET_KEY),
     'AUTH_HEADER_TYPES': ('Bearer',),
@@ -240,9 +192,9 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
-EMAIL_HOST_USER = config('SMTP_EMAIL', default=config('EMAIL_HOST_USER', default=''))
-EMAIL_HOST_PASSWORD = config('SMTP_PASSWORD', default=config('EMAIL_HOST_PASSWORD', default=''))
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@invoice.com')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # OTP Settings
 OTP_EXPIRY = 900  # 15 minutes

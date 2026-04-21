@@ -1,11 +1,21 @@
-from rest_framework import serializers
-from apps.users.serializers import UserSerializer
-from django.contrib.auth import get_user_model
+import uuid
+
 from bs4 import BeautifulSoup
-from .models import Task, Category, Comment, SubTask
+from rest_framework import serializers
 
+from apps.core.validation import (
+    date_order_error,
+    estimated_hours_errors,
+    get_value,
+    is_within_range,
+    normalize_datetime,
+    required_field_errors,
+)
+from apps.projects.documents import ProjectDocument
+from apps.users.documents import UserDocument
+from apps.users.serializers import UserSerializer
 
-User = get_user_model()
+from .documents import CategoryDocument, CommentDocument, SubTaskDocument, TaskDocument
 
 
 def clean_html(raw_html):
@@ -15,333 +25,391 @@ def clean_html(raw_html):
     return soup.get_text().strip()
 
 
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ['id', 'workspace', 'name', 'color', 'created_at']
-        read_only_fields = ['id', 'created_at']
+class CategorySerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    workspace = serializers.CharField(source='workspaceId')
+    name = serializers.CharField(max_length=100)
+    color = serializers.CharField(required=False, allow_blank=True)
+    created_at = serializers.DateTimeField(read_only=True)
+
+    def create(self, validated_data):
+        category = CategoryDocument(
+            id=str(uuid.uuid4()),
+            workspaceId=validated_data['workspaceId'],
+            name=validated_data['name'],
+            color=validated_data.get('color', '#6366f1'),
+        )
+        category.save()
+        return category
+
+    def update(self, instance, validated_data):
+        for key, field in (('workspaceId', 'workspaceId'), ('name', 'name'), ('color', 'color')):
+            if key in validated_data:
+                setattr(instance, field, validated_data[key])
+        instance.save()
+        return instance
 
 
-class CommentSerializer(serializers.ModelSerializer):
-    author = UserSerializer(read_only=True)
+class CommentSerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    task = serializers.CharField(source='taskId', required=False)
+    author = serializers.SerializerMethodField()
+    content = serializers.CharField()
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
 
-    class Meta:
-        model = Comment
-        fields = ['id', 'task', 'author', 'content', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'author', 'created_at', 'updated_at']
+    def get_author(self, obj):
+        user = UserDocument.objects(id=str(getattr(obj, 'authorId', ''))).first()
+        return UserSerializer(user).data if user else None
 
 
-class SubTaskSummarySerializer(serializers.ModelSerializer):
-    assignee = UserSerializer(read_only=True)
-    category = CategorySerializer(read_only=True)
+class SubTaskSummarySerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    task = serializers.CharField(source='taskId', read_only=True)
+    parent = serializers.CharField(source='parentId', read_only=True, allow_null=True)
+    title = serializers.CharField(read_only=True)
+    description = serializers.CharField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    priority = serializers.CharField(read_only=True)
+    category = serializers.SerializerMethodField()
+    assignee = serializers.SerializerMethodField()
+    start_date = serializers.DateTimeField(read_only=True, allow_null=True)
+    due_date = serializers.DateTimeField(read_only=True, allow_null=True)
+    estimated_hours = serializers.DecimalField(read_only=True, max_digits=6, decimal_places=1, allow_null=True)
+    is_completed = serializers.BooleanField(read_only=True)
+    order = serializers.IntegerField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
 
-    class Meta:
-        model = SubTask
-        fields = [
-            'id', 'task', 'parent', 'title', 'description',
-            'status', 'priority', 'category', 'assignee',
-            'start_date', 'due_date', 'estimated_hours',
-            'is_completed', 'order', 'created_at', 'updated_at'
-        ]
-        read_only_fields = fields
-        
-class SubTaskSerializer(serializers.ModelSerializer):
-    assignee = UserSerializer(read_only=True)
-    assignee_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
-    category = CategorySerializer(read_only=True)
-    category_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
-    parent_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    def get_category(self, obj):
+        category_id = getattr(obj, 'categoryId', None)
+        if not category_id:
+            return None
+        category = CategoryDocument.objects(id=str(category_id)).first()
+        return CategorySerializer(category).data if category else None
+
+    def get_assignee(self, obj):
+        assignee_id = getattr(obj, 'assigneeId', None)
+        if not assignee_id:
+            return None
+        user = UserDocument.objects(id=str(assignee_id)).first()
+        return UserSerializer(user).data if user else None
+
+
+class SubTaskSerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    task = serializers.CharField(source='taskId', read_only=True)
+    parent = serializers.CharField(source='parentId', read_only=True, allow_null=True)
+    parent_id = serializers.CharField(write_only=True, required=False, allow_null=True)
+    title = serializers.CharField(max_length=500)
+    description = serializers.CharField(required=True, allow_blank=False)
+    status = serializers.ChoiceField(choices=('todo', 'in_progress', 'in_review', 'done', 'cancelled'), default='todo')
+    priority = serializers.ChoiceField(choices=('urgent', 'high', 'medium', 'low', 'no_priority'), default='no_priority')
+    category = serializers.SerializerMethodField()
+    category_id = serializers.CharField(write_only=True, required=False, allow_null=True)
+    assignee = serializers.SerializerMethodField()
+    assignee_id = serializers.CharField(write_only=True, required=True, allow_null=False)
+    start_date = serializers.DateTimeField(required=True, allow_null=False)
+    due_date = serializers.DateTimeField(required=True, allow_null=False)
+    estimated_hours = serializers.DecimalField(max_digits=6, decimal_places=1, required=True, allow_null=False)
+    is_completed = serializers.BooleanField(required=False, default=False)
+    order = serializers.IntegerField(required=False, min_value=0, default=0)
     children = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
 
-    class Meta: 
-        model = SubTask
-        fields = [
-            'id', 'task', 'parent', 'parent_id', 'title', 'description',
-            'status', 'priority', 'category', 'category_id',
-            'assignee', 'assignee_id',
-            'start_date', 'due_date', 'estimated_hours',
-            'is_completed',
-            'order', 'children', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'parent', 'task', 'children', 'created_at', 'updated_at']
+    def get_category(self, obj):
+        category_id = getattr(obj, 'categoryId', None)
+        if not category_id:
+            return None
+        category = CategoryDocument.objects(id=str(category_id)).first()
+        return CategorySerializer(category).data if category else None
+
+    def get_assignee(self, obj):
+        assignee_id = getattr(obj, 'assigneeId', None)
+        if not assignee_id:
+            return None
+        user = UserDocument.objects(id=str(assignee_id)).first()
+        return UserSerializer(user).data if user else None
 
     def get_children(self, obj):
-        children_qs = obj.children.select_related('assignee', 'category').order_by('order', 'created_at')
-        return SubTaskSummarySerializer(children_qs, many=True, context=self.context).data
+        children = SubTaskDocument.objects(parentId=str(obj.id)).order_by('order', 'created_at')
+        return SubTaskSummarySerializer(children, many=True, context=self.context).data
 
     def validate(self, attrs):
-        task = attrs.get('task') or self.context.get('task')
-        instance = getattr(self, 'instance', None)
-        if task is None and instance is not None:
-            task = instance.task
+        errors = required_field_errors(
+            attrs,
+            self.instance,
+            [
+                ('title', 'Title'),
+                ('description', 'Description'),
+                ('start_date', 'Start date'),
+                ('due_date', 'End date'),
+                ('priority', 'Priority'),
+                ('assignee_id', 'Assignee'),
+                ('estimated_hours', 'Estimated hours'),
+            ],
+            partial=getattr(self, 'partial', False),
+        )
+        if errors:
+            raise serializers.ValidationError(errors)
 
-        assignee_id = attrs.pop('assignee_id', serializers.empty)
-        if assignee_id is not serializers.empty:
-            if assignee_id is None:
-                attrs['assignee'] = None
-            else:
-                assignee = User.objects.filter(id=assignee_id).first()
-                if not assignee:
-                    raise serializers.ValidationError({'assignee_id': 'Assignee does not exist.'})
-                attrs['assignee'] = assignee
-
-        category_id = attrs.pop('category_id', serializers.empty)
-        if category_id is not serializers.empty:
-            if category_id is None:
-                attrs['category'] = None
-            else:
-                category = Category.objects.filter(id=category_id).first()
-                if not category:
-                    raise serializers.ValidationError({'category_id': 'Category does not exist.'})
-                if task is not None and category.workspace_id != task.workspace_id:
-                    raise serializers.ValidationError({'category_id': 'Category must belong to the same workspace.'})
-                attrs['category'] = category
-
-        title = (attrs.get('title') or '').strip()
-        if not title:
-            raise serializers.ValidationError({'title': 'Title is required.'})
-        attrs['title'] = title
-        if 'description' in attrs:
-            attrs['description'] = clean_html(attrs.get('description', ''))
-
-        start_date = attrs.get('start_date', instance.start_date if instance is not None else None)
-        due_date = attrs.get('due_date', instance.due_date if instance is not None else None)
-        if start_date and due_date and due_date < start_date:
-            raise serializers.ValidationError({'due_date': 'Due date cannot be earlier than start date.'})
-
-        parent_id = attrs.pop('parent_id', serializers.empty)
-        if parent_id is serializers.empty:
-            return attrs
-
-        if parent_id is None:
-            attrs['parent'] = None
-            return attrs
-
-        parent = SubTask.objects.filter(id=parent_id).first()
-        if not parent:
-            raise serializers.ValidationError({'parent_id': 'Parent subtask does not exist.'})
-
-        if task is not None and parent.task_id != task.id:
-            raise serializers.ValidationError({'parent_id': 'Parent subtask must belong to the same task.'})
-
-        if instance is not None:
-            if instance.id == parent.id:
-                raise serializers.ValidationError({'parent_id': 'Subtask cannot be its own parent.'})
-
-            cursor = parent
-            while cursor is not None:
-                if cursor.id == instance.id:
-                    raise serializers.ValidationError({'parent_id': 'Cyclic subtask hierarchy is not allowed.'})
-                cursor = cursor.parent
-
-        attrs['parent'] = parent
-        return attrs
-        
-class SubTaskCreateItemSerializer(serializers.Serializer):
-    title = serializers.CharField(max_length=500)
-    description = serializers.CharField(required=False, allow_blank=True)
-    status = serializers.ChoiceField(choices=Task.Status.choices, required=False, default=Task.Status.TODO)
-    priority = serializers.ChoiceField(choices=Task.Priority.choices, required=False, default=Task.Priority.NO_PRIORITY)
-    assignee_id = serializers.UUIDField(required=False, allow_null=True)
-    category_id = serializers.UUIDField(required=False, allow_null=True)
-    start_date = serializers.DateField(required=False, allow_null=True)
-    due_date = serializers.DateField(required=False, allow_null=True)
-    estimated_hours = serializers.DecimalField(max_digits=5, decimal_places=1, required=False, allow_null=True)
-    order = serializers.IntegerField(required=False, min_value=0)
-    is_completed = serializers.BooleanField(required=False, default=False)
-
-    children = serializers.ListField(child=serializers.DictField(), required=False, allow_empty=True)
-
-    def validate(self, attrs):
         title = (attrs.get('title') or '').strip()
         if not title:
             raise serializers.ValidationError({'title': 'Title is required.'})
         attrs['title'] = title
         attrs['description'] = clean_html(attrs.get('description', ''))
 
-        start_date = attrs.get('start_date')
-        due_date = attrs.get('due_date')
-        if start_date and due_date and due_date < start_date:
-            raise serializers.ValidationError({'due_date': 'Due date cannot be earlier than start date.'})
+        start_date = get_value(attrs, self.instance, 'start_date')
+        due_date = get_value(attrs, self.instance, 'due_date')
+        date_error = date_order_error(start_date, due_date)
+        if date_error:
+            raise serializers.ValidationError({'due_date': date_error, 'error': date_error})
 
-        category_id = attrs.get('category_id')
-        if category_id is not None:
-            category = Category.objects.filter(id=category_id).first()
+        hours_error = estimated_hours_errors(start_date, due_date, get_value(attrs, self.instance, 'estimated_hours'))
+        if hours_error:
+            raise serializers.ValidationError({'estimated_hours': hours_error, 'error': hours_error})
+
+        assignee_id = attrs.pop('assignee_id', None)
+        if assignee_id:
+            assignee = UserDocument.objects(id=str(assignee_id)).first()
+            if not assignee:
+                raise serializers.ValidationError({'assignee_id': 'Assignee does not exist.'})
+            attrs['assigneeId'] = str(assignee.id)
+        elif assignee_id is None:
+            attrs.pop('assigneeId', None)
+
+        category_id = attrs.pop('category_id', None)
+        if category_id:
+            category = CategoryDocument.objects(id=str(category_id)).first()
             if not category:
                 raise serializers.ValidationError({'category_id': 'Category does not exist.'})
+            attrs['categoryId'] = str(category.id)
+        elif category_id is None:
+            attrs.pop('categoryId', None)
+
+        parent_id = attrs.pop('parent_id', serializers.empty)
+        parent_obj = None
+        if parent_id is not serializers.empty:
+            if parent_id is None:
+                attrs['parentId'] = None
+            else:
+                parent = SubTaskDocument.objects(id=str(parent_id)).first()
+                if not parent:
+                    raise serializers.ValidationError({'parent_id': 'Parent subtask does not exist.'})
+                parent_obj = parent
+                attrs['parentId'] = str(parent.id)
+        elif self.instance and getattr(self.instance, 'parentId', None):
+            parent_obj = SubTaskDocument.objects(id=str(self.instance.parentId)).first()
+
+        if parent_obj:
+            if not is_within_range(start_date, due_date, parent_obj.start_date, parent_obj.due_date):
+                msg = 'Subtask must be within parent task date range'
+                raise serializers.ValidationError({'error': msg, 'start_date': msg, 'due_date': msg})
+
+        task_obj = None
+        if self.instance and getattr(self.instance, 'taskId', None):
+            task_obj = TaskDocument.objects(id=str(self.instance.taskId)).first()
+        else:
+            task_obj = self.context.get('task')
+
+        if task_obj and not parent_obj:
+            if not is_within_range(start_date, due_date, task_obj.start_date, task_obj.due_date):
+                msg = 'Subtask must be within parent task date range'
+                raise serializers.ValidationError({'error': msg, 'start_date': msg, 'due_date': msg})
 
         return attrs
 
-    def validate_children(self, value):
-        serializer = SubTaskCreateItemSerializer(data=value, many=True)
-        serializer.is_valid(raise_exception=True)
-        return serializer.validated_data
 
-
-class TaskSerializer(serializers.ModelSerializer):
-    assignee = UserSerializer(read_only=True)
-    assignee_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
-    created_by = UserSerializer(read_only=True)
-    category = CategorySerializer(read_only=True)
-    category_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
-    is_overdue = serializers.BooleanField(read_only=True)
+class TaskSerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    workspace = serializers.CharField(source='workspaceId')
+    project = serializers.CharField(source='projectId', required=True, allow_null=False)
+    title = serializers.CharField(max_length=500)
+    description = serializers.CharField(required=True, allow_blank=False)
+    status = serializers.ChoiceField(choices=('todo', 'in_progress', 'in_review', 'done', 'cancelled'), default='todo')
+    priority = serializers.ChoiceField(choices=('urgent', 'high', 'medium', 'low', 'no_priority'), default='no_priority')
+    category = serializers.SerializerMethodField()
+    category_id = serializers.CharField(write_only=True, required=False, allow_null=True)
+    assignee = serializers.SerializerMethodField()
+    assignee_id = serializers.CharField(write_only=True, required=True, allow_null=False)
+    created_by = serializers.SerializerMethodField()
+    due_date = serializers.DateTimeField(required=True, allow_null=False)
+    start_date = serializers.DateTimeField(required=True, allow_null=False)
+    estimated_hours = serializers.DecimalField(max_digits=6, decimal_places=1, required=True, allow_null=False)
+    order = serializers.IntegerField(required=False, min_value=0, default=0)
+    is_overdue = serializers.SerializerMethodField()
     comment_count = serializers.SerializerMethodField()
-    
     subtasks = serializers.SerializerMethodField()
-    subtasks_input = SubTaskCreateItemSerializer(many=True, write_only=True, required=False)
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
 
-    class Meta:
-        model = Task
-        fields = [
-            'id', 'workspace', 'project',
-            'title', 'description', 'status', 'priority',
-            'category', 'category_id',
-            'assignee', 'assignee_id',
-            'created_by',
-            'due_date', 'start_date', 'estimated_hours',
-            'order', 'is_overdue', 'comment_count',
-            'subtasks', 'subtasks_input',
-            'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'is_overdue']
+    def get_category(self, obj):
+        category_id = getattr(obj, 'categoryId', None)
+        if not category_id:
+            return None
+        category = CategoryDocument.objects(id=str(category_id)).first()
+        return CategorySerializer(category).data if category else None
+
+    def get_assignee(self, obj):
+        assignee_id = getattr(obj, 'assigneeId', None)
+        if not assignee_id:
+            return None
+        user = UserDocument.objects(id=str(assignee_id)).first()
+        return UserSerializer(user).data if user else None
+
+    def get_created_by(self, obj):
+        created_by_id = getattr(obj, 'createdById', None)
+        if not created_by_id:
+            return None
+        user = UserDocument.objects(id=str(created_by_id)).first()
+        return UserSerializer(user).data if user else None
+
+    def get_is_overdue(self, obj):
+        from django.utils import timezone
+
+        due_date = normalize_datetime(getattr(obj, 'due_date', None))
+        status = getattr(obj, 'status', None)
+        if due_date and status not in ('done', 'cancelled'):
+            return due_date < timezone.now()
+        return False
 
     def get_comment_count(self, obj):
-        return obj.comments.count()
+        return CommentDocument.objects(taskId=str(obj.id)).count()
+
+    def get_subtasks(self, obj):
+        roots = SubTaskDocument.objects(taskId=str(obj.id), parentId__in=[None, '']).order_by('order', 'created_at')
+        return SubTaskSummarySerializer(roots, many=True, context=self.context).data
 
     def validate(self, attrs):
-        instance = getattr(self, 'instance', None)
+        errors = required_field_errors(
+            attrs,
+            self.instance,
+            [
+                ('title', 'Title'),
+                ('description', 'Description'),
+                ('start_date', 'Start date'),
+                ('due_date', 'End date'),
+                ('priority', 'Priority'),
+                ('assignee_id', 'Assignee'),
+                ('category_id', 'Category'),
+                ('estimated_hours', 'Estimated hours'),
+                ('projectId', 'Project'),
+            ],
+            partial=getattr(self, 'partial', False),
+        )
+        if errors:
+            raise serializers.ValidationError(errors)
 
-        title = (attrs.get('title') or (instance.title if instance is not None else '')).strip()
+        title = (attrs.get('title') or '').strip()
         if not title:
             raise serializers.ValidationError({'title': 'Title is required.'})
         attrs['title'] = title
-        if 'description' in attrs:
-            attrs['description'] = clean_html(attrs.get('description', ''))
+        attrs['description'] = clean_html(attrs.get('description', ''))
 
-        start_date = attrs.get('start_date', instance.start_date if instance is not None else None)
-        due_date = attrs.get('due_date', instance.due_date if instance is not None else None)
-        if start_date and due_date and due_date < start_date:
-            raise serializers.ValidationError({'due_date': 'Due date cannot be earlier than start date.'})
+        start_date = get_value(attrs, self.instance, 'start_date')
+        due_date = get_value(attrs, self.instance, 'due_date')
+        date_error = date_order_error(start_date, due_date)
+        if date_error:
+            raise serializers.ValidationError({'due_date': date_error, 'error': date_error})
 
-        workspace = attrs.get('workspace', instance.workspace if instance is not None else None)
-        category_id = attrs.pop('category_id', serializers.empty)
-        if category_id is not serializers.empty:
-            if category_id is None:
-                attrs['category'] = None
-            else:
-                category = Category.objects.filter(id=category_id).first()
-                if not category:
-                    raise serializers.ValidationError({'category_id': 'Category does not exist.'})
-                if workspace is not None and category.workspace_id != workspace.id:
-                    raise serializers.ValidationError({'category_id': 'Category must belong to the same workspace.'})
-                attrs['category'] = category
+        hours_error = estimated_hours_errors(start_date, due_date, get_value(attrs, self.instance, 'estimated_hours'))
+        if hours_error:
+            raise serializers.ValidationError({'estimated_hours': hours_error, 'error': hours_error})
 
-        subtasks_input = attrs.get('subtasks_input') or []
-        if workspace is not None and subtasks_input:
-            def validate_subtask_categories(items):
-                for item in items:
-                    category_id = item.get('category_id')
-                    if category_id:
-                        category = Category.objects.filter(id=category_id).first()
-                        if not category:
-                            raise serializers.ValidationError({'subtasks_input': 'Category does not exist.'})
-                        if category.workspace_id != workspace.id:
-                            raise serializers.ValidationError({'subtasks_input': 'Subtask category must belong to the same workspace.'})
-                    children = item.get('children') or []
-                    if children:
-                        validate_subtask_categories(children)
+        project_id = get_value(attrs, self.instance, 'projectId')
+        project = ProjectDocument.objects(id=str(project_id)).first() if project_id else None
+        if project:
+            if not is_within_range(start_date, due_date, project.start_date, project.end_date):
+                msg = 'Task date must be within project date range'
+                raise serializers.ValidationError({'error': msg, 'start_date': msg, 'due_date': msg})
 
-            validate_subtask_categories(subtasks_input)
+        assignee_id = attrs.pop('assignee_id', None)
+        if assignee_id:
+            assignee = UserDocument.objects(id=str(assignee_id)).first()
+            if not assignee:
+                raise serializers.ValidationError({'assignee_id': 'Assignee does not exist.'})
+            attrs['assigneeId'] = str(assignee.id)
+        elif assignee_id is None:
+            attrs.pop('assigneeId', None)
+
+        category_id = attrs.pop('category_id', None)
+        if category_id:
+            category = CategoryDocument.objects(id=str(category_id)).first()
+            if not category:
+                raise serializers.ValidationError({'category_id': 'Category does not exist.'})
+            workspace_id = attrs.get('workspaceId') or getattr(self.instance, 'workspaceId', None)
+            if workspace_id and str(category.workspaceId) != str(workspace_id):
+                raise serializers.ValidationError({'category_id': 'Category must belong to the same workspace.'})
+            attrs['categoryId'] = str(category.id)
+        elif category_id is None:
+            attrs.pop('categoryId', None)
 
         return attrs
 
-    def get_subtasks(self, obj):
-        roots = obj.subtasks.filter(parent__isnull=True).select_related('assignee', 'category').order_by('order', 'created_at')
-        return SubTaskSummarySerializer(roots, many=True, context=self.context).data
-
-    def _create_subtasks_tree(self, task, items, parent=None):
-        for idx, item in enumerate(items):
-            title = item['title'].strip()
-            if not title:
-                continue
-
-            assignee = None
-            assignee_id = item.get('assignee_id')
-            if assignee_id:
-                assignee = User.objects.filter(id=assignee_id).first()
-
-            category = None
-            category_id = item.get('category_id')
-            if category_id:
-                category = Category.objects.filter(id=category_id, workspace_id=task.workspace_id).first()
-
-            subtask = SubTask.objects.create(
-                task=task,
-                parent=parent,
-                title=title,
-                description=clean_html(item.get('description', '')),
-                status=item.get('status', Task.Status.TODO),
-                priority=item.get('priority', Task.Priority.NO_PRIORITY),
-                category=category,
-                assignee=assignee,
-                start_date=item.get('start_date'),
-                due_date=item.get('due_date'),
-                estimated_hours=item.get('estimated_hours'),
-                is_completed=item.get('is_completed', False),
-                order=item.get('order', idx),
-            )
-            children = item.get('children', [])
-            if children:
-                self._create_subtasks_tree(task, children, parent=subtask)
-
     def create(self, validated_data):
-        self.subtasks_input = validated_data.pop('subtasks_input', [])
-        validated_data['created_by'] = self.context['request'].user
-        task = super().create(validated_data)
-        
-        if self.subtasks_input:
-            self._create_subtasks_tree(task, self.subtasks_input)
+        request = self.context['request']
+        task = TaskDocument(
+            id=str(uuid.uuid4()),
+            workspaceId=validated_data['workspaceId'],
+            projectId=validated_data.get('projectId'),
+            title=validated_data['title'],
+            description=validated_data.get('description', ''),
+            status=validated_data.get('status', 'todo'),
+            priority=validated_data.get('priority', 'no_priority'),
+            categoryId=validated_data.get('categoryId'),
+            assigneeId=validated_data.get('assigneeId'),
+            createdById=str(request.user.id),
+            due_date=validated_data.get('due_date'),
+            start_date=validated_data.get('start_date'),
+            estimated_hours=validated_data.get('estimated_hours'),
+            order=validated_data.get('order', 0),
+        )
+        task.save()
         return task
 
+    def update(self, instance, validated_data):
+        for key in (
+            'workspaceId',
+            'projectId',
+            'title',
+            'description',
+            'status',
+            'priority',
+            'categoryId',
+            'assigneeId',
+            'due_date',
+            'start_date',
+            'estimated_hours',
+            'order',
+        ):
+            if key in validated_data:
+                setattr(instance, key, validated_data[key])
+        instance.save()
+        return instance
 
-class TaskListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for list views."""
-    assignee = UserSerializer(read_only=True)
-    category = CategorySerializer(read_only=True)
-    is_overdue = serializers.BooleanField(read_only=True)
 
-    class Meta:
-        model = Task
-        fields = [
-            'id', 'title', 'description', 'status', 'priority',
-            'assignee', 'category',
-            'due_date', 'start_date', 'estimated_hours',
-            'order', 'is_overdue',
-            'created_at', 'updated_at'
-        ]
+class TaskListSerializer(TaskSerializer):
+    pass
 
 
 class BulkUpdateTaskSerializer(serializers.Serializer):
-    """For Kanban drag-and-drop bulk updates."""
-    tasks = serializers.ListField(
-        child=serializers.DictField()
-    )
+    tasks = serializers.ListField(child=serializers.DictField())
 
     def update_tasks(self):
         tasks_data = self.validated_data['tasks']
         updated = []
         for task_data in tasks_data:
             task_id = task_data.get('id')
-            try:
-                task = Task.objects.get(id=task_id)
-                if 'status' in task_data:
-                    task.status = task_data['status']
-                if 'order' in task_data:
-                    task.order = task_data['order']
-                task.save(update_fields=['status', 'order', 'updated_at'])
-                updated.append(task)
-            except Task.DoesNotExist:
-                pass
+            if not task_id:
+                continue
+            task = TaskDocument.objects(id=str(task_id)).first()
+            if not task:
+                continue
+            if 'status' in task_data:
+                task.status = task_data['status']
+            if 'order' in task_data:
+                task.order = task_data['order']
+            task.save()
+            updated.append(task)
         return updated
-    
-    

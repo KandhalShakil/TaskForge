@@ -40,7 +40,7 @@ export default function MessageInput({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-slate-800 bg-surface-950/95 px-4 py-4">
+    <form onSubmit={handleSubmit} className="sticky bottom-0 z-10 border-t border-slate-800 bg-surface-950/95 px-3 py-3 sm:px-4 sm:py-4 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
       {editingMessage && (
         <div className="mb-3 flex items-center justify-between rounded-xl border border-primary-500/30 bg-primary-500/10 px-3 py-2 text-xs text-primary-200">
           <span className="inline-flex items-center gap-2">
@@ -61,7 +61,7 @@ export default function MessageInput({
         </div>
       )}
 
-      <div className="flex items-end gap-3 rounded-2xl border border-slate-800 bg-surface-900 px-3 py-3 shadow-lg shadow-black/10">
+      <div className="flex items-end gap-2 sm:gap-3 rounded-2xl border border-slate-800 bg-surface-900 px-2.5 py-2.5 sm:px-3 sm:py-3 shadow-lg shadow-black/10">
         <label className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-slate-700 text-slate-400 transition-colors hover:border-slate-500 hover:text-white">
           <Paperclip size={16} />
           <input type="file" className="hidden" onChange={onFileSelected} disabled={disabled} />

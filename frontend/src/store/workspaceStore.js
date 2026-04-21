@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { workspacesAPI } from '../api/workspaces'
+import { getApiErrorMessage } from '../utils/apiError'
 
 export const useWorkspaceStore = create((set, get) => ({
   workspaces: [],
@@ -21,7 +22,7 @@ export const useWorkspaceStore = create((set, get) => ({
         set({ activeWorkspace: workspacesList[0] })
       }
     } catch (err) {
-      set({ error: err.message, loading: false })
+      set({ error: getApiErrorMessage(err, 'Failed to load workspaces'), loading: false })
     }
   },
 
