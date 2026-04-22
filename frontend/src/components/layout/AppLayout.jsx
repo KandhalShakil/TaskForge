@@ -173,7 +173,7 @@ export default function AppLayout() {
   }, [])
 
   return (
-    <div className="flex min-h-screen overflow-hidden bg-surface-950">
+    <div className="flex flex-1 w-full min-h-0 overflow-hidden bg-surface-950">
       <GlobalLoadingBar />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
