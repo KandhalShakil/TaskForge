@@ -99,14 +99,14 @@ export default function MessageInput({
       )}
 
       {/* Input row */}
-      <div className={`flex items-end gap-2 rounded-2xl border bg-surface-900 px-3 py-2.5 shadow-lg transition-all duration-200 ${
+      <div className={`flex items-end gap-2 rounded-2xl border bg-surface-900 px-3 py-2 shadow-lg transition-all duration-200 ${
         disabled ? 'border-slate-800 opacity-60' : 'border-slate-700/60 focus-within:border-primary-500/40 focus-within:shadow-primary-900/10'
       }`}>
         {/* Attachment button */}
-        <label className={`mb-0.5 flex h-8 w-8 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl transition-all ${
+        <label className={`flex h-9 w-9 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl transition-all ${
           disabled ? 'text-slate-700' : 'text-slate-500 hover:bg-surface-700 hover:text-slate-200'
         }`}>
-          <Paperclip size={17} />
+          <Paperclip size={18} />
           <input type="file" className="hidden" onChange={onFileSelected} disabled={disabled} />
         </label>
 
@@ -118,8 +118,8 @@ export default function MessageInput({
           onKeyDown={handleKeyDown}
           placeholder="Write a message…"
           rows={1}
-          className="flex-1 resize-none border-0 bg-transparent py-1 text-sm leading-relaxed text-slate-100 outline-none placeholder:text-slate-600"
-          style={{ minHeight: '32px', maxHeight: '160px' }}
+          className="flex-1 resize-none border-0 bg-transparent py-[8px] text-sm leading-tight text-slate-100 outline-none placeholder:text-slate-600"
+          style={{ minHeight: '36px', maxHeight: '160px' }}
         />
 
         {/* Send button */}
@@ -127,13 +127,13 @@ export default function MessageInput({
           type="button"
           onClick={triggerSend}
           disabled={!canSend}
-          className={`mb-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-white shadow-md transition-all duration-150 ${
+          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-white shadow-md transition-all duration-150 ${
             canSend
               ? 'bg-gradient-to-br from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 hover:shadow-primary-900/30 active:scale-90'
               : 'cursor-not-allowed bg-surface-800 text-slate-600'
           }`}
         >
-          <SendHorizonal size={15} className={canSend ? 'translate-x-[1px]' : ''} />
+          <SendHorizonal size={16} className={canSend ? 'translate-x-[1px]' : ''} />
         </button>
       </div>
 
