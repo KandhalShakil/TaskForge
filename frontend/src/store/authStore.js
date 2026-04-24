@@ -21,7 +21,11 @@ export const useAuthStore = create(
 
       register: async (userData) => {
         const { data } = await authAPI.register(userData)
-        return data // Return the message and email
+        const { user, access, refresh } = data
+        localStorage.setItem('access_token', access)
+        localStorage.setItem('refresh_token', refresh)
+        set({ user, accessToken: access, refreshToken: refresh, isAuthenticated: true })
+        return user
       },
 
       verifyRegistration: async (verificationData) => {
@@ -38,13 +42,16 @@ export const useAuthStore = create(
         return data
       },
 
-      logout: async () => {
+      logout: () => {
         const refreshToken = localStorage.getItem('refresh_token')
-        try {
-          if (refreshToken) await authAPI.logout(refreshToken)
-        } catch (_) {}
+        // Fire and forget backend logout
+        if (refreshToken) {
+          authAPI.logout(refreshToken).catch(() => {})
+        }
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
+        localStorage.removeItem('auth-storage')
+        sessionStorage.clear()
         set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false })
       },
 

@@ -107,8 +107,8 @@ export default function Sidebar({ isOpen, onClose }) {
     }
   }
 
-  const handleLogout = async () => {
-    await logout()
+  const handleLogout = () => {
+    logout()
     navigate('/login')
   }
 

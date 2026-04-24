@@ -133,7 +133,7 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex flex-1 flex-col min-h-0">
       <div className="flex-shrink-0 border-b border-slate-800 bg-surface-900">
         <div className="app-container py-4">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -193,7 +193,7 @@ export default function ProjectPage() {
         </div>
       </div>
 
-      <div className="app-container flex-1 overflow-auto py-4 sm:py-6">
+      <div className="app-container flex-1 py-4 sm:py-6">
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <Loader2 className="animate-spin text-primary-500" size={24} />

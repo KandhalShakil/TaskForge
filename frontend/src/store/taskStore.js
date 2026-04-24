@@ -5,6 +5,8 @@ export const useTaskStore = create((set, get) => ({
   tasks: [],
   categories: [],
   stats: null,
+  statsLoading: false,
+  statsError: null,
   loading: false,
   isSubmitting: false,
   filters: {
@@ -110,9 +112,17 @@ export const useTaskStore = create((set, get) => ({
   },
 
   fetchStats: async (params) => {
-    const { data } = await tasksAPI.stats(params)
-    set({ stats: data })
-    return data
+    set({ statsLoading: true, statsError: null })
+    try {
+      const { data } = await tasksAPI.stats(params)
+      set({ stats: data, statsLoading: false })
+      return data
+    } catch (err) {
+      const message =
+        err?.response?.data?.error || err?.message || 'Failed to load analytics data.'
+      set({ statsError: message, statsLoading: false })
+      throw err
+    }
   },
 
   fetchCategories: async (workspaceId) => {

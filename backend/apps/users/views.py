@@ -40,47 +40,38 @@ class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         try:
-            serializer = RegisterSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-
-            email = serializer.validated_data.get('email')
-            otp = str(random.randint(100000, 999999))
-
-            # Store registration data and OTP in cache
-            cache_key = f"register_data_{email}"
-            cache_data = {
-                'data': serializer.validated_data,
-                'otp': otp,
-            }
-            cache.set(cache_key, cache_data, timeout=settings.OTP_EXPIRY)
-
-            # Send OTP via email
-            html_message = render_to_string('emails/otp_email.html', {'otp': otp})
-            plain_message = f'Your verification code is: {otp}. It will expire in 15 minutes.'
-
-            _send_html_email(
-                subject='Verify your TaskForge account',
-                plain_body=plain_message,
-                html_body=html_message,
-                recipient=email,
+            payload = serializer.validated_data
+            user = create_user(
+                email=payload['email'],
+                full_name=payload['full_name'],
+                password=payload['password'],
+                user_type=payload.get('user_type', 'employee'),
             )
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except ServerSelectionTimeoutError:
             return Response(
                 {'error': 'Server not responding. Try again later.'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except Exception:
-            logger.exception('Registration request failed')
+            logger.exception('Registration failed')
             return Response(
-                {'error': 'Failed to send verification email. Please try again.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': 'Registration failed. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-            
+
+        refresh = RefreshToken.for_user(to_mongo_user(user))
         return Response({
-            'message': 'OTP sent successfully. Please verify your email.',
-            'email': email
-        }, status=status.HTTP_200_OK)
+            'user': UserSerializer(user).data,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'message': 'Account created successfully.',
+        }, status=status.HTTP_201_CREATED)
 
 
 class VerifyRegistrationView(APIView):

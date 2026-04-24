@@ -86,7 +86,7 @@ export default function WorkspaceMembersPage() {
   const isAdmin = currentUserMember?.role === 'admin'
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div className="app-container py-4 md:py-6 max-w-4xl">
       <div className="mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">Workspace Members</h1>
         <p className="text-slate-400 text-xs md:text-sm mt-1">
