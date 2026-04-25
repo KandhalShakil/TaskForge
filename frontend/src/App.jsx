@@ -14,6 +14,8 @@ const TaskHierarchyPage = lazy(() => import('./pages/tasks/TaskHierarchyPage'))
 const CreateSubtaskPage = lazy(() => import('./pages/tasks/CreateSubtaskPage'))
 const SubtaskDetailPage = lazy(() => import('./pages/tasks/SubtaskDetailPage'))
 const ChatPage = lazy(() => import('./pages/chat/ChatPage'))
+const ProfilePage = lazy(() => import('./pages/auth/ProfilePage'))
+const SettingsPage = lazy(() => import('./pages/auth/SettingsPage'))
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuthStore()
@@ -60,6 +62,8 @@ export default function App() {
             <Route path="/workspaces/:workspaceId/chat/dm/:directUserId" element={<ChatPage />} />
             <Route path="/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/chat" element={<ChatPage />} />
             <Route path="/workspaces/:workspaceId/dashboard" element={<AnalyticsDashboard />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/workspaces" replace />} />

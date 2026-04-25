@@ -99,7 +99,7 @@ export default function ProjectPage() {
   if (!project) {
     return (
       <div className="flex flex-col h-full">
-        <div className="border-b border-slate-800 bg-surface-900/50">
+        <div className="border-b" style={{ borderColor: 'var(--border-main)', backgroundColor: 'var(--bg-card)' }}>
           <div className="app-container py-6 sm:py-8">
             <div className="mb-6 flex items-center justify-between gap-4">
               <div className="flex min-w-0 items-center gap-4">
@@ -134,7 +134,7 @@ export default function ProjectPage() {
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
-      <div className="flex-shrink-0 border-b border-slate-800 bg-surface-900">
+      <div className="flex-shrink-0 border-b" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-main)' }}>
         <div className="app-container py-4">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
@@ -145,9 +145,9 @@ export default function ProjectPage() {
               {project.icon}
             </div>
             <div className="min-w-0">
-              <h1 className="truncate text-base sm:text-lg font-bold text-white">{project.name}</h1>
+              <h1 className="truncate text-base sm:text-lg font-bold" style={{ color: 'var(--text-main)' }}>{project.name}</h1>
               {project.description && (
-                <p className="mt-0.5 truncate text-xs text-slate-500">{project.description}</p>
+                <p className="mt-0.5 truncate text-xs" style={{ color: 'var(--text-muted)' }}>{project.description}</p>
               )}
             </div>
           </div>
@@ -175,9 +175,13 @@ export default function ProjectPage() {
               onClick={() => setView(id)}
               className={`flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 view === id
-                  ? 'bg-primary-600 text-white'
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-surface-800'
+                  ? 'text-white'
+                  : 'hover:bg-opacity-50'
               }`}
+              style={{ 
+                backgroundColor: view === id ? 'var(--primary-main)' : 'transparent',
+                color: view === id ? 'white' : 'var(--text-muted)'
+              }}
             >
               <Icon size={14} />
               {label}
@@ -185,7 +189,7 @@ export default function ProjectPage() {
           ))}
 
           <div className="ml-auto hidden sm:flex items-center gap-2">
-            <span className="text-xs text-slate-500">{tasks.length} tasks</span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{tasks.length} tasks</span>
           </div>
           </div>
 

@@ -8,11 +8,12 @@ from .mongo_services import create_user
 class UserSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     email = serializers.EmailField(read_only=True)
-    full_name = serializers.CharField(read_only=True)
-    avatar = serializers.CharField(read_only=True, allow_blank=True, allow_null=True)
+    full_name = serializers.CharField()
+    avatar = serializers.CharField(allow_blank=True, allow_null=True, required=False)
     user_type = serializers.CharField(read_only=True)
     initials = serializers.SerializerMethodField()
     date_joined = serializers.DateTimeField(read_only=True)
+    settings = serializers.DictField(required=False)
 
     def get_initials(self, obj):
         parts = (getattr(obj, 'full_name', '') or '').split()
@@ -48,3 +49,17 @@ class RegisterSerializer(serializers.Serializer):
 
 
 
+
+class UserProfileUpdateSerializer(serializers.Serializer):
+    full_name = serializers.CharField(required=False, max_length=255)
+    avatar = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    password = serializers.CharField(required=False, write_only=True, validators=[validate_password])
+    password2 = serializers.CharField(required=False, write_only=True)
+    settings = serializers.DictField(required=False)
+
+    def validate(self, attrs):
+        password = attrs.get('password')
+        password2 = attrs.get('password2')
+        if password and password != password2:
+            raise serializers.ValidationError({'password': 'Passwords do not match.'})
+        return attrs

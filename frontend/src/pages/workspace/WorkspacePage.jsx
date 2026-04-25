@@ -54,8 +54,8 @@ export default function WorkspacePage() {
       {/* Page header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">Workspaces</h1>
-          <p className="text-slate-400 text-sm mt-1">Manage your workspaces and projects</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>Workspaces</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Manage your workspaces and projects</p>
         </div>
         {user?.user_type !== 'employee' && (
           <Button onClick={() => setShowWorkspaceModal(true)} icon={Plus}>
@@ -67,7 +67,7 @@ export default function WorkspacePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Workspace list */}
         <div className="lg:col-span-1 space-y-3">
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1 mb-3">Your Workspaces</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider px-1 mb-3" style={{ color: 'var(--text-muted)' }}>Your Workspaces</h2>
           
           {useWorkspaceStore.getState().loading && workspaces.length === 0 ? (
             // Workspace Skeletons
@@ -86,11 +86,11 @@ export default function WorkspacePage() {
                 <div
                   key={ws.id}
                   onClick={() => handleSelectWorkspace(ws)}
-                  className={`card p-4 cursor-pointer transition-all duration-150 ${
-                    activeWorkspace?.id === ws.id
-                      ? 'border-primary-700 bg-primary-950/30'
-                      : 'hover:border-slate-700 hover:bg-surface-800'
-                  }`}
+                  className={`card p-4 cursor-pointer transition-all duration-150 border-2`}
+                  style={{ 
+                    borderColor: activeWorkspace?.id === ws.id ? 'var(--primary-main)' : 'var(--border-main)',
+                    backgroundColor: activeWorkspace?.id === ws.id ? 'var(--primary-glow)' : 'var(--bg-card)'
+                  }}
                 >
                   <div className="flex items-start gap-3">
                     <div
@@ -100,9 +100,9 @@ export default function WorkspacePage() {
                       {ws.icon}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-white truncate">{ws.name}</p>
+                      <p className="font-semibold truncate" style={{ color: 'var(--text-main)' }}>{ws.name}</p>
                       {ws.description && (
-                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{ws.description}</p>
+                        <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{ws.description}</p>
                       )}
                       <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
                         <span className="flex items-center gap-1">
@@ -141,12 +141,18 @@ export default function WorkspacePage() {
               ))}
 
               {workspaces.length === 0 && !useWorkspaceStore.getState().loading && (
-                <div className="card p-10 text-center flex flex-col items-center border-dashed border-2 border-slate-800 bg-transparent">
-                  <div className="w-16 h-16 rounded-2xl bg-surface-800 flex items-center justify-center mb-4 text-slate-500">
+                <div 
+                  className="card p-10 text-center flex flex-col items-center border-dashed border-2"
+                  style={{ borderColor: 'var(--border-main)', backgroundColor: 'transparent' }}
+                >
+                  <div 
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                    style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-muted)' }}
+                  >
                     <LayoutDashboard size={32} />
                   </div>
-                  <h3 className="text-lg font-bold text-white mb-1">No Workspaces</h3>
-                  <p className="text-slate-500 text-sm mb-6 max-w-[200px] mx-auto">Create your first workspace to start organizing your projects and team.</p>
+                  <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-main)' }}>No Workspaces</h3>
+                  <p className="text-sm mb-6 max-w-[200px] mx-auto" style={{ color: 'var(--text-muted)' }}>Create your first workspace to start organizing your projects and team.</p>
                   {user?.user_type !== 'employee' && (
                     <Button 
                       onClick={() => setShowWorkspaceModal(true)} 
@@ -175,8 +181,8 @@ export default function WorkspacePage() {
                     {activeWorkspace.icon}
                   </div>
                   <div>
-                    <h2 className="font-semibold text-white">{activeWorkspace.name}</h2>
-                    <p className="text-xs text-slate-500">{projects.length} projects</p>
+                    <h2 className="font-semibold" style={{ color: 'var(--text-main)' }}>{activeWorkspace.name}</h2>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{projects.length} projects</p>
                   </div>
                 </div>
                 {activeWorkspace?.user_role !== 'viewer' && (
@@ -220,11 +226,11 @@ export default function WorkspacePage() {
                           {project.icon}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-white truncate group-hover:text-primary-300 transition-colors">
+                          <h3 className="font-semibold truncate group-hover:text-primary-300 transition-colors" style={{ color: 'var(--text-main)' }}>
                             {project.name}
                           </h3>
                           {project.description && (
-                            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{project.description}</p>
+                            <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>{project.description}</p>
                           )}
                         </div>
                         <ExternalLink size={14} className="text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
@@ -246,12 +252,18 @@ export default function WorkspacePage() {
                   ))}
 
                   {projects.length === 0 && (
-                    <div className="col-span-2 card p-16 text-center flex flex-col items-center border-dashed border-2 border-slate-800 bg-transparent">
-                      <div className="w-20 h-20 rounded-3xl bg-surface-800 flex items-center justify-center mb-6 text-slate-600">
+                    <div 
+                      className="col-span-2 card p-16 text-center flex flex-col items-center border-dashed border-2"
+                      style={{ borderColor: 'var(--border-main)', backgroundColor: 'transparent' }}
+                    >
+                      <div 
+                        className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6"
+                        style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-muted)' }}
+                      >
                         <FolderKanban size={40} />
                       </div>
-                      <h3 className="text-xl font-bold text-white mb-2">Workspace is Empty</h3>
-                      <p className="text-slate-500 text-sm mb-8 max-w-sm mx-auto">
+                      <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>Workspace is Empty</h3>
+                      <p className="text-sm mb-8 max-w-sm mx-auto" style={{ color: 'var(--text-muted)' }}>
                         This workspace doesn't have any projects yet. Projects help you group tasks and keep your team focused on specific goals.
                       </p>
                       {activeWorkspace?.user_role !== 'viewer' && (
@@ -270,15 +282,21 @@ export default function WorkspacePage() {
               )}
             </>
           ) : (
-            <div className="card p-20 text-center h-full flex items-center justify-center flex-col border-dashed border-2 border-slate-800 bg-transparent">
-              <div className="w-24 h-24 rounded-full bg-surface-900 flex items-center justify-center mb-8 relative">
-                <LayoutDashboard size={48} className="text-slate-700" />
+            <div 
+              className="card p-20 text-center h-full flex items-center justify-center flex-col border-dashed border-2"
+              style={{ borderColor: 'var(--border-main)', backgroundColor: 'transparent' }}
+            >
+              <div 
+                className="w-24 h-24 rounded-full flex items-center justify-center mb-8 relative"
+                style={{ backgroundColor: 'var(--bg-page)' }}
+              >
+                <LayoutDashboard size={48} style={{ color: 'var(--text-muted)' }} />
                 <div className="absolute -bottom-2 -right-2 w-10 h-10 rounded-xl bg-primary-600 flex items-center justify-center text-white shadow-lg">
                   <ChevronRight size={24} />
                 </div>
               </div>
-              <h2 className="text-2xl font-bold text-white mb-3">Welcome to TaskForge</h2>
-              <p className="text-slate-500 max-w-md mx-auto leading-relaxed">
+              <h2 className="text-2xl font-bold mb-3" style={{ color: 'var(--text-main)' }}>Welcome to TaskForge</h2>
+              <p className="max-w-md mx-auto leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                 Select a workspace from the list on the left to view its associated projects and start managing your team's workflow.
               </p>
             </div>

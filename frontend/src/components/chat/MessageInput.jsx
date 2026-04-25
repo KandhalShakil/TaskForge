@@ -64,7 +64,10 @@ export default function MessageInput({
   const canSend = (value.trim().length > 0 || !!attachment) && !disabled
 
   return (
-    <div className="flex-shrink-0 border-t border-slate-800/60 bg-surface-950 px-3 pb-3 pt-2 sm:px-4 sm:pb-4 sm:pt-3">
+    <div 
+      className="flex-shrink-0 border-t px-3 pb-3 pt-2 sm:px-4 sm:pb-4 sm:pt-3"
+      style={{ backgroundColor: 'var(--bg-page)', borderColor: 'var(--border-main)' }}
+    >
       {/* Edit banner */}
       {editingMessage && (
         <div className="mb-2 flex items-center justify-between rounded-xl border border-primary-500/20 bg-primary-500/8 px-3 py-2">
@@ -83,8 +86,11 @@ export default function MessageInput({
 
       {/* Attachment preview */}
       {attachment && (
-        <div className="mb-2 flex items-center justify-between rounded-xl border border-slate-700/60 bg-surface-900 px-3 py-2">
-          <span className="flex items-center gap-2 text-xs text-slate-300">
+        <div 
+          className="mb-2 flex items-center justify-between rounded-xl border px-3 py-2"
+          style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-main)' }}
+        >
+          <span className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-main)' }}>
             <span>📎</span>
             <span className="truncate max-w-[200px]">{attachment.name}</span>
           </span>
@@ -99,12 +105,15 @@ export default function MessageInput({
       )}
 
       {/* Input row */}
-      <div className={`flex items-end gap-2 rounded-2xl border bg-surface-900 px-3 py-2 shadow-lg transition-all duration-200 ${
-        disabled ? 'border-slate-800 opacity-60' : 'border-slate-700/60 focus-within:border-primary-500/40 focus-within:shadow-primary-900/10'
-      }`}>
+      <div 
+        className={`flex items-end gap-2 rounded-2xl border px-3 py-2 shadow-lg transition-all duration-200 ${
+          disabled ? 'opacity-60' : 'focus-within:border-primary-500/40 focus-within:shadow-primary-900/10'
+        }`}
+        style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-main)' }}
+      >
         {/* Attachment button */}
         <label className={`flex h-9 w-9 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl transition-all ${
-          disabled ? 'text-slate-700' : 'text-slate-500 hover:bg-surface-700 hover:text-slate-200'
+          disabled ? 'text-slate-700' : 'text-slate-500 hover:text-white'
         }`}>
           <Paperclip size={18} />
           <input type="file" className="hidden" onChange={onFileSelected} disabled={disabled} />
@@ -118,8 +127,8 @@ export default function MessageInput({
           onKeyDown={handleKeyDown}
           placeholder="Write a message…"
           rows={1}
-          className="flex-1 resize-none border-0 bg-transparent py-[8px] text-sm leading-tight text-slate-100 outline-none placeholder:text-slate-600"
-          style={{ minHeight: '36px', maxHeight: '160px' }}
+          className="flex-1 resize-none border-0 bg-transparent py-[8px] text-sm leading-tight outline-none placeholder:text-slate-600"
+          style={{ minHeight: '36px', maxHeight: '160px', color: 'var(--text-main)' }}
         />
 
         {/* Send button */}
@@ -137,9 +146,9 @@ export default function MessageInput({
         </button>
       </div>
 
-      <p className="mt-1.5 px-1 text-[10px] text-slate-700">
-        <kbd className="rounded bg-surface-800 px-1 py-0.5 text-slate-600">Enter</kbd> send
-        · <kbd className="rounded bg-surface-800 px-1 py-0.5 text-slate-600">Shift+Enter</kbd> new line
+      <p className="mt-1.5 px-1 text-[10px] text-slate-500">
+        <kbd className="rounded px-1 py-0.5" style={{ backgroundColor: 'var(--bg-card)' }}>Enter</kbd> send
+        · <kbd className="rounded px-1 py-0.5" style={{ backgroundColor: 'var(--bg-card)' }}>Shift+Enter</kbd> new line
       </p>
     </div>
   )

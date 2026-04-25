@@ -94,21 +94,26 @@ export default function CommandPalette({ isOpen, onClose }) {
 
       {/* Palette Container */}
       <div 
-        className="relative w-full max-w-xl bg-surface-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-xl border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-main)', backdropFilter: 'blur(32px)' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Search Input */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-800">
-          <Search size={20} className="text-slate-500" />
+        <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border-main)' }}>
+          <Search size={20} style={{ color: 'var(--text-muted)' }} />
           <input
             ref={inputRef}
             type="text"
-            className="flex-1 bg-transparent text-white text-lg outline-none placeholder:text-slate-600"
+            className="flex-1 bg-transparent text-lg outline-none"
+            style={{ color: 'var(--text-main)', caretColor: 'var(--primary-main)' }}
             placeholder="Search workspaces, projects, or actions..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-surface-800 rounded-lg border border-slate-700 text-xs font-bold text-slate-500">
+          <div 
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-bold"
+            style={{ backgroundColor: 'var(--bg-page)', borderColor: 'var(--border-main)', color: 'var(--text-muted)' }}
+          >
             ESC
           </div>
         </div>
@@ -122,26 +127,35 @@ export default function CommandPalette({ isOpen, onClose }) {
                   key={`${item.type}-${item.id}`}
                   className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
                     index === selectedIndex 
-                      ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' 
-                      : 'text-slate-400 hover:bg-surface-800 hover:text-slate-100'
+                      ? 'text-white shadow-lg' 
+                      : 'hover:bg-opacity-50'
                   }`}
+                  style={{ 
+                    backgroundColor: index === selectedIndex ? 'var(--primary-main)' : 'transparent',
+                    boxShadow: index === selectedIndex ? '0 10px 20px -10px var(--primary-glow)' : 'none'
+                  }}
                   onClick={() => handleSelect(item)}
                   onMouseEnter={() => setSelectedIndex(index)}
                 >
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                    index === selectedIndex ? 'bg-white/20' : 'bg-surface-800'
-                  }`}>
+                  <div 
+                    className="w-9 h-9 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: index === selectedIndex ? 'rgba(255,255,255,0.2)' : 'var(--bg-page)' }}
+                  >
                     {item.type === 'workspace' && <span className="text-lg">{item.icon}</span>}
                     {item.type === 'project' && <span className="text-lg">{item.icon}</span>}
                     {item.type === 'action' && item.icon}
                   </div>
                   <div className="flex-1 text-left">
-                    <p className={`font-semibold ${index === selectedIndex ? 'text-white' : 'text-slate-100'}`}>
+                    <p 
+                      className="font-semibold" 
+                      style={{ color: index === selectedIndex ? 'white' : 'var(--text-main)' }}
+                    >
                       {item.name}
                     </p>
-                    <p className={`text-xs uppercase tracking-widest font-bold mt-0.5 ${
-                      index === selectedIndex ? 'text-primary-200' : 'text-slate-500'
-                    }`}>
+                    <p 
+                      className="text-xs uppercase tracking-widest font-bold mt-0.5"
+                      style={{ color: index === selectedIndex ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}
+                    >
                       {item.type}
                     </p>
                   </div>
@@ -163,13 +177,22 @@ export default function CommandPalette({ isOpen, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 bg-surface-950/50 border-t border-slate-800 flex items-center justify-between text-[10px] uppercase font-bold tracking-widest text-slate-500">
+        <div 
+          className="px-5 py-3 border-t flex items-center justify-between text-[10px] uppercase font-bold tracking-widest"
+          style={{ backgroundColor: 'var(--bg-page)', borderColor: 'var(--border-main)', color: 'var(--text-muted)' }}
+        >
           <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1.5 px-2 py-1 bg-surface-800 rounded-md">
+            <span 
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md border"
+              style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-main)' }}
+            >
               <ChevronRight size={10} className="rotate-90" />
               Navigate
             </span>
-            <span className="flex items-center gap-1.5 px-2 py-1 bg-surface-800 rounded-md">
+            <span 
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md border"
+              style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-main)' }}
+            >
               <Hash size={10} />
               Select
             </span>

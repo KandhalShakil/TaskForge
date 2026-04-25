@@ -591,7 +591,13 @@ export default function TaskModal({ task, project, workspace, onClose }) {
       return (
         <div key={nodeKey} className="space-y-2">
           <div style={{ marginLeft: `${depth * 18}px` }}>
-            <div className={`rounded-xl border ${subtask.is_completed ? 'border-green-800/60 bg-green-950/15' : 'border-slate-800 bg-surface-900/45'} transition-colors`}>
+            <div 
+              className={`rounded-xl border transition-colors`}
+              style={{ 
+                borderColor: subtask.is_completed ? 'var(--primary-main)' : 'var(--border-main)',
+                backgroundColor: subtask.is_completed ? 'var(--primary-glow)' : 'var(--bg-page)'
+              }}
+            >
               <div className="flex items-start gap-3 px-3 py-2.5">
                 <div className="pt-0.5">
                   {hasChildren ? (
@@ -610,22 +616,35 @@ export default function TaskModal({ task, project, workspace, onClose }) {
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`badge text-[10px] px-2 py-0.5 ${subtask.is_completed ? 'bg-green-900/50 text-green-300 border-green-800' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
+                    <span 
+                      className={`badge text-[10px] px-2 py-0.5 border`}
+                      style={{ 
+                        backgroundColor: subtask.is_completed ? 'var(--primary-glow)' : 'var(--bg-page)',
+                        color: subtask.is_completed ? 'var(--primary-main)' : 'var(--text-muted)',
+                        borderColor: subtask.is_completed ? 'var(--primary-main)' : 'var(--border-main)'
+                      }}
+                    >
                       {subtask.is_completed ? 'Done' : 'Open'}
                     </span>
-                    <span className={`text-sm font-medium truncate ${subtask.is_completed ? 'text-slate-400 line-through' : 'text-white'}`}>
+                    <span 
+                      className={`text-sm font-medium truncate`}
+                      style={{ 
+                        color: subtask.is_completed ? 'var(--text-muted)' : 'var(--text-main)',
+                        textDecoration: subtask.is_completed ? 'line-through' : 'none'
+                      }}
+                    >
                       {subtask.title || `Subtask ${index + 1}`}
                     </span>
                   </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
-                    <span>Status: <span className="text-slate-200">{statusLabel}</span></span>
-                    <span>Priority: <span className="text-slate-200">{priorityLabel}</span></span>
-                    <span>Due: <span className={overdue ? 'text-red-300' : 'text-slate-200'}>{subtask.due_date || 'Not set'}</span></span>
-                    <span>Assignee: <span className="text-slate-200">{getMemberName(subtask.assignee_id)}</span></span>
-                    <span>Category: <span className="text-slate-200">{getCategoryName(subtask.category_id)}</span></span>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                    <span>Status: <span style={{ color: 'var(--text-main)' }}>{statusLabel}</span></span>
+                    <span>Priority: <span style={{ color: 'var(--text-main)' }}>{priorityLabel}</span></span>
+                    <span>Due: <span style={{ color: overdue ? '#ef4444' : 'var(--text-main)' }}>{subtask.due_date || 'Not set'}</span></span>
+                    <span>Assignee: <span style={{ color: 'var(--text-main)' }}>{getMemberName(subtask.assignee_id)}</span></span>
+                    <span>Category: <span style={{ color: 'var(--text-main)' }}>{getCategoryName(subtask.category_id)}</span></span>
                   </div>
                   {subtask.description && (
-                    <p className="mt-2 text-xs text-slate-500 line-clamp-2">{subtask.description}</p>
+                    <p className="mt-2 text-xs line-clamp-2" style={{ color: 'var(--text-muted)' }}>{subtask.description}</p>
                   )}
                 </div>
 
@@ -702,12 +721,12 @@ export default function TaskModal({ task, project, workspace, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content max-w-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--border-main)' }}>
+          <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: 'var(--text-main)' }}>
             {isEditing ? 'Edit Task' : 'Create Task'}
-            {isViewer && <span className="badge bg-slate-800 text-slate-400 text-[10px] uppercase tracking-wider px-2 py-0.5">Read Only</span>}
+            {isViewer && <span className="badge text-[10px] uppercase tracking-wider px-2 py-0.5" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-muted)' }}>Read Only</span>}
           </h2>
-          <button onClick={onClose} className="btn-ghost p-1.5"><X size={16} /></button>
+          <button onClick={onClose} className="btn-ghost p-1.5" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-4 sm:p-6 space-y-5">
@@ -728,15 +747,21 @@ export default function TaskModal({ task, project, workspace, onClose }) {
 
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <AlignLeft size={14} className="text-slate-500" />
-              <label className="text-xs font-medium text-slate-400">Description</label>
+              <AlignLeft size={14} style={{ color: 'var(--text-muted)' }} />
+              <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Description</label>
             </div>
             <Controller
               name="description"
               control={control}
               rules={{ required: 'Description is required' }}
               render={({ field }) => (
-                <div className={`bg-surface-900 border border-slate-700 rounded-lg overflow-hidden [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-slate-700 [&_.ql-toolbar]:bg-surface-800 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[150px] [&_.ql-editor]:text-sm [&_.ql-editor]:text-slate-200 [&_.ql-stroke]:stroke-slate-400 [&_.ql-fill]:fill-slate-400 [&_.ql-picker]:text-slate-400 ${isViewer ? '[&_.ql-toolbar]:hidden' : ''}`}>
+                <div 
+                  className={`border rounded-lg overflow-hidden [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-container]:border-none [&_.ql-editor]:min-h-[150px] [&_.ql-editor]:text-sm ${isViewer ? '[&_.ql-toolbar]:hidden' : ''}`}
+                  style={{ 
+                    backgroundColor: 'var(--bg-input)', 
+                    borderColor: 'var(--border-main)' 
+                  }}
+                >
                   <ReactQuill theme="snow" value={field.value || ''} onChange={field.onChange} placeholder="Add a formatted description..." readOnly={isViewer} />
                 </div>
               )}

@@ -33,8 +33,8 @@ const PRIORITY_COLORS = {
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-surface-800 border border-slate-700/80 rounded-xl px-4 py-3 shadow-2xl backdrop-blur-md">
-      {label && <p className="text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">{label}</p>}
+    <div className="border rounded-xl px-4 py-3 shadow-2xl backdrop-blur-md" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-main)' }}>
+      {label && <p className="text-[11px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</p>}
       {payload.map((p, i) => (
         <p key={i} className="text-sm font-bold" style={{ color: p.color || p.fill }}>
           {p.name}: <span className="tabular-nums">{p.value}</span>
@@ -78,11 +78,11 @@ function SkeletonChart({ height = 220 }) {
 function ChartEmpty({ message = 'No data yet', height = 200 }) {
   return (
     <div
-      className="flex flex-col items-center justify-center gap-3 text-slate-600 rounded-xl border border-dashed border-slate-800/80"
-      style={{ height }}
+      className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed"
+      style={{ height, borderColor: 'var(--border-main)' }}
     >
-      <BarChart2 size={26} className="text-slate-700" />
-      <p className="text-xs md:text-sm font-medium text-slate-600">{message}</p>
+      <BarChart2 size={26} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+      <p className="text-xs md:text-sm font-medium" style={{ color: 'var(--text-muted)' }}>{message}</p>
     </div>
   )
 }
@@ -150,8 +150,8 @@ export default function AnalyticsDashboard() {
             <AlertCircle size={28} className="text-red-400" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white mb-1">Failed to load data</h2>
-            <p className="text-sm text-slate-400 max-w-xs">{statsError}</p>
+            <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-main)' }}>Failed to load data</h2>
+            <p className="text-sm max-w-xs" style={{ color: 'var(--text-muted)' }}>{statsError}</p>
           </div>
           <button onClick={handleRefresh} className="btn-primary gap-2">
             <RefreshCw size={15} /> Try again
@@ -228,10 +228,10 @@ export default function AnalyticsDashboard() {
       {/* ── Header ── */}
       <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white tracking-tight leading-tight">
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight leading-tight" style={{ color: 'var(--text-main)' }}>
             Analytics
           </h1>
-          <p className="text-slate-400 text-xs md:text-sm mt-0.5 truncate">
+          <p className="text-xs md:text-sm mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
             {activeWorkspace?.name}&nbsp;·&nbsp;Task overview
             {lastUpdated && (
               <span className="ml-1.5 text-slate-600">
@@ -243,9 +243,12 @@ export default function AnalyticsDashboard() {
 
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Completion badge */}
-          <div className="flex items-center gap-1.5 bg-surface-800 border border-slate-700 rounded-xl px-2.5 py-1.5 md:px-3 md:py-2 shadow-sm">
+          <div 
+            className="flex items-center gap-1.5 border rounded-xl px-2.5 py-1.5 md:px-3 md:py-2 shadow-sm"
+            style={{ backgroundColor: 'var(--bg-page)', borderColor: 'var(--border-main)' }}
+          >
             <TrendingUp size={13} className="text-primary-400" />
-            <span className="text-xs md:text-sm text-slate-300 font-semibold tabular-nums">
+            <span className="text-xs md:text-sm font-semibold tabular-nums" style={{ color: 'var(--text-main)' }}>
               {completionRate}%
             </span>
           </div>
@@ -254,7 +257,8 @@ export default function AnalyticsDashboard() {
             onClick={handleRefresh}
             disabled={refreshing || statsLoading}
             title="Refresh data"
-            className="p-1.5 md:p-2 rounded-xl bg-surface-800 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 hover:bg-surface-700 transition-all disabled:opacity-50"
+            className="p-1.5 md:p-2 rounded-xl border transition-all disabled:opacity-50"
+            style={{ backgroundColor: 'var(--bg-page)', borderColor: 'var(--border-main)', color: 'var(--text-muted)' }}
           >
             <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
           </button>
@@ -282,8 +286,8 @@ export default function AnalyticsDashboard() {
             <ClipboardList size={28} className="text-primary-400 md:text-[36px]" />
           </div>
           <div>
-            <h2 className="text-lg md:text-xl font-bold text-white mb-2">No tasks yet</h2>
-            <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
+            <h2 className="text-lg md:text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>No tasks yet</h2>
+            <p className="text-sm max-w-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               No tasks available. Create your first task to see analytics and track your team's progress.
             </p>
           </div>
@@ -303,8 +307,8 @@ export default function AnalyticsDashboard() {
                   {card.icon}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xl md:text-2xl font-black text-white tabular-nums leading-none">{card.value}</p>
-                  <p className="text-[10px] md:text-xs text-slate-500 mt-1 font-medium leading-tight">{card.label}</p>
+                  <p className="text-xl md:text-2xl font-black tabular-nums leading-none" style={{ color: 'var(--text-main)' }}>{card.value}</p>
+                  <p className="text-[10px] md:text-xs mt-1 font-medium leading-tight" style={{ color: 'var(--text-muted)' }}>{card.label}</p>
                 </div>
               </div>
             ))}
@@ -315,7 +319,7 @@ export default function AnalyticsDashboard() {
 
             {/* Status pie */}
             <div className="card p-4 md:p-5">
-              <h2 className="text-xs md:text-sm font-semibold text-white mb-3 md:mb-4">Tasks by Status</h2>
+              <h2 className="text-xs md:text-sm font-semibold mb-3 md:mb-4" style={{ color: 'var(--text-main)' }}>Tasks by Status</h2>
               {statusData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
@@ -339,7 +343,7 @@ export default function AnalyticsDashboard() {
                       iconSize={7}
                       wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}
                       formatter={(value) => (
-                        <span style={{ color: '#94a3b8' }}>{value}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>{value}</span>
                       )}
                     />
                   </PieChart>
@@ -351,19 +355,19 @@ export default function AnalyticsDashboard() {
 
             {/* Priority bar */}
             <div className="card p-4 md:p-5">
-              <h2 className="text-xs md:text-sm font-semibold text-white mb-3 md:mb-4">Tasks by Priority</h2>
+              <h2 className="text-xs md:text-sm font-semibold mb-3 md:mb-4" style={{ color: 'var(--text-main)' }}>Tasks by Priority</h2>
               {priorityData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={priorityData} barSize={28} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-main)" vertical={false} />
                     <XAxis
                       dataKey="name"
-                      tick={{ fill: '#64748b', fontSize: 10 }}
+                      tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
                       axisLine={false}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fill: '#64748b', fontSize: 10 }}
+                      tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
                       axisLine={false}
                       tickLine={false}
                       allowDecimals={false}
@@ -385,7 +389,7 @@ export default function AnalyticsDashboard() {
 
           {/* ── Daily created area chart ── */}
           <div className="card p-4 md:p-5">
-            <h2 className="text-xs md:text-sm font-semibold text-white mb-3 md:mb-4">
+            <h2 className="text-xs md:text-sm font-semibold mb-3 md:mb-4" style={{ color: 'var(--text-main)' }}>
               Tasks Created — Last 30 Days
             </h2>
             {dailyData.length > 0 ? (
@@ -432,7 +436,7 @@ export default function AnalyticsDashboard() {
           {/* ── Completion rate ── */}
           <div className="card p-4 md:p-5">
             <div className="flex items-center justify-between mb-3 md:mb-4">
-              <h2 className="text-xs md:text-sm font-semibold text-white">Overall Completion Rate</h2>
+              <h2 className="text-xs md:text-sm font-semibold" style={{ color: 'var(--text-main)' }}>Overall Completion Rate</h2>
               <span
                 className="text-xl md:text-2xl font-black tabular-nums"
                 style={{
@@ -450,12 +454,12 @@ export default function AnalyticsDashboard() {
                 style={{ width: `${completionRate}%` }}
               />
             </div>
-            <div className="flex justify-between text-xs text-slate-500 mt-2">
+            <div className="flex justify-between text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
               <span className="font-medium">
                 <span className="text-green-400 font-bold">{done}</span> completed
               </span>
               <span>
-                <span className="text-slate-300 font-bold">{total}</span> total
+                <span className="font-bold" style={{ color: 'var(--text-main)' }}>{total}</span> total
               </span>
             </div>
 
@@ -467,15 +471,16 @@ export default function AnalyticsDashboard() {
                 return (
                   <div
                     key={s.value}
-                    className="bg-surface-800/60 rounded-xl p-2.5 md:p-3 text-center border border-slate-800/40"
+                    className="rounded-xl p-2.5 md:p-3 text-center border"
+                    style={{ backgroundColor: 'var(--bg-page)', borderColor: 'var(--border-main)' }}
                   >
                     <div
                       className="w-2 h-2 rounded-full mx-auto mb-1.5"
                       style={{ background: STATUS_COLORS[s.value] }}
                     />
-                    <p className="text-sm font-bold text-white tabular-nums">{count}</p>
-                    <p className="text-[9px] md:text-[10px] text-slate-500 mt-0.5 leading-tight">{s.label}</p>
-                    <p className="text-[9px] md:text-[10px] text-slate-600 mt-0.5">{pct}%</p>
+                    <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-main)' }}>{count}</p>
+                    <p className="text-[9px] md:text-[10px] mt-0.5 leading-tight" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
+                    <p className="text-[9px] md:text-[10px] mt-0.5" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>{pct}%</p>
                   </div>
                 )
               })}

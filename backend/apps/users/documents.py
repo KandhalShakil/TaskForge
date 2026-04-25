@@ -15,6 +15,16 @@ class UserDocument(Document):
     password = fields.StringField()
     date_joined = fields.DateTimeField(default=datetime.utcnow)
     updated_at = fields.DateTimeField(default=datetime.utcnow)
+    settings = fields.DictField(default={
+        'notifications': {
+            'email': True,
+            'chat': True,
+            'tasks': True
+        },
+        'appearance': {
+            'theme': 'dark'
+        }
+    })
 
     meta = {
         'collection': 'users',

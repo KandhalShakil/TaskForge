@@ -90,11 +90,12 @@ export default function MessageList({
             type="button"
             onClick={onLoadMore}
             disabled={loadingMore}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-surface-900 px-5 py-2 text-xs font-medium text-slate-300 shadow transition-all hover:border-slate-500 hover:text-white disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full border px-5 py-2 text-xs font-medium transition-all disabled:opacity-50"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-main)', color: 'var(--text-muted)' }}
           >
             {loadingMore ? (
               <>
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-slate-500 border-t-transparent" />
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
                 Loading…
               </>
             ) : 'Load older messages'}
@@ -105,12 +106,15 @@ export default function MessageList({
       {/* Empty state */}
       {visibleMessages.length === 0 && !loadingMore && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-slate-700 bg-surface-800 text-slate-500">
+          <div 
+            className="flex h-16 w-16 items-center justify-center rounded-3xl border"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-main)', color: 'var(--text-muted)' }}
+          >
             <MessageSquare size={28} />
           </div>
           <div>
-            <p className="text-base font-semibold text-white">No messages yet</p>
-            <p className="mt-1 text-sm text-slate-500">Be the first to say something 👋</p>
+            <p className="text-base font-semibold" style={{ color: 'var(--text-main)' }}>No messages yet</p>
+            <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>Be the first to say something 👋</p>
           </div>
         </div>
       )}
@@ -120,11 +124,14 @@ export default function MessageList({
         {grouped.map((item) =>
           item.type === 'date' ? (
             <div key={item.key} className="flex items-center gap-3 py-1">
-              <div className="h-px flex-1 bg-slate-800" />
-              <span className="rounded-full border border-slate-700 bg-surface-900 px-3 py-0.5 text-[10px] font-medium text-slate-500">
+              <div className="h-px flex-1" style={{ backgroundColor: 'var(--border-main)' }} />
+              <span 
+                className="rounded-full border px-3 py-0.5 text-[10px] font-medium"
+                style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-main)', color: 'var(--text-muted)' }}
+              >
                 {item.label}
               </span>
-              <div className="h-px flex-1 bg-slate-800" />
+              <div className="h-px flex-1" style={{ backgroundColor: 'var(--border-main)' }} />
             </div>
           ) : (
             <MessageBubble

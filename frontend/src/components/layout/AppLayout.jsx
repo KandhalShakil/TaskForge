@@ -9,7 +9,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useChatStore } from '../../store/chatStore'
 import { connectSocket } from '../../utils/socket'
 
-const CommandPalette = lazy(() => import('../common/CommandPalette'))
+
 
 // ── Notification permission request ────────────────────────────────────────
 async function requestNotificationPermission() {
@@ -62,7 +62,6 @@ function ChatToast({ sender, message, onClick }) {
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { fetchWorkspaces, fetchInvitations } = useWorkspaceStore()
@@ -155,40 +154,65 @@ export default function AppLayout() {
     return () => socket.off('receive_message', onReceiveMessage)
   }, [user?.id, incrementUnread, navigateToRoom])
 
-  // Close sidebar on navigation (mobile)
+  // ── Theme management ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const theme = user?.settings?.appearance?.theme || 'dark'
+    const root = window.document.documentElement
+    
+    const applyTheme = (t) => {
+      if (t === 'dark') {
+        root.classList.add('dark')
+      } else if (t === 'light') {
+        root.classList.remove('dark')
+      } else if (t === 'system') {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        root.classList.toggle('dark', isDark)
+      }
+    }
+
+    applyTheme(theme)
+
+    // Listener for system theme changes if 'system' is selected
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      const handler = (e) => root.classList.toggle('dark', e.matches)
+      mediaQuery.addEventListener('change', handler)
+      return () => mediaQuery.removeEventListener('change', handler)
+    }
+    return undefined
+  }, [user?.settings?.appearance?.theme])
+
+  // ── Accent Color management ────────────────────────────────────────────────
+  useEffect(() => {
+    const accent = user?.settings?.appearance?.accentColor || '#06b6d4'
+    const root = window.document.documentElement
+    
+    // Apply primary color
+    root.style.setProperty('--primary-main', accent)
+    
+    // Apply glow effect (15% opacity hex)
+    // If accent is #06b6d4, glow is #06b6d426
+    root.style.setProperty('--primary-glow', `${accent}26`)
+    
+  }, [user?.settings?.appearance?.accentColor])
   useEffect(() => {
     setSidebarOpen(false)
   }, [location.pathname])
 
-  // Global Command+K listener
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setCommandPaletteOpen((prev) => !prev)
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+
 
   return (
-    <div className="flex flex-1 w-full min-h-0 overflow-hidden bg-surface-950">
+    <div className="flex flex-1 w-full min-h-0 overflow-hidden" style={{ backgroundColor: 'var(--bg-page)' }}>
       <GlobalLoadingBar />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Header onMenuClick={() => setSidebarOpen(true)} onSearchClick={() => setCommandPaletteOpen(true)} />
+        <Header onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex flex-1 min-h-0 flex-col overflow-y-auto w-full">
           <Outlet />
         </main>
       </div>
 
-      <Suspense fallback={null}>
-        <CommandPalette
-          isOpen={commandPaletteOpen}
-          onClose={() => setCommandPaletteOpen(false)}
-        />
-      </Suspense>
+
     </div>
   )
 }

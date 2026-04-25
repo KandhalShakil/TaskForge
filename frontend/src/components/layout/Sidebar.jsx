@@ -8,6 +8,7 @@ import {
 import { useAuthStore } from '../../store/authStore'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import { useProjectStore } from '../../store/projectStore'
+import UserDropdown from './UserDropdown'
 import CreateWorkspaceModal from '../workspace/CreateWorkspaceModal'
 import CreateProjectModal from '../project/CreateProjectModal'
 import CreateSpaceModal from '../project/CreateSpaceModal'
@@ -151,15 +152,20 @@ export default function Sidebar({ isOpen, onClose }) {
         />
       )}
 
-      {/* Sidebar Container */}
-      <div className={`
-        fixed inset-y-0 left-0 lg:static z-[1000]
-        w-64 bg-surface-900 border-r border-slate-800 flex flex-col 
-        transition-all duration-300 ease-in-out overflow-hidden
-        ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        {/* Logo */}
-        <div className="p-6 border-b border-slate-800/50 flex items-center justify-between bg-surface-900/30 backdrop-blur-sm">
+      <div 
+        className={`
+          fixed inset-y-0 left-0 lg:static z-[1000]
+          w-64 border-r flex flex-col 
+          transition-all duration-300 ease-in-out overflow-hidden
+          ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
+        `}
+        style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-main)' }}
+      >
+        {/* Logo Area */}
+        <div 
+          className="p-6 border-b flex items-center justify-between backdrop-blur-sm"
+          style={{ borderColor: 'var(--border-light)' }}
+        >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500/20 to-purple-600/20 border border-primary-500/20 flex items-center justify-center shadow-inner shadow-primary-500/10">
               <LayoutDashboard size={20} className="text-primary-400" />
@@ -181,11 +187,12 @@ export default function Sidebar({ isOpen, onClose }) {
           {/* Workspaces section */}
           <div>
             <div
-              className="flex items-center justify-between w-full px-2 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors cursor-pointer"
+              className="flex items-center justify-between w-full px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
               onClick={() => setWorkspacesExpanded(!workspacesExpanded)}
+              style={{ color: 'var(--text-muted)' }}
             >
               <div className="flex items-center justify-between w-full pr-2">
-                <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-2">Workspaces</h2>
+                <h2 className="text-xs font-bold uppercase tracking-widest pl-2">Workspaces</h2>
                 {isCompany && (
                   <button 
                     id="sidebar-create-workspace"
@@ -212,9 +219,14 @@ export default function Sidebar({ isOpen, onClose }) {
                       }}
                       className={`group flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
                         activeWorkspace?.id === ws.id
-                          ? 'text-slate-100 bg-surface-800 border border-slate-700/50 shadow-sm shadow-primary-900/10'
-                          : 'text-slate-400 hover:text-slate-100 hover:bg-surface-800/80'
+                          ? 'border shadow-sm shadow-primary-900/10'
+                          : 'hover:bg-opacity-50'
                       }`}
+                      style={{ 
+                        backgroundColor: activeWorkspace?.id === ws.id ? 'var(--bg-page)' : 'transparent',
+                        borderColor: activeWorkspace?.id === ws.id ? 'var(--border-main)' : 'transparent',
+                        color: activeWorkspace?.id === ws.id ? 'var(--text-main)' : 'var(--text-muted)'
+                      }}
                     >
                       <span className="text-base group-hover:scale-125 transition-transform duration-200">{ws.icon}</span>
                       <span className="truncate font-medium">{ws.name}</span>
@@ -231,7 +243,10 @@ export default function Sidebar({ isOpen, onClose }) {
           {/* Active workspace nav */}
           {activeWorkspace && (
             <div className="mt-3">
-              <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+              <div 
+                className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider truncate"
+                style={{ color: 'var(--text-muted)' }}
+              >
                 {activeWorkspace.name}
               </div>
 
@@ -432,23 +447,11 @@ export default function Sidebar({ isOpen, onClose }) {
         </div>
 
         {/* User footer */}
-        <div className="p-4 border-t border-slate-800/50 bg-surface-900/50">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:border-slate-800 hover:bg-surface-800 transition-all group cursor-default">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-sm font-black flex-shrink-0 shadow-lg shadow-primary-900/20 group-hover:scale-105 transition-transform">
-              {user?.initials || user?.full_name?.charAt(0) || '?'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white truncate leading-tight">{user?.full_name}</p>
-              <p className="text-[10px] font-medium text-slate-500 truncate uppercase mt-0.5 tracking-wider">{user?.email}</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all opacity-0 group-hover:opacity-100"
-              title="Logout"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
+        <div 
+          className="p-4 border-t"
+          style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-light)' }}
+        >
+          <UserDropdown user={user} />
         </div>
       </div>
 

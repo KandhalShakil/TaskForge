@@ -6,7 +6,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import (
     RegisterSerializer,
     UserSerializer,
+    UserProfileUpdateSerializer,
 )
+from datetime import datetime
+from django.contrib.auth.hashers import make_password
 
 from django.template.loader import render_to_string
 from django.core.cache import cache
@@ -268,12 +271,40 @@ class LogoutView(APIView):
         return Response({'message': 'Logged out successfully.'}, status=status.HTTP_200_OK)
 
 
-class MeView(generics.RetrieveAPIView):
+class MeView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
 
     def get_object(self):
         return self.request.user
+
+    def patch(self, request, *args, **kwargs):
+        serializer = UserProfileUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        
+        user_id = self.request.user.id
+        user_doc = UserDocument.objects(id=user_id).first()
+        
+        if not user_doc:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        data = serializer.validated_data
+        
+        if 'full_name' in data:
+            user_doc.full_name = data['full_name']
+        if 'avatar' in data:
+            user_doc.avatar = data['avatar']
+        if 'password' in data:
+            user_doc.password = make_password(data['password'])
+        if 'settings' in data:
+            # Merge settings to avoid wiping out other preferences
+            current_settings = user_doc.settings or {}
+            user_doc.settings = {**current_settings, **data['settings']}
+            
+        user_doc.updated_at = datetime.utcnow()
+        user_doc.save()
+        
+        return Response(UserSerializer(user_doc).data)
 
 
 class UserListView(generics.ListAPIView):

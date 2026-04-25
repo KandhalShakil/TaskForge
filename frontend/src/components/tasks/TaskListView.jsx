@@ -66,9 +66,12 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
 
   return (
     <>
-      <div className="rounded-xl border border-slate-800 overflow-hidden">
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-main)' }}>
         {/* Table header */}
-        <div className="bg-surface-900 grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-4 px-4 py-3 border-b border-slate-800">
+        <div 
+          className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-4 px-4 py-3 border-b"
+          style={{ backgroundColor: 'var(--bg-page)', borderColor: 'var(--border-main)' }}
+        >
           <span className="table-header px-0">Title</span>
           <span className="table-header px-0">Status</span>
           <span className="table-header px-0">Priority</span>
@@ -78,14 +81,17 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
         </div>
 
         {/* Task rows */}
-        <div className="divide-y divide-slate-800/50 bg-surface-950">
+        <div className="divide-y" style={{ backgroundColor: 'var(--bg-card)', divideColor: 'var(--border-light)' }}>
           {tasks.length === 0 ? (
             <div className="py-24 text-center flex flex-col items-center justify-center">
-              <div className="w-16 h-16 rounded-2xl bg-surface-900 border border-slate-800 flex items-center justify-center mb-4 text-slate-600 shadow-inner">
+              <div 
+                className="w-16 h-16 rounded-2xl border flex items-center justify-center mb-4 shadow-inner"
+                style={{ backgroundColor: 'var(--bg-page)', borderColor: 'var(--border-main)', color: 'var(--text-muted)' }}
+              >
                 <FileText size={32} />
               </div>
-              <h3 className="text-lg font-bold text-white mb-1">No tasks found</h3>
-              <p className="text-slate-500 text-sm max-w-xs mx-auto">
+              <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-main)' }}>No tasks found</h3>
+              <p className="text-sm max-w-xs mx-auto" style={{ color: 'var(--text-muted)' }}>
                 There are no tasks in this project yet. Start by creating a new task to track your progress.
               </p>
               {!isViewer && (
@@ -103,7 +109,8 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
               return (
                 <div
                   key={task.id}
-                  className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center hover:bg-surface-900/50 transition-colors group"
+                  className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center transition-colors group"
+                  style={{ borderBottom: '1px solid var(--border-light)' }}
                 >
                   {/* Title */}
                   <div className="flex items-center gap-2 min-w-0">
@@ -116,9 +123,11 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
                       }`}
                     />
                     <span
-                      className={`text-sm font-medium truncate cursor-pointer hover:text-primary-300 transition-colors ${
-                        task.status === 'done' ? 'line-through text-slate-500' : 'text-slate-100'
-                      }`}
+                      className={`text-sm font-medium truncate cursor-pointer transition-colors`}
+                      style={{ 
+                        color: task.status === 'done' ? 'var(--text-muted)' : 'var(--text-main)',
+                        textDecoration: task.status === 'done' ? 'line-through' : 'none'
+                      }}
                       onClick={() => handleNavigateToTask(task)}
                     >
                       {task.title}
@@ -144,10 +153,10 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
                         <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                           {task.assignee.initials}
                         </div>
-                        <span className="text-xs text-slate-400 truncate">{task.assignee.full_name}</span>
+                        <span className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{task.assignee.full_name}</span>
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-600 flex items-center gap-1">
+                      <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-muted)', opacity: 0.5 }}>
                         <User size={11} /> Unassigned
                       </span>
                     )}
@@ -156,12 +165,12 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
                   {/* Due date */}
                   <div>
                     {task.due_date ? (
-                      <span className={`text-xs flex items-center gap-1 ${overdue ? 'text-red-400' : 'text-slate-400'}`}>
+                      <span className={`text-xs flex items-center gap-1`} style={{ color: overdue ? '#ef4444' : 'var(--text-muted)' }}>
                         <Calendar size={11} />
                         {formatDueDate(task.due_date)}
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-600">—</span>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.5 }}>—</span>
                     )}
                   </div>
 

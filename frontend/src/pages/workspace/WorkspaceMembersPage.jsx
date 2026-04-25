@@ -88,15 +88,15 @@ export default function WorkspaceMembersPage() {
   return (
     <div className="app-container py-4 md:py-6 max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">Workspace Members</h1>
-        <p className="text-slate-400 text-xs md:text-sm mt-1">
+        <h1 className="text-xl md:text-2xl font-bold tracking-tight" style={{ color: 'var(--text-main)' }}>Workspace Members</h1>
+        <p className="text-xs md:text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
           {activeWorkspace?.name} · {members.length} members
         </p>
       </div>
 
       {isAdmin && (
         <div className="card p-5 mb-6">
-          <h2 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+          <h2 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-main)' }}>
             <UserPlus size={16} className="text-primary-400" /> Add Members
           </h2>
           <div className="flex flex-col sm:flex-row gap-3 mb-3">
@@ -136,8 +136,8 @@ export default function WorkspaceMembersPage() {
                       {u.initials}
                     </div>
                     <div>
-                      <p className="text-sm text-white font-medium">{u.full_name}</p>
-                      <p className="text-xs text-slate-500">{u.email}</p>
+                      <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>{u.full_name}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{u.email}</p>
                     </div>
                     <button className="ml-auto btn-primary py-1 px-3 text-xs">Add</button>
                   </div>
@@ -150,8 +150,8 @@ export default function WorkspaceMembersPage() {
 
       {/* Member list */}
       <div className="card overflow-hidden">
-        <div className="p-4 border-b border-slate-800">
-          <h2 className="text-sm font-semibold text-white">Current Members ({members.length})</h2>
+        <div className="p-4 border-b" style={{ borderColor: 'var(--border-main)' }}>
+          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>Current Members ({members.length})</h2>
         </div>
         <div className="divide-y divide-slate-800">
           {members.map((member) => (
@@ -162,7 +162,7 @@ export default function WorkspaceMembersPage() {
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-white truncate max-w-[120px] md:max-w-none">{member.user.full_name}</p>
+                    <p className="text-sm font-medium truncate max-w-[120px] md:max-w-none" style={{ color: 'var(--text-main)' }}>{member.user.full_name}</p>
                     {member.user.id === user?.id && (
                       <span className="badge bg-surface-800 text-slate-400 text-[10px] uppercase">You</span>
                     )}
@@ -170,7 +170,7 @@ export default function WorkspaceMembersPage() {
                       <span className="badge bg-amber-900/30 text-amber-500 border border-amber-800/50 text-[10px] uppercase font-bold tracking-tight px-1.5 py-0.5">Pending</span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 truncate">{member.user.email}</p>
+                  <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{member.user.email}</p>
                 </div>
               </div>
               

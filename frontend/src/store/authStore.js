@@ -60,6 +60,11 @@ export const useAuthStore = create(
         set({ user: data })
         return data
       },
+      updateProfile: async (profileData) => {
+        const { data } = await authAPI.updateProfile(profileData)
+        set({ user: data })
+        return data
+      },
     }),
     {
       name: 'auth-storage',

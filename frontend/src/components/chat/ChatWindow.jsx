@@ -70,15 +70,19 @@ export default function ChatWindow({
   const isConnecting = realtimeStatus === 'connecting'
 
   return (
-    <section className={`flex min-w-0 flex-1 flex-col overflow-hidden bg-surface-950 ${className}`}>
+    <section className={`flex min-w-0 flex-1 flex-col overflow-hidden ${className}`} style={{ backgroundColor: 'var(--bg-page)' }}>
       {/* ── Header ── */}
-      <header className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-slate-800/60 bg-surface-900/80 px-4 py-3 backdrop-blur-md sm:px-5">
+      <header 
+        className="flex flex-shrink-0 items-center justify-between gap-3 border-b px-4 py-3 backdrop-blur-md sm:px-5"
+        style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-main)' }}
+      >
         <div className="flex min-w-0 items-center gap-3">
           {/* Back button (mobile) */}
           <button
             type="button"
             onClick={onBack}
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-700 text-slate-400 transition-colors hover:border-slate-500 hover:text-white lg:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border text-slate-400 transition-colors hover:text-white lg:hidden"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-main)' }}
           >
             <ArrowLeft size={15} />
           </button>
@@ -90,7 +94,7 @@ export default function ChatWindow({
 
           {/* Title */}
           <div className="min-w-0">
-            <h1 className="truncate text-sm font-bold text-white sm:text-base">{title}</h1>
+            <h1 className="truncate text-sm font-bold sm:text-base" style={{ color: 'var(--text-main)' }}>{title}</h1>
             <div className="flex items-center gap-1.5">
               {isConnected && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />}
               {isConnecting && <Loader size={10} className="animate-spin text-amber-400" />}
@@ -102,7 +106,10 @@ export default function ChatWindow({
 
         {/* Members pill */}
         {members.length > 0 && (
-          <div className="hidden shrink-0 items-center gap-1.5 rounded-xl border border-slate-700/50 bg-surface-800/60 px-3 py-1.5 text-xs text-slate-400 sm:flex">
+          <div 
+            className="hidden shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs text-slate-400 sm:flex"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-main)' }}
+          >
             <Users size={12} />
             <span>{members.length}</span>
           </div>
