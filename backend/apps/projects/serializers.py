@@ -34,7 +34,13 @@ class SpaceSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
 
+    def validate_name(self, value):
+        if not value.strip():
+            raise serializers.ValidationError('Name is required.')
+        return value.strip()
+
     def create(self, validated_data):
+        user = self.context['request'].user
         space = SpaceDocument(
             id=validated_data.get('id') or str(uuid.uuid4()),
             workspaceId=validated_data['workspaceId'],
@@ -43,7 +49,8 @@ class SpaceSerializer(serializers.Serializer):
             icon=validated_data.get('icon', '🧭'),
             color=validated_data.get('color', '#3b82f6'),
             order=validated_data.get('order', 0),
-            createdById=str(self.context['request'].user.id),
+            createdById=str(user.id),
+            companyId=getattr(user, 'companyId', None),
         )
         space.save()
         return space
@@ -80,6 +87,7 @@ class FolderSerializer(serializers.Serializer):
     updated_at = serializers.DateTimeField(read_only=True)
 
     def create(self, validated_data):
+        user = self.context['request'].user
         folder = FolderDocument(
             id=validated_data.get('id') or str(uuid.uuid4()),
             workspaceId=validated_data['workspaceId'],
@@ -89,7 +97,8 @@ class FolderSerializer(serializers.Serializer):
             icon=validated_data.get('icon', '🗂️'),
             color=validated_data.get('color', '#8b5cf6'),
             order=validated_data.get('order', 0),
-            createdById=str(self.context['request'].user.id),
+            createdById=str(user.id),
+            companyId=getattr(user, 'companyId', None),
         )
         folder.save()
         return folder
@@ -231,6 +240,7 @@ class ProjectSerializer(serializers.Serializer):
             color=validated_data.get('color', '#8b5cf6'),
             status=validated_data.get('status', 'active'),
             ownerId=str(user.id),
+            companyId=getattr(user, 'companyId', None),
             start_date=validated_data.get('start_date'),
             end_date=validated_data.get('end_date'),
             order=validated_data.get('order', 0),

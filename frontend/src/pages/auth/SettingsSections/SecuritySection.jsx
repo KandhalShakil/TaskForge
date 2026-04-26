@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import { useAuthStore } from '../../../store/authStore'
 
 export default function SecuritySection() {
-  const { updateProfile } = useAuthStore()
+  const { changePassword } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [passwords, setPasswords] = useState({
     current: '',
@@ -23,14 +23,18 @@ export default function SecuritySection() {
 
     setLoading(true)
     try {
-      await updateProfile({ 
-        password: passwords.new,
-        password2: passwords.confirm
+      await changePassword({ 
+        current_password: passwords.current,
+        new_password: passwords.new,
+        confirm_password: passwords.confirm
       })
       toast.success('Password updated successfully')
       setPasswords({ current: '', new: '', confirm: '' })
     } catch (error) {
-      toast.error('Failed to update password')
+      const errorMsg = error.response?.data?.current_password?.[0] || 
+                       error.response?.data?.error || 
+                       'Failed to update password'
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }

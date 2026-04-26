@@ -13,6 +13,7 @@ const schema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   password2: z.string(),
+  company_name: z.string().min(2, 'Company name is required'),
 }).refine((data) => data.password === data.password2, {
   message: 'Passwords must match',
   path: ['password2'],
@@ -21,6 +22,8 @@ const schema = z.object({
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [userType, setUserType] = useState('employee')
+  const [companyExists, setCompanyExists] = useState(null)
+  const [isValidating, setIsValidating] = useState(false)
   const navigate = useNavigate()
   const { register: registerUser } = useAuthStore()
 
@@ -36,8 +39,46 @@ export default function RegisterPage() {
       email: '',
       password: '',
       password2: '',
+      company_name: '',
     },
   })
+
+  // Real-time company validation
+  const validateCompany = async (name) => {
+    if (!name || name.length < 2) {
+      setCompanyExists(null)
+      return
+    }
+    
+    setIsValidating(true)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/companies/check/?name=${encodeURIComponent(name)}`)
+      const data = await response.json()
+      setCompanyExists(data.exists)
+      
+      if (userType === 'employee' && !data.exists) {
+        setError('company_name', { type: 'manual', message: 'Company does not exist' })
+      } else if (userType === 'owner' && data.exists) {
+        setError('company_name', { type: 'manual', message: 'Company name already taken' })
+      } else {
+        setError('company_name', { type: 'manual', message: '' })
+      }
+    } catch (error) {
+      console.error('Company check failed', error)
+    } finally {
+      setIsValidating(false)
+    }
+  }
+
+  const handleCompanyChange = (e) => {
+    const value = e.target.value
+    // Clear error while typing
+    setError('company_name', { type: 'manual', message: '' })
+    
+    // Simple debounce
+    const timeoutId = setTimeout(() => validateCompany(value), 500)
+    return () => clearTimeout(timeoutId)
+  }
 
   const onSubmit = async (data) => {
     try {
@@ -153,7 +194,10 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setUserType('employee')}
+                  onClick={() => {
+                    setUserType('employee')
+                    setCompanyExists(null)
+                  }}
                   className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
                     userType === 'employee'
                       ? 'border-primary-500 bg-primary-500/10 text-white'
@@ -161,27 +205,54 @@ export default function RegisterPage() {
                   }`}
                 >
                   <span className="text-xs font-bold uppercase tracking-wider">Employee</span>
-                  <span className="text-[10px] opacity-70 text-center leading-tight">Join existing workspaces</span>
+                  <span className="text-[10px] opacity-70 text-center leading-tight">Join existing company</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setUserType('company')}
+                  onClick={() => {
+                    setUserType('owner')
+                    setCompanyExists(null)
+                  }}
                   className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
-                    userType === 'company'
+                    userType === 'owner'
                       ? 'border-primary-500 bg-primary-500/10 text-white'
                       : 'border-slate-800 bg-slate-900/50 text-slate-500 hover:border-slate-700'
                   }`}
                 >
-                  <span className="text-xs font-bold uppercase tracking-wider">Company</span>
-                  <span className="text-[10px] opacity-70 text-center leading-tight">Create &amp; manage workspaces</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Company Owner</span>
+                  <span className="text-[10px] opacity-70 text-center leading-tight">Register your company</span>
                 </button>
               </div>
+            </div>
+
+            <div>
+              <label className="label">Company Name</label>
+              <div className="relative">
+                <input
+                  id="register-company"
+                  type="text"
+                  className={`input ${errors.company_name ? 'border-red-500' : ''}`}
+                  placeholder={userType === 'owner' ? "Your company name" : "Existing company name"}
+                  {...register('company_name', { onChange: handleCompanyChange })}
+                />
+                {isValidating && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 size={14} className="animate-spin text-primary-500" />
+                  </div>
+                )}
+              </div>
+              {errors.company_name && <p className="text-red-400 text-xs mt-1">{errors.company_name.message}</p>}
+              {!errors.company_name && companyExists === true && userType === 'employee' && (
+                <p className="text-green-400 text-[10px] mt-1 ml-1 flex items-center gap-1">
+                  ✓ Company found
+                </p>
+              )}
             </div>
 
             <button
               id="register-submit"
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isValidating || (userType === 'employee' && companyExists === false) || (userType === 'owner' && companyExists === true)}
               className="btn-primary w-full justify-center py-2.5 mt-2"
             >
               {isSubmitting ? (

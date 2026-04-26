@@ -10,6 +10,7 @@ class WorkspaceDocument(Document):
     icon = fields.StringField(default='🚀')
     color = fields.StringField(default='#6366f1')
     ownerId = fields.StringField()
+    companyId = fields.StringField()
     created_at = fields.DateTimeField(default=datetime.utcnow)
     updated_at = fields.DateTimeField(default=datetime.utcnow)
 
@@ -18,6 +19,7 @@ class WorkspaceDocument(Document):
         'ordering': ['-created_at'],
         'indexes': [
             {'fields': ['ownerId'], 'name': 'workspaces_owner_idx'},
+            {'fields': ['companyId'], 'name': 'workspaces_company_idx'},
             {'fields': ['name'], 'name': 'workspaces_name_idx'},
         ],
     }

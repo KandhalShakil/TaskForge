@@ -173,4 +173,15 @@ export const useChatStore = create((set, get) => ({
     const { activeRoom, unreadCounts } = get()
     return activeRoom ? unreadCounts[activeRoom] || 0 : 0
   },
+
+  clear: () => set({
+    threads: [],
+    activeRoom: null,
+    messages: [],
+    messagesByRoom: {},
+    typingUsers: {},
+    unreadCounts: {},
+    onlineUsers: {},
+    activeContext: null,
+  }),
 }))

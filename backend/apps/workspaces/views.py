@@ -38,9 +38,9 @@ class WorkspaceListCreateView(generics.ListCreateAPIView):
         if hasattr(user, 'user_type'):
             if user.user_type == 'employee' and not user.is_staff:
                 from rest_framework.exceptions import PermissionDenied
-                raise PermissionDenied("Only Company or Admin accounts can create workspaces.")
+                raise PermissionDenied("Only Company Owners or Admin accounts can create workspaces.")
             
-        serializer.save()
+        serializer.save(companyId=user.companyId)
 
 
 class WorkspaceDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -110,10 +110,17 @@ class AddWorkspaceMemberView(APIView):
         if not user:
             return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Restricted: Only Employees can be added as workspace members.
-        if user.user_type == 'company':
+        # Requirement 7 & 8: Only users from SAME company can be added.
+        if str(user.companyId) != str(request.user.companyId):
             return Response(
-                {'error': 'Company accounts cannot be added as workspace members. Please invite an Employee account.'},
+                {'error': 'You can only add users from your own company.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Restricted: Only Employees can be added as workspace members.
+        if user.user_type == 'owner':
+            return Response(
+                {'error': 'Company owners cannot be added as workspace members to other company workspaces.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

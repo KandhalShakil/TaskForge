@@ -32,6 +32,7 @@ class WorkspaceSerializer(serializers.Serializer):
             icon=validated_data.get('icon', '🚀'),
             color=validated_data.get('color', '#6366f1'),
             ownerId=str(user.id),
+            companyId=getattr(user, 'companyId', None),
         )
         workspace.save()
 

@@ -143,4 +143,23 @@ export const useTaskStore = create((set, get) => ({
       throw err
     }
   },
+
+  clear: () => set({
+    tasks: [],
+    categories: [],
+    stats: null,
+    statsLoading: false,
+    statsError: null,
+    loading: false,
+    isSubmitting: false,
+    filters: {
+      status: '',
+      priority: '',
+      assignee: '',
+      category: '',
+      search: '',
+      due_date_from: '',
+      due_date_to: '',
+    },
+  }),
 }))

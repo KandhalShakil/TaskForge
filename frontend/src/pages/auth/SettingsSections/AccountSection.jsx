@@ -5,18 +5,42 @@ import ConfirmModal from '../../../components/common/ConfirmModal'
 import toast from 'react-hot-toast'
 
 export default function AccountSection() {
-  const { user } = useAuthStore()
+  const { user, deleteAccount, exportData } = useAuthStore()
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [exportLoading, setExportLoading] = useState(false)
 
   const handleDeleteAccount = async () => {
     setLoading(true)
-    // Simulate delete - actual implementation would call an API
-    setTimeout(() => {
-      toast.error('Account deletion requires admin approval in this demo')
+    try {
+      await deleteAccount()
+      toast.success('Account deleted successfully')
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to delete account')
+    } finally {
       setLoading(false)
       setShowDeleteModal(false)
-    }, 1500)
+    }
+  }
+
+  const handleDownloadData = async () => {
+    setExportLoading(true)
+    try {
+      const data = await exportData()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `taskforge-data-${user.full_name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`)
+      document.body.appendChild(link)
+      link.click()
+      link.parentNode.removeChild(link)
+      toast.success('Data exported successfully')
+    } catch (error) {
+      toast.error('Failed to export data')
+    } finally {
+      setExportLoading(false)
+    }
   }
 
   return (
@@ -69,9 +93,14 @@ export default function AccountSection() {
              </div>
           </div>
           <button 
-            className="btn-ghost text-xs font-medium w-full sm:w-auto border px-4 py-2"
+            onClick={handleDownloadData}
+            disabled={exportLoading}
+            className="btn-ghost text-xs font-medium w-full sm:w-auto border px-4 py-2 flex items-center justify-center gap-2"
             style={{ borderColor: 'var(--border-main)' }}
           >
+            {exportLoading ? (
+              <div className="w-3 h-3 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin" />
+            ) : null}
             Download your data (.json)
           </button>
         </div>

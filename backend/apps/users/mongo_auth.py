@@ -16,6 +16,7 @@ class MongoUser:
     is_active: bool
     is_staff: bool
     is_superuser: bool
+    companyId: str | None = None
     avatar: str | None = None
 
     @property
@@ -51,5 +52,6 @@ class MongoJWTAuthentication(JWTAuthentication):
             is_active=user.is_active,
             is_staff=user.is_staff,
             is_superuser=user.is_superuser,
+            companyId=getattr(user, 'companyId', None),
             avatar=user.avatar,
         )

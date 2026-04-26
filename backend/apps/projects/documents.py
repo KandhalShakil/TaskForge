@@ -1,7 +1,5 @@
 from datetime import datetime
-
 from django_mongoengine import Document, fields
-
 
 class SpaceDocument(Document):
     id = fields.StringField(primary_key=True)
@@ -12,15 +10,15 @@ class SpaceDocument(Document):
     color = fields.StringField(default='#3b82f6')
     order = fields.IntField(default=0)
     createdById = fields.StringField()
+    companyId = fields.StringField()
     created_at = fields.DateTimeField(default=datetime.utcnow)
     updated_at = fields.DateTimeField(default=datetime.utcnow)
 
     meta = {
         'collection': 'spaces',
         'ordering': ['order', 'created_at'],
-        'indexes': ['workspaceId', 'name'],
+        'indexes': ['workspaceId', 'name', 'companyId'],
     }
-
 
 class FolderDocument(Document):
     id = fields.StringField(primary_key=True)
@@ -32,15 +30,15 @@ class FolderDocument(Document):
     color = fields.StringField(default='#8b5cf6')
     order = fields.IntField(default=0)
     createdById = fields.StringField()
+    companyId = fields.StringField()
     created_at = fields.DateTimeField(default=datetime.utcnow)
     updated_at = fields.DateTimeField(default=datetime.utcnow)
 
     meta = {
         'collection': 'folders',
         'ordering': ['order', 'created_at'],
-        'indexes': ['workspaceId', 'spaceId', 'name'],
+        'indexes': ['workspaceId', 'spaceId', 'name', 'companyId'],
     }
-
 
 class ProjectDocument(Document):
     id = fields.StringField(primary_key=True)
@@ -53,6 +51,7 @@ class ProjectDocument(Document):
     color = fields.StringField(default='#8b5cf6')
     status = fields.StringField(choices=('active', 'archived', 'completed'), default='active')
     ownerId = fields.StringField()
+    companyId = fields.StringField()
     start_date = fields.DateTimeField(null=True, blank=True, default=None)
     end_date = fields.DateTimeField(null=True, blank=True, default=None)
     order = fields.IntField(default=0)
@@ -62,9 +61,8 @@ class ProjectDocument(Document):
     meta = {
         'collection': 'projects',
         'ordering': ['-created_at'],
-        'indexes': ['workspaceId', 'status', 'name'],
+        'indexes': ['workspaceId', 'status', 'name', 'companyId'],
     }
-
 
 class ProjectMemberDocument(Document):
     id = fields.StringField(primary_key=True)

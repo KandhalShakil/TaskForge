@@ -241,4 +241,17 @@ export const useProjectStore = create((set, get) => ({
     const { projects, activeProject } = get()
     return activeProject?.id === projectId ? activeProject : projects.find((p) => p.id === projectId)
   },
+
+  clear: () => set({
+    projects: [],
+    spaces: [],
+    folders: [],
+    hierarchy: [],
+    folderProjects: {},
+    folderProjectsLoading: {},
+    activeProject: null,
+    notFoundProjectIds: {},
+    loading: false,
+    isSubmitting: false,
+  }),
 }))

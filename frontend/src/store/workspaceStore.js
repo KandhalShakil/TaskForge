@@ -107,4 +107,13 @@ export const useWorkspaceStore = create((set, get) => ({
       invitations: state.invitations.filter((i) => i.id !== id),
     }))
   },
+
+  clear: () => set({ 
+    workspaces: [], 
+    activeWorkspace: null, 
+    members: [], 
+    invitations: [], 
+    loading: false, 
+    error: null 
+  }),
 }))

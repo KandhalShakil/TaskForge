@@ -45,7 +45,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const [expandedSpaces, setExpandedSpaces] = useState({})
   const [expandedFolders, setExpandedFolders] = useState({})
 
-  const isCompany = user?.user_type === 'company' || user?.is_staff
+  const isCompany = user?.user_type === 'owner' || user?.is_staff
 
   useEffect(() => {
     fetchWorkspaces()
@@ -171,8 +171,8 @@ export default function Sidebar({ isOpen, onClose }) {
               <LayoutDashboard size={20} className="text-primary-400" />
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-base text-white tracking-tight leading-none">TaskForge</span>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1 line-clamp-1">Productivity</span>
+              <span className="font-bold text-base text-white tracking-tight leading-none">{user?.company_name || 'TaskForge'}</span>
+              <span className="text-[10px] font-bold text-primary-500 uppercase tracking-[0.2em] mt-1 line-clamp-1">{user?.user_type === 'owner' ? 'Company Owner' : 'Employee'}</span>
             </div>
           </div>
           <button

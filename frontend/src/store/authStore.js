@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { authAPI } from '../api/auth'
+import { useLoadingStore } from './useLoadingStore'
+import { useWorkspaceStore } from './workspaceStore'
+import { useProjectStore } from './projectStore'
+import { useTaskStore } from './taskStore'
+import { useChatStore } from './chatStore'
 
 export const useAuthStore = create(
   persist(
@@ -52,6 +57,14 @@ export const useAuthStore = create(
         localStorage.removeItem('refresh_token')
         localStorage.removeItem('auth-storage')
         sessionStorage.clear()
+
+        // Clear all other stores
+        useWorkspaceStore.getState().clear()
+        useProjectStore.getState().clear()
+        useTaskStore.getState().clear()
+        useChatStore.getState().clear()
+        useLoadingStore.getState().clear()
+
         set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false })
       },
 
@@ -63,6 +76,18 @@ export const useAuthStore = create(
       updateProfile: async (profileData) => {
         const { data } = await authAPI.updateProfile(profileData)
         set({ user: data })
+        return data
+      },
+      changePassword: async (passwordData) => {
+        const { data } = await authAPI.changePassword(passwordData)
+        return data
+      },
+      deleteAccount: async () => {
+        await authAPI.deleteAccount()
+        get().logout()
+      },
+      exportData: async () => {
+        const { data } = await authAPI.exportData()
         return data
       },
     }),

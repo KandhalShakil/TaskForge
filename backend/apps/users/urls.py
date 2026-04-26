@@ -4,7 +4,8 @@ from .views import (
     RegisterView, VerifyRegistrationView, ResendOTPView,
     ForgotPasswordView, ResetPasswordView,
     CustomTokenObtainPairView, LogoutView,
-    MeView, UserListView
+    MeView, UserListView,
+    DeleteAccountView, ChangePasswordView, ExportDataView
 )
 
 urlpatterns = [
@@ -18,5 +19,8 @@ urlpatterns = [
     path('refresh/', TokenRefreshView.as_view(), name='auth-refresh'),
     path('logout/', LogoutView.as_view(), name='auth-logout'),
     path('me/', MeView.as_view(), name='auth-me'),
+    path('me/delete/', DeleteAccountView.as_view(), name='auth-delete-account'),
+    path('me/change-password/', ChangePasswordView.as_view(), name='auth-change-password'),
+    path('me/export/', ExportDataView.as_view(), name='auth-export-data'),
     path('users/', UserListView.as_view(), name='user-list'),
 ]

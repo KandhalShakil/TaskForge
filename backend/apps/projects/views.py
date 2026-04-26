@@ -36,11 +36,11 @@ class ProjectListCreateView(generics.ListCreateAPIView):
     serializer_class = ProjectSerializer
 
     def get_queryset(self):
-        workspace_ids = [
-            m.workspaceId
-            for m in WorkspaceMemberDocument.objects(userId=str(self.request.user.id), status='accepted')
-        ]
-        qs = ProjectDocument.objects(workspaceId__in=workspace_ids)
+        user = self.request.user
+        if not hasattr(user, 'companyId') or not user.companyId:
+            return ProjectDocument.objects.none()
+            
+        qs = ProjectDocument.objects(companyId=user.companyId)
 
         workspace_id = self.request.query_params.get('workspace')
         if workspace_id:
@@ -90,11 +90,10 @@ class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
         return ProjectSerializer
 
     def get_queryset(self):
-        workspace_ids = [
-            m.workspaceId
-            for m in WorkspaceMemberDocument.objects(userId=str(self.request.user.id), status='accepted')
-        ]
-        return ProjectDocument.objects(workspaceId__in=workspace_ids)
+        user = self.request.user
+        if not hasattr(user, 'companyId') or not user.companyId:
+            return ProjectDocument.objects.none()
+        return ProjectDocument.objects(companyId=user.companyId)
 
     def destroy(self, request, *args, **kwargs):
         project = self.get_object()
@@ -146,6 +145,10 @@ class AddProjectMemberView(APIView):
         if not user:
             return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Requirement 7 & 8: Only users from SAME company can be added.
+        if str(user.companyId) != str(request.user.companyId):
+            return Response({'error': 'You can only add users from your own company.'}, status=status.HTTP_403_FORBIDDEN)
+
         if not WorkspaceMemberDocument.objects(
             workspaceId=str(project.workspaceId),
             userId=str(user.id),
@@ -195,11 +198,11 @@ class SpaceListCreateView(generics.ListCreateAPIView):
     serializer_class = SpaceSerializer
 
     def get_queryset(self):
-        workspace_ids = [
-            m.workspaceId
-            for m in WorkspaceMemberDocument.objects(userId=str(self.request.user.id), status='accepted')
-        ]
-        qs = SpaceDocument.objects(workspaceId__in=workspace_ids)
+        user = self.request.user
+        if not hasattr(user, 'companyId') or not user.companyId:
+            return SpaceDocument.objects.none()
+            
+        qs = SpaceDocument.objects(companyId=user.companyId)
 
         workspace_id = self.request.query_params.get('workspace')
         if workspace_id:
@@ -228,11 +231,10 @@ class SpaceDetailView(generics.RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = 'pk'
 
     def get_queryset(self):
-        workspace_ids = [
-            m.workspaceId
-            for m in WorkspaceMemberDocument.objects(userId=str(self.request.user.id), status='accepted')
-        ]
-        return SpaceDocument.objects(workspaceId__in=workspace_ids)
+        user = self.request.user
+        if not hasattr(user, 'companyId') or not user.companyId:
+            return SpaceDocument.objects.none()
+        return SpaceDocument.objects(companyId=user.companyId)
 
 
 class FolderListCreateView(generics.ListCreateAPIView):
@@ -240,11 +242,11 @@ class FolderListCreateView(generics.ListCreateAPIView):
     serializer_class = FolderSerializer
 
     def get_queryset(self):
-        workspace_ids = [
-            m.workspaceId
-            for m in WorkspaceMemberDocument.objects(userId=str(self.request.user.id), status='accepted')
-        ]
-        qs = FolderDocument.objects(workspaceId__in=workspace_ids)
+        user = self.request.user
+        if not hasattr(user, 'companyId') or not user.companyId:
+            return FolderDocument.objects.none()
+            
+        qs = FolderDocument.objects(companyId=user.companyId)
 
         workspace_id = self.request.query_params.get('workspace')
         if workspace_id:
@@ -277,11 +279,10 @@ class FolderDetailView(generics.RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = 'pk'
 
     def get_queryset(self):
-        workspace_ids = [
-            m.workspaceId
-            for m in WorkspaceMemberDocument.objects(userId=str(self.request.user.id), status='accepted')
-        ]
-        return FolderDocument.objects(workspaceId__in=workspace_ids)
+        user = self.request.user
+        if not hasattr(user, 'companyId') or not user.companyId:
+            return FolderDocument.objects.none()
+        return FolderDocument.objects(companyId=user.companyId)
 
 
 class ProjectHierarchyView(APIView):
@@ -292,14 +293,10 @@ class ProjectHierarchyView(APIView):
         if not workspace_id:
             return Response({'error': 'workspace query parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        member = WorkspaceMemberDocument.objects(
-            workspaceId=str(workspace_id),
-            userId=str(request.user.id),
-            status='accepted',
-        ).first()
-        if not member:
+        workspace = WorkspaceDocument.objects(id=str(workspace_id)).first()
+        if not workspace or str(workspace.companyId) != str(request.user.companyId):
             return Response({'error': 'Workspace not found or inaccessible.'}, status=status.HTTP_404_NOT_FOUND)
 
-        spaces = SpaceDocument.objects(workspaceId=str(workspace_id))
+        spaces = SpaceDocument.objects(workspaceId=str(workspace_id), companyId=request.user.companyId)
         serializer = HierarchySpaceSerializer(spaces, many=True, context={'request': request})
         return Response(serializer.data)

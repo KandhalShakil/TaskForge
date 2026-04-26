@@ -14,6 +14,15 @@ class UserSerializer(serializers.Serializer):
     initials = serializers.SerializerMethodField()
     date_joined = serializers.DateTimeField(read_only=True)
     settings = serializers.DictField(required=False)
+    companyId = serializers.CharField(read_only=True)
+    company_name = serializers.SerializerMethodField()
+
+    def get_company_name(self, obj):
+        if not obj.companyId:
+            return None
+        from apps.companies.documents import CompanyDocument
+        company = CompanyDocument.objects(id=obj.companyId).first()
+        return company.name if company else None
 
     def get_initials(self, obj):
         parts = (getattr(obj, 'full_name', '') or '').split()
@@ -25,7 +34,8 @@ class RegisterSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=255)
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True)
-    user_type = serializers.ChoiceField(choices=('admin', 'company', 'employee'), default='employee')
+    user_type = serializers.ChoiceField(choices=('owner', 'employee'), default='employee')
+    company_name = serializers.CharField(max_length=255)
 
     def validate_user_type(self, value):
         if value == 'admin':
@@ -62,4 +72,15 @@ class UserProfileUpdateSerializer(serializers.Serializer):
         password2 = attrs.get('password2')
         if password and password != password2:
             raise serializers.ValidationError({'password': 'Passwords do not match.'})
+        return attrs
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, validators=[validate_password])
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({'new_password': 'Passwords do not match.'})
         return attrs

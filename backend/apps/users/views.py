@@ -3,14 +3,15 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth.hashers import make_password, check_password
 from .serializers import (
     RegisterSerializer,
     UserSerializer,
     UserProfileUpdateSerializer,
+    ChangePasswordSerializer,
 )
-from datetime import datetime
-from django.contrib.auth.hashers import make_password
 
+from datetime import datetime
 from django.template.loader import render_to_string
 from django.core.cache import cache
 from django.core.mail import EmailMultiAlternatives
@@ -319,3 +320,112 @@ class UserListView(generics.ListAPIView):
             
         # Return only employees, excluding superusers
         return UserDocument.objects(is_active=True, user_type='employee', is_superuser=False)
+
+
+class DeleteAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        from apps.workspaces.documents import WorkspaceMemberDocument, WorkspaceDocument
+        from apps.projects.documents import ProjectMemberDocument, ProjectDocument
+        from apps.tasks.documents import TaskDocument, SubTaskDocument
+        
+        user = request.user
+        user_id = str(user.id)
+        user_doc = UserDocument.objects(id=user_id).first()
+        if not user_doc:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # 1. Remove from Project Memberships
+        ProjectMemberDocument.objects(userId=user_id).delete()
+        
+        # 2. Remove from Workspace Memberships
+        WorkspaceMemberDocument.objects(userId=user_id).delete()
+        
+        # 3. Unassign from Tasks
+        TaskDocument.objects(assigneeId=user_id).update(set__assigneeId=None)
+        
+        # 4. Unassign from Subtasks
+        SubTaskDocument.objects(assigneeId=user_id).update(set__assigneeId=None)
+        
+        # 5. Handle owned content (Optional but recommended)
+        # For now, we focus on removing them as a member as requested.
+        # If we wanted to delete their owned workspaces:
+        # WorkspaceDocument.objects(ownerId=user_id).delete()
+        
+        # Finally delete the user document
+        user_doc.delete()
+        return Response({'message': 'Account and all associated memberships deleted successfully.'}, status=status.HTTP_200_OK)
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        user_id = request.user.id
+        user_doc = UserDocument.objects(id=user_id).first()
+        
+        if not check_password(serializer.validated_data['current_password'], user_doc.password):
+            return Response({'current_password': ['Invalid current password']}, status=status.HTTP_400_BAD_REQUEST)
+            
+        user_doc.password = make_password(serializer.validated_data['new_password'])
+        user_doc.updated_at = datetime.utcnow()
+        user_doc.save()
+        
+        return Response({'message': 'Password changed successfully.'}, status=status.HTTP_200_OK)
+
+
+class ExportDataView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.tasks.documents import TaskDocument, CommentDocument
+        from apps.projects.documents import ProjectDocument
+        
+        user = request.user
+        user_id = str(user.id)
+        
+        # Gather user profile
+        user_doc = UserDocument.objects(id=user_id).first()
+        profile_data = UserSerializer(user_doc).data
+        
+        # Gather projects owned by user
+        projects = ProjectDocument.objects(ownerId=user_id)
+        projects_data = [{
+            'id': p.id,
+            'name': p.name,
+            'description': p.description,
+            'created_at': p.created_at.isoformat() if p.created_at else None
+        } for p in projects]
+        
+        # Gather tasks created by or assigned to user
+        tasks = TaskDocument.objects(createdById=user_id) # or Q(assigneeId=user_id)
+        tasks_data = [{
+            'id': t.id,
+            'title': t.title,
+            'status': t.status,
+            'priority': t.priority,
+            'created_at': t.created_at.isoformat() if t.created_at else None
+        } for t in tasks]
+        
+        # Gather comments
+        comments = CommentDocument.objects(authorId=user_id)
+        comments_data = [{
+            'id': c.id,
+            'content': c.content,
+            'taskId': c.taskId,
+            'created_at': c.created_at.isoformat() if c.created_at else None
+        } for c in comments]
+        
+        export_payload = {
+            'profile': profile_data,
+            'projects': projects_data,
+            'tasks': tasks_data,
+            'comments': comments_data,
+            'exported_at': datetime.utcnow().isoformat()
+        }
+        
+        return Response(export_payload, status=status.HTTP_200_OK)

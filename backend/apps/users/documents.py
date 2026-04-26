@@ -8,7 +8,8 @@ class UserDocument(Document):
     email = fields.EmailField()
     full_name = fields.StringField(max_length=255)
     avatar = fields.StringField(blank=True, default='')
-    user_type = fields.StringField(choices=('admin', 'company', 'employee'), default='employee')
+    user_type = fields.StringField(choices=('admin', 'owner', 'employee'), default='employee')
+    companyId = fields.StringField(blank=True, null=True)
     is_active = fields.BooleanField(default=True)
     is_staff = fields.BooleanField(default=False)
     is_superuser = fields.BooleanField(default=False)
@@ -32,5 +33,6 @@ class UserDocument(Document):
         'indexes': [
             {'fields': ['email'], 'unique': True, 'name': 'users_email_unique'},
             'user_type',
+            'companyId',
         ],
     }
