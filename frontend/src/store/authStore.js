@@ -49,14 +49,19 @@ export const useAuthStore = create(
 
       logout: () => {
         const refreshToken = localStorage.getItem('refresh_token')
-        // Fire and forget backend logout
-        if (refreshToken) {
-          authAPI.logout(refreshToken).catch(() => {})
-        }
+        
+        // Clear local state first to prevent UI flickering or unauthorized retries
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
         localStorage.removeItem('auth-storage')
         sessionStorage.clear()
+
+        // Fire and forget backend logout
+        if (refreshToken) {
+          authAPI.logout(refreshToken).catch(() => {
+            // Ignore errors on logout - user is effectively logged out locally anyway
+          })
+        }
 
         // Clear all other stores
         useWorkspaceStore.getState().clear()
@@ -83,8 +88,25 @@ export const useAuthStore = create(
         return data
       },
       deleteAccount: async () => {
-        await authAPI.deleteAccount()
-        get().logout()
+        try {
+          await authAPI.deleteAccount()
+        } finally {
+          // Always clear local state even if backend delete fails (e.g. 401 because user is already gone)
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
+          localStorage.removeItem('auth-storage')
+          sessionStorage.clear()
+          
+          // Clear all other stores
+          useWorkspaceStore.getState().clear()
+          useProjectStore.getState().clear()
+          useTaskStore.getState().clear()
+          useChatStore.getState().clear()
+          useLoadingStore.getState().clear()
+          
+          set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false })
+          window.location.href = '/login'
+        }
       },
       exportData: async () => {
         const { data } = await authAPI.exportData()
