@@ -6,9 +6,10 @@
 ![React](https://img.shields.io/badge/React-18-61DAFB)
 ![Vite](https://img.shields.io/badge/Vite-5-646CFF)
 ![MongoDB](https://img.shields.io/badge/Database-MongoDB-47A248)  
-![Realtime](https://img.shields.io/badge/Realtime-Pusher-300D4F)
+![Redis](https://img.shields.io/badge/Cache-Redis-DC382D)
+![Realtime](https://img.shields.io/badge/Realtime-Socket.IO-010101)
 
-Your all-in-one team collaboration and project management platform with real-time chat, structured workspaces, and powerful task workflows.
+Your all-in-one team collaboration and project management platform with high-performance caching, real-time chat, and automated background workflows.
 
 ## 📌 Table of Contents
 
@@ -17,224 +18,144 @@ Your all-in-one team collaboration and project management platform with real-tim
 - 🏗️ Architecture
 - 🛠️ Tech Stack
 - 📂 Project Structure
-- ⚡ Start in 5 Minutes
-- 🖼️ Screenshots and Demo
 - ⚡ Quick Start
 - 🔐 Environment Variables
 - 🌐 API Reference Map
-- 💻 Useful Commands
 - 🚢 Deployment
-- 🧪 Quality and Validation
-- 🐞 Troubleshooting
-- 🤝 Contributing
 - 📄 License
 
 ## ✨ What is TaskForge?
 
-TaskForge is a full-stack productivity platform for teams to plan, execute, and communicate in one place.
+TaskForge is a professional-grade productivity platform designed for teams that require speed and reliability. It organizes work into a clear hierarchy:
 
-Core work hierarchy:
+**Workspace -> Space -> Folder -> Project -> Task -> Subtask**
 
-Workspace -> Space -> Folder -> Project -> Task -> Subtask
-
-It combines:
-
-- Fast frontend UX with React + Vite
-- Secure Django REST APIs with JWT auth
-- Mongo-backed app data
-- Realtime messaging via Pusher
+Key performance pillars:
+- **Ultra-Fast Data Access**: Powered by **Redis** caching and MongoDB indexing.
+- **Real-time Collaboration**: Dedicated **Socket.IO** server for instant messaging and presence.
+- **Non-blocking Workflows**: Asynchronous background processing for emails and heavy tasks.
+- **Premium UX**: Modern React interface with glassmorphism aesthetics and smooth animations.
 
 ## 🧱 Core Features
 
-- 👥 Workspace management with member roles and invitations
-- 🗂️ Space, folder, and project hierarchy support
-- ✅ Task CRUD with subtasks, comments, categories, and stats
-- 🔄 Bulk task updates for faster operations
-- 🔐 JWT authentication + OTP-based registration verification
-- 💬 Realtime chat threads with read-state handling
-- 📎 Chat attachment upload support
-- 📱 Responsive frontend experience
+- 👥 **Company-based RBAC**: Multi-tenant architecture with "Owner" and "Employee" roles.
+- 🏢 **Workspace Management**: Hierarchical organization with granular member permissions.
+- ✅ **Advanced Task Engine**: Subtasks, rich-text comments, categories, and real-time analytics.
+- 💬 **Integrated Chat**: Real-time room-based messaging with file attachments and read-states.
+- ⚡ **High-Performance**: Server-side caching (Redis), field projection, and composite indexing.
+- 🔐 **Security-First**: JWT Authentication, OTP verification, and rate-limiting (Throttling).
+- 🔄 **Async Processing**: Background email delivery and notification handling.
 
 ## 🏗️ Architecture
 
 ```text
-Frontend (React + Vite)
-        |
-        |  HTTP (JWT)
-        v
-Backend API (Django + DRF)
-        |
-        |  persistence
-        v
-MongoDB
-
-Realtime path:
-Frontend <-> Pusher Channels <-> Backend Chat Service
+       ┌───────────────────┐
+       │   React Frontend  │
+       └─────────┬─────────┘
+                 │
+      ┌──────────┴──────────┐
+      │                     │
+┌─────▼─────┐         ┌─────▼──────────┐
+│ Django API│ <─────> │ Socket Server  │
+└─────┬─────┘         └──────────┬─────┘
+      │                          │
+┌─────▼─────┐              ┌─────▼─────┐
+│  MongoDB  │ <──────────> │   Redis   │
+└───────────┘              └───────────┘
 ```
 
 ## 🛠️ Tech Stack
 
 ### 🔙 Backend
-
-- Python
-- Django 4.2
-- Django REST Framework
-- django-filter
-- Simple JWT
-- MongoEngine + Django MongoEngine
-- Pusher Python SDK
-- WhiteNoise
+- **Framework**: Django 4.2 + REST Framework
+- **Auth**: Simple JWT + OTP Verification
+- **Database**: MongoDB (via MongoEngine)
+- **Cache**: Redis (via django-redis)
+- **Queue/Async**: Concurrent ThreadPool Executor
+- **Static**: WhiteNoise
 
 ### 🎨 Frontend
+- **Framework**: React 18 + Vite 5
+- **State**: Zustand (with TTL Caching)
+- **Styling**: Vanilla CSS (Premium Custom Design)
+- **Icons**: Lucide React
+- **Charts**: Recharts
 
-- React 18
-- Vite 5
-- React Router
-- Zustand
-- Axios
-- Tailwind CSS
-- Pusher JS
+### ⚡ Real-time
+- **Engine**: Socket.IO
+- **Server**: Node.js / Express
 
 ## 📂 Project Structure
 
 ```text
 Takify/
-  backend/
+  backend/           # Django REST API
     apps/
-      users/         # auth and profile APIs
-      workspaces/    # workspace + members
-      projects/      # spaces, folders, projects
-      tasks/         # tasks, subtasks, comments, categories
-      chat/          # chat context, threads, messages
-      core/          # shared middleware/utils
-    config/
-      settings/
-        base.py
-        development.py
-        production.py
-    manage.py
-    requirements.txt
-
-  frontend/
-    src/
-      api/
-      components/
-      pages/
-      store/
-      utils/
-    package.json
-    vite.config.js
-    vercel.json
-
-  render.yaml
+      users/         # Auth, profiles, security
+      companies/     # Multi-tenant logic
+      workspaces/    # Workspace management
+      tasks/         # Core task engine & stats
+      chat/          # Message persistence
+      core/          # Middleware & caching
+  frontend/          # React SPA
+  socket-server/     # Node.js Socket.IO server
+  push.bat           # Automated deployment script
 ```
-
-## ⚡ Start in 5 Minutes
-
-Use this if you want the app running as fast as possible.
-
-1. Clone the repo and open two terminals.
-2. Configure backend env in backend/.env.
-3. Configure frontend env in frontend/.env.
-4. Start backend.
-5. Start frontend and open the app.
-
-### Terminal 1 (Backend)
-
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
-```
-
-### Terminal 2 (Frontend)
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open http://localhost:5173
 
 ## ⚡ Quick Start
 
-### 📋 Prerequisites
+1. Clone the repository.
+2. Open **three** separate terminal windows.
 
-- Python 3.11+
-- Node.js 18+
-- npm
-- MongoDB Atlas or local MongoDB
-
-Pusher credentials are required only if you want realtime chat events during local development.
-
-### 1. Backend Setup 🔙
-
+### Terminal 1: Redis & Backend
 ```bash
+# Start your local Redis server first!
 cd backend
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
-python manage.py migrate
+python manage.py ensure_mongo_indexes
 python manage.py runserver
 ```
 
-Backend: http://localhost:8000
+### Terminal 2: Socket Server
+```bash
+cd socket-server
+npm install
+npm start
+```
 
-### 2. Frontend Setup 🎨
-
+### Terminal 3: Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Frontend: http://localhost:5173
+Open [http://localhost:5173](http://localhost:5173)
 
 ## 🔐 Environment Variables
 
-### Backend (.env in backend/) 🔙
+### Backend (`backend/.env`) 🔙
 
 These keys match the variables currently read by Django settings.
 
 ```env
-SECRET_KEY=replace-with-a-secure-secret
+SECRET_KEY=your-secret
 DEBUG=True
-
-MONGO_URI=mongodb+srv://<user>:<password>@<cluster>/?retryWrites=true&w=majority
+MONGO_URI=mongodb+srv://...
 MONGO_DB_NAME=takify
-
-PUSHER_APP_ID=
-PUSHER_KEY=
-PUSHER_SECRET=
-PUSHER_CLUSTER=
-PUSHER_SSL=True
-
-JWT_SECRET=optional-separate-signing-secret
-
-CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-
+REDIS_URL=redis://127.0.0.1:6379/1
 EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=True
-EMAIL_HOST_USER=your-email@example.com
-EMAIL_HOST_PASSWORD=your-app-password
+EMAIL_HOST_USER=...
+EMAIL_HOST_PASSWORD=...
 ```
 
-Notes:
-
-- JWT_SECRET is optional. If omitted, SECRET_KEY is used.
-- DEFAULT_FROM_EMAIL is derived from EMAIL_HOST_USER.
-
-### Frontend (.env in frontend/) 🎨
+### Frontend (`frontend/.env`) 🎨
 
 ```env
 VITE_API_URL=http://localhost:8000
-VITE_PUSHER_KEY=
-VITE_PUSHER_CLUSTER=
+VITE_SOCKET_URL=http://localhost:3001
 ```
 
 ## 🌐 API Reference Map
@@ -349,7 +270,7 @@ Recommended quick validation:
 - App starts but login fails:
   - Verify SECRET_KEY and JWT_SECRET values.
 - Chat not updating in real time:
-  - Check PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER.
+  - Verify VITE_SOCKET_URL and ensure the `socket-server` is running.
 - CORS errors in browser:
   - Confirm CORS_ALLOWED_ORIGINS contains frontend URL.
 - Email OTP not sending:
