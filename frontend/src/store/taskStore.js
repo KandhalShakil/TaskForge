@@ -112,10 +112,26 @@ export const useTaskStore = create((set, get) => ({
   },
 
   fetchStats: async (params) => {
+    // Client-side cache: 1 minute TTL
+    const cacheKey = JSON.stringify(params)
+    const now = Date.now()
+    if (get()._statsCache?.[cacheKey] && now - get()._statsCache[cacheKey].timestamp < 60000) {
+      const cachedData = get()._statsCache[cacheKey].data
+      set({ stats: cachedData, statsLoading: false })
+      return cachedData
+    }
+
     set({ statsLoading: true, statsError: null })
     try {
       const { data } = await tasksAPI.stats(params)
-      set({ stats: data, statsLoading: false })
+      set((state) => ({
+        stats: data,
+        statsLoading: false,
+        _statsCache: {
+          ...state._statsCache,
+          [cacheKey]: { data, timestamp: now }
+        }
+      }))
       return data
     } catch (err) {
       const message =

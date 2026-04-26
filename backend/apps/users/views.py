@@ -29,15 +29,25 @@ from .mongo_services import authenticate_user, create_user, to_mongo_user, updat
 logger = logging.getLogger(__name__)
 
 
+from concurrent.futures import ThreadPoolExecutor
+
+executor = ThreadPoolExecutor(max_workers=2)
+
+def _send_email_task(subject, plain_body, html_body, recipient):
+    try:
+        email_message = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[recipient],
+        )
+        email_message.attach_alternative(html_body, 'text/html')
+        email_message.send()
+    except Exception:
+        logger.exception('Async email sending failed')
+
 def _send_html_email(*, subject, plain_body, html_body, recipient):
-    email_message = EmailMultiAlternatives(
-        subject=subject,
-        body=plain_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[recipient],
-    )
-    email_message.attach_alternative(html_body, 'text/html')
-    email_message.send()
+    executor.submit(_send_email_task, subject, plain_body, html_body, recipient)
 
 
 class RegisterView(APIView):
@@ -315,13 +325,39 @@ class UserListView(generics.ListAPIView):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
+    def list(self, request, *args, **kwargs):
+        # Cache key based on companyId and query params
+        company_id = getattr(request.user, 'companyId', 'none')
+        cache_key = f"user_list_{company_id}_{request.user.user_type}"
+        
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
+
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+        
+        # Cache for 10 minutes
+        cache.set(cache_key, data, timeout=600)
+        return Response(data)
+
     def get_queryset(self):
+        user = self.request.user
         # Prevent standard employees from scraping the global user list
-        if self.request.user.user_type not in ['company', 'admin'] and not self.request.user.is_staff:
-            return UserDocument.objects(id=self.request.user.id)
+        if user.user_type not in ['owner', 'admin'] and not user.is_staff:
+            return UserDocument.objects(id=user.id)
             
-        # Return only employees, excluding superusers and deleted accounts
-        return UserDocument.objects(is_active=True, is_deleted=False, user_type='employee', is_superuser=False)
+        # Return only employees from same company, excluding superusers and deleted accounts
+        qs = UserDocument.objects(is_active=True, is_deleted=False, companyId=user.companyId, user_type='employee', is_superuser=False)
+        
+        # Server-side search optimization
+        search = self.request.query_params.get('search')
+        if search:
+            from mongoengine.queryset.visitor import Q
+            qs = qs.filter(Q(full_name__icontains=search) | Q(email__icontains=search))
+            
+        return qs.order_by('full_name').only('id', 'full_name', 'email', 'avatar', 'user_type', 'companyId')
 
 
 class DeleteAccountView(APIView):

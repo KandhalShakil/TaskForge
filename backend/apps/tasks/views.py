@@ -185,6 +185,13 @@ class TaskStatsView(APIView):
     def get(self, request):
         workspace_id = request.query_params.get('workspace')
         project_id = request.query_params.get('project')
+        user_id = str(request.user.id)
+
+        # Build a cache key based on user and filters
+        cache_key = f"task_stats_{user_id}_{workspace_id or 'all'}_{project_id or 'all'}"
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
 
         qs = TaskDocument.objects(workspaceId__in=_member_workspace_ids(request.user.id))
 
@@ -220,18 +227,20 @@ class TaskStatsView(APIView):
         completed = status_counts.get('done', 0)
         completion_rate = round((completed / total * 100), 1) if total > 0 else 0
 
-        return Response(
-            {
-                'total': total,
-                'completion_rate': completion_rate,
-                'overdue': overdue_count,
-                'by_status': status_counts,
-                'by_priority': priority_counts,
-                'daily_created': [
-                    {'date': date_str, 'count': daily_map[date_str]} for date_str in sorted(daily_map.keys())
-                ],
-            }
-        )
+        stats = {
+            'total': total,
+            'completion_rate': completion_rate,
+            'overdue': overdue_count,
+            'by_status': status_counts,
+            'by_priority': priority_counts,
+            'daily_created': [
+                {'date': date_str, 'count': daily_map[date_str]} for date_str in sorted(daily_map.keys())
+            ],
+        }
+
+        # Cache for 5 minutes
+        cache.set(cache_key, stats, timeout=300)
+        return Response(stats)
 
 
 class CategoryListCreateView(generics.ListCreateAPIView):

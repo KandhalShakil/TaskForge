@@ -15,14 +15,6 @@ class UserSerializer(serializers.Serializer):
     date_joined = serializers.DateTimeField(read_only=True)
     settings = serializers.DictField(required=False)
     companyId = serializers.CharField(read_only=True)
-    company_name = serializers.SerializerMethodField()
-
-    def get_company_name(self, obj):
-        if not obj.companyId:
-            return None
-        from apps.companies.documents import CompanyDocument
-        company = CompanyDocument.objects(id=obj.companyId).first()
-        return company.name if company else None
 
     def get_initials(self, obj):
         parts = (getattr(obj, 'full_name', '') or '').split()

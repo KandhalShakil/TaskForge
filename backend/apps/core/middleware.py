@@ -13,10 +13,19 @@ class ApiJsonErrorMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        import time
+        start_time = time.time()
         is_api_request = request.path.startswith('/api/')
 
         try:
             response = self.get_response(request)
+            
+            # Log performance metrics
+            duration = time.time() - start_time
+            if is_api_request:
+                logger.info(f"[PERF] {request.method} {request.path} took {duration:.4f}s")
+                if duration > 0.5:
+                    logger.warning(f"[SLOW] {request.method} {request.path} exceeded 500ms threshold")
         except Http404:
             if is_api_request:
                 return JsonResponse({'error': 'Not found.'}, status=404)

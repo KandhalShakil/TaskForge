@@ -22,5 +22,11 @@ class Command(BaseCommand):
            db.tasks.create_index([('assigneeId', 1), ('due_date', 1)], name='tasks_assignee_due_idx')
            db.task_comments.create_index([('taskId', 1), ('created_at', 1)], name='task_comments_task_created_idx')
            db.subtasks.create_index([('taskId', 1), ('parentId', 1), ('order', 1)], name='subtasks_hierarchy_order_idx')
+           
+           # Additional Optimization Indexes
+           db.users.create_index([('companyId', 1)], name='users_company_idx')
+           db.workspaces.create_index([('companyId', 1)], name='workspaces_company_idx')
+           db.chat_messages.create_index([('roomId', 1), ('senderId', 1)], name='chat_room_sender_idx')
+           db.tasks.create_index([('workspaceId', 1), ('status', 1), ('priority', 1)], name='tasks_perf_idx')
 
            self.stdout.write(self.style.SUCCESS('MongoDB indexes ensured successfully.'))
