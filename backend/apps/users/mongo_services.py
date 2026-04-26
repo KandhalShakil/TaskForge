@@ -21,6 +21,7 @@ def to_mongo_user(document: UserDocument) -> MongoUser:
         is_active=document.is_active,
         is_staff=document.is_staff,
         is_superuser=document.is_superuser,
+        is_deleted=getattr(document, 'is_deleted', False),
         companyId=getattr(document, 'companyId', None),
         avatar=document.avatar,
     )
@@ -85,6 +86,8 @@ def authenticate_user(*, email: str, password: str) -> UserDocument | None:
     user = UserDocument.objects(email=email.lower().strip()).first()
     if not user:
         return None
+    if getattr(user, 'is_deleted', False):
+        raise ValueError('Account not found or has been deleted')
     if not user.is_active:
         return None
     if not check_password(password, user.password):

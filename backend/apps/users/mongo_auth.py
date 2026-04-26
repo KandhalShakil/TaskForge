@@ -16,6 +16,7 @@ class MongoUser:
     is_active: bool
     is_staff: bool
     is_superuser: bool
+    is_deleted: bool = False
     companyId: str | None = None
     avatar: str | None = None
 
@@ -41,7 +42,7 @@ class MongoJWTAuthentication(JWTAuthentication):
             raise exceptions.AuthenticationFailed('Token contained no recognizable user identification') from exc
 
         user = UserDocument.objects(id=str(user_id)).first()
-        if not user or not user.is_active:
+        if not user or not user.is_active or getattr(user, 'is_deleted', False):
             raise exceptions.AuthenticationFailed('User not found or inactive')
 
         return MongoUser(
@@ -52,6 +53,7 @@ class MongoJWTAuthentication(JWTAuthentication):
             is_active=user.is_active,
             is_staff=user.is_staff,
             is_superuser=user.is_superuser,
+            is_deleted=getattr(user, 'is_deleted', False),
             companyId=getattr(user, 'companyId', None),
             avatar=user.avatar,
         )

@@ -244,6 +244,8 @@ class CustomTokenObtainPairView(APIView):
 
         try:
             user_doc = authenticate_user(email=email, password=password)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_401_UNAUTHORIZED)
         except ServerSelectionTimeoutError:
             return Response(
                 {'error': 'Server not responding. Try again later.'},
@@ -318,8 +320,8 @@ class UserListView(generics.ListAPIView):
         if self.request.user.user_type not in ['company', 'admin'] and not self.request.user.is_staff:
             return UserDocument.objects(id=self.request.user.id)
             
-        # Return only employees, excluding superusers
-        return UserDocument.objects(is_active=True, user_type='employee', is_superuser=False)
+        # Return only employees, excluding superusers and deleted accounts
+        return UserDocument.objects(is_active=True, is_deleted=False, user_type='employee', is_superuser=False)
 
 
 class DeleteAccountView(APIView):
@@ -353,8 +355,12 @@ class DeleteAccountView(APIView):
         # If we wanted to delete their owned workspaces:
         # WorkspaceDocument.objects(ownerId=user_id).delete()
         
-        # Finally delete the user document
-        user_doc.delete()
+        # Finally mark the user as deleted and inactive
+        user_doc.is_deleted = True
+        user_doc.is_active = False
+        user_doc.updated_at = datetime.utcnow()
+        user_doc.save()
+        
         return Response({'message': 'Account and all associated memberships deleted successfully.'}, status=status.HTTP_200_OK)
 
 
