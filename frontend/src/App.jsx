@@ -49,10 +49,6 @@ export default function App() {
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/workspaces" replace />} />
             <Route path="/workspaces" element={<WorkspacePage />} />
-            <Route path="/workspace/:workspaceId/project/:projectId/tasks" element={<ProjectPage />} />
-            <Route path="/workspace/:workspaceId/project/:projectId/task/:taskId" element={<TaskHierarchyPage />} />
-            <Route path="/workspace/:workspaceId/project/:projectId/task/:taskId/create-subtask" element={<CreateSubtaskPage />} />
-            <Route path="/workspace/:workspaceId/project/:projectId/task/:taskId/subtasks/:subtaskId" element={<SubtaskDetailPage />} />
             <Route path="/workspaces/:workspaceId/members" element={<WorkspaceMembersPage />} />
             <Route path="/workspaces/:workspaceId/projects/:projectId" element={<ProjectPage />} />
             <Route path="/workspaces/:workspaceId/projects/:projectId/tasks/:taskId" element={<TaskHierarchyPage />} />

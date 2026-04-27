@@ -45,7 +45,7 @@ export default function TaskListView({ tasks = [], project, workspace, onRefresh
     if (project) {
       setActiveProject(project)
     }
-    const taskPath = getTaskPath ? getTaskPath(task) : `/workspace/${workspace.id}/project/${project.id}/task/${task.id}`
+    const taskPath = getTaskPath ? getTaskPath(task) : `/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`
     navigate(taskPath)
   }
 

@@ -38,7 +38,6 @@ io.on('connection', (socket) => {
     if (!socketRooms.has(socket.id)) socketRooms.set(socket.id, new Set())
     socketRooms.get(socket.id).add(chatId)
 
-    console.log(`[Socket.IO] User ${userId || socket.id} joined room: ${chatId}`)
   })
 
   // Client leaves a specific chat room
@@ -47,7 +46,6 @@ io.on('connection', (socket) => {
     if (!chatId) return
     socket.leave(chatId)
     socketRooms.get(socket.id)?.delete(chatId)
-    console.log(`[Socket.IO] ${socket.id} left room: ${chatId}`)
   })
 
   // Client sends a message — broadcast to everyone else in the room
@@ -57,7 +55,6 @@ io.on('connection', (socket) => {
     if (!roomId) return
 
     const chatId = roomId  // roomId IS the chatId (e.g. "workspace_abc", "dm_1_2")
-    console.log(`[Socket.IO] Broadcasting to room ${chatId}:`, message?.id || '(no id)')
 
     // Emit to everyone in the room EXCEPT the sender
     socket.to(chatId).emit('receive_message', message)

@@ -147,7 +147,6 @@ export default function ChatPage() {
     // Handler: message received from another user in this room
     const onReceiveMessage = (message) => {
       if (!message) return
-      console.log('[Socket.IO] receive_message:', message)
       // mergeMessageList in the store deduplicates by id OR clientMessageId
       appendMessage({ ...message, status: 'sent' })
       clearUnread(roomId)
@@ -293,7 +292,6 @@ export default function ChatPage() {
     })
   }
 
-  const handleTyping = () => {}
   const handleEdit = (message) => setEditingMessage(message)
 
   const handleDelete = (message) => {
@@ -377,7 +375,6 @@ export default function ChatPage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onRetry={handleRetry}
-        onTyping={handleTyping}
         onAttachment={handleAttachment}
         hasMore={hasMore}
         loadingMessages={loadingMessages}

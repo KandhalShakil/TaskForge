@@ -134,21 +134,8 @@ def validate_room_access(user, room, workspace_id=None):
     return None
 
 
-def ensure_notifications_channel(user_id):
-    return f'user_{user_id}'
-
-
 def get_message_collection():
     return get_mongo_db()['chat_messages']
-
-
-def ensure_chat_indexes():
-    collection = get_message_collection()
-    collection.create_index([('roomId', 1), ('createdAt', -1)], name='chat_room_created_idx')
-    collection.create_index([('workspaceId', 1), ('createdAt', -1)], name='chat_workspace_created_idx')
-    collection.create_index([('taskId', 1), ('createdAt', -1)], name='chat_task_created_idx')
-    collection.create_index([('receiverId', 1), ('createdAt', -1)], name='chat_receiver_created_idx')
-    collection.create_index([('chatType', 1), ('createdAt', -1)], name='chat_type_created_idx')
 
 
 def serialize_message(document):
@@ -442,15 +429,4 @@ def list_threads_for_workspace(*, workspace_id, user, task_id=None):
         },
         'threads': threads,
         'members': members_payload,
-    }
-
-
-def build_notification_payload(*, message, title, subtitle, room_id, unread_count=1):
-    return {
-        'type': 'chat_notification',
-        'roomId': room_id,
-        'title': title,
-        'subtitle': subtitle,
-        'unreadCount': unread_count,
-        'message': message,
     }

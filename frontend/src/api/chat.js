@@ -7,7 +7,6 @@ export const chatAPI = {
   sendMessage: (data) => api.post('/chat/send-message/', data),
   editMessage: (messageId, data) => api.patch(`/chat/messages/${messageId}/`, data),
   deleteMessage: (messageId) => api.delete(`/chat/messages/${messageId}/`),
-  markRead: (data) => api.post('/chat/messages/read/', data),
   uploadAttachment: (file) => {
     const formData = new FormData()
     formData.append('file', file)

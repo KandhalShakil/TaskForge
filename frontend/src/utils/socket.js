@@ -19,13 +19,7 @@ export function getSocket() {
       transports: ['websocket', 'polling'],
     })
 
-    socket.on('connect', () => {
-      console.log('[Socket.IO] Connected:', socket.id)
-    })
 
-    socket.on('disconnect', (reason) => {
-      console.log('[Socket.IO] Disconnected:', reason)
-    })
 
     socket.on('connect_error', (err) => {
       console.warn('[Socket.IO] Connection error:', err.message)

@@ -364,15 +364,14 @@ class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request):
-        from apps.workspaces.documents import WorkspaceMemberDocument, WorkspaceDocument
-        from apps.projects.documents import ProjectMemberDocument, ProjectDocument
+        from apps.workspaces.documents import WorkspaceMemberDocument
+        from apps.projects.documents import ProjectMemberDocument
         from apps.tasks.documents import TaskDocument, SubTaskDocument
         
         user = request.user
         user_id = str(user.id)
-        user_doc = UserDocument.objects(id=user_id).first()
-        if not user_doc:
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        logger.info(f"Account deletion initiated for user ID: {user_id} ({user.email})")
         
         # 1. Remove from Project Memberships
         ProjectMemberDocument.objects(userId=user_id).delete()
@@ -386,17 +385,18 @@ class DeleteAccountView(APIView):
         # 4. Unassign from Subtasks
         SubTaskDocument.objects(assigneeId=user_id).update(set__assigneeId=None)
         
-        # 5. Handle owned content (Optional but recommended)
-        # For now, we focus on removing them as a member as requested.
-        # If we wanted to delete their owned workspaces:
-        # WorkspaceDocument.objects(ownerId=user_id).delete()
+        # 5. Use atomic update to mark user as deleted and inactive
+        updated = UserDocument.objects(id=user_id).update_one(
+            set__is_deleted=True,
+            set__is_active=False,
+            set__updated_at=datetime.utcnow()
+        )
         
-        # Finally mark the user as deleted and inactive
-        user_doc.is_deleted = True
-        user_doc.is_active = False
-        user_doc.updated_at = datetime.utcnow()
-        user_doc.save()
-        
+        if not updated:
+            logger.error(f"Failed to update user document for deletion: {user_id}")
+            return Response({'error': 'Failed to complete account deletion.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        logger.info(f"Account successfully marked as deleted: {user_id}")
         return Response({'message': 'Account and all associated memberships deleted successfully.'}, status=status.HTTP_200_OK)
 
 

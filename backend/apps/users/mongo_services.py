@@ -83,15 +83,28 @@ def create_user(*, email: str, full_name: str, password: str, user_type: str = '
 
 
 def authenticate_user(*, email: str, password: str) -> UserDocument | None:
-    user = UserDocument.objects(email=email.lower().strip()).first()
+    normalized_email = email.lower().strip()
+    user = UserDocument.objects(email=normalized_email).first()
+    
     if not user:
+        logger.warning(f"Login attempt for non-existent email: {normalized_email}")
         return None
+        
+    # Check if account is deleted
     if getattr(user, 'is_deleted', False):
+        logger.warning(f"Login attempt for deleted account: {normalized_email}")
         raise ValueError('Account not found or has been deleted')
+        
+    # Check if account is inactive
     if not user.is_active:
+        logger.warning(f"Login attempt for inactive account: {normalized_email}")
         return None
+        
+    # Verify password
     if not check_password(password, user.password):
+        logger.warning(f"Failed password attempt for email: {normalized_email}")
         return None
+        
     return user
 
 

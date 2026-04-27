@@ -142,21 +142,6 @@ class ChatMessageDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ChatMessageReadView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        room = request.data.get('room')
-        if not room:
-            return Response({'detail': 'room is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        workspace_id = request.data.get('workspace_id')
-        context = validate_room_access(request.user, room, workspace_id=workspace_id)
-        if not context:
-            return Response({'detail': 'Room not found or access denied.'}, status=status.HTTP_404_NOT_FOUND)
-
-        mark_messages_read(room=room, user_id=request.user.id)
-        return Response({'status': 'ok'})
 
 
 class ChatAttachmentUploadView(APIView):
