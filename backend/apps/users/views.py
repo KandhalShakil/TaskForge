@@ -380,10 +380,10 @@ class DeleteAccountView(APIView):
         WorkspaceMemberDocument.objects(userId=user_id).delete()
         
         # 3. Unassign from Tasks
-        TaskDocument.objects(assigneeId=user_id).update(set__assigneeId=None)
+        TaskDocument.objects(assigneeId=user_id).update(set__assigneeId="")
         
         # 4. Unassign from Subtasks
-        SubTaskDocument.objects(assigneeId=user_id).update(set__assigneeId=None)
+        SubTaskDocument.objects(assigneeId=user_id).update(set__assigneeId="")
         
         # 5. Use atomic update to mark user as deleted and inactive
         updated = UserDocument.objects(id=user_id).update_one(
