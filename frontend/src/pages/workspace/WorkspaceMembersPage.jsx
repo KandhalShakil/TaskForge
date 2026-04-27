@@ -235,17 +235,17 @@ export default function WorkspaceMembersPage() {
             </div>
           ))}
         </div>
-        <ConfirmModal
-        isOpen={!!memberToRemove}
-        onClose={() => setMemberToRemove(null)}
-        onConfirm={handleRemove}
-        title="Remove Member?"
-        message={`Are you sure you want to remove "${memberToRemove?.user?.full_name}" from the workspace? They will lose access to all projects and tasks.`}
-        confirmText="Remove Member"
-        isDanger={true}
-        isLoading={isRemoving}
-      />
     </div>
+    <ConfirmModal
+      isOpen={!!memberToRemove}
+      onClose={() => setMemberToRemove(null)}
+      onConfirm={handleRemove}
+      title="Remove Member?"
+      message={`Are you sure you want to remove "${memberToRemove?.user?.full_name}" from the workspace? They will lose access to all projects and tasks.`}
+      confirmText="Remove Member"
+      isDanger={true}
+      isLoading={isRemoving}
+    />
     </div>
   )
 }

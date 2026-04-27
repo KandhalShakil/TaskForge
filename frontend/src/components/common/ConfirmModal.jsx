@@ -14,9 +14,9 @@ export default function ConfirmModal({
   if (!isOpen) return null
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay !z-[9999]" onClick={onClose}>
       <div 
-        className={`modal-content max-w-[380px] text-center !p-0 relative overflow-hidden transition-all duration-500 border-0 ${
+        className={`modal-content max-w-[380px] w-[90%] text-center !p-0 relative transition-all duration-500 border-0 ${
           isDanger 
             ? 'shadow-[0_20px_50px_rgba(239,68,68,0.3)] bg-gradient-to-b from-[#1a1010] to-[#09090b]' 
             : 'shadow-[0_20px_50px_rgba(6,182,212,0.2)] bg-gradient-to-b from-[#0f171a] to-[#09090b]'
