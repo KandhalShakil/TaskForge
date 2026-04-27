@@ -31,8 +31,8 @@ class TaskDocument(Document):
         choices=('urgent', 'high', 'medium', 'low', 'no_priority'),
         default='no_priority',
     )
-    categoryId = fields.StringField()
-    assigneeId = fields.StringField()
+    categoryId = fields.StringField(null=True)
+    assigneeId = fields.StringField(null=True)
     createdById = fields.StringField()
     due_date = fields.DateTimeField()
     start_date = fields.DateTimeField()
@@ -77,8 +77,8 @@ class SubTaskDocument(Document):
         choices=('urgent', 'high', 'medium', 'low', 'no_priority'),
         default='no_priority',
     )
-    categoryId = fields.StringField()
-    assigneeId = fields.StringField()
+    categoryId = fields.StringField(null=True)
+    assigneeId = fields.StringField(null=True)
     start_date = fields.DateTimeField()
     due_date = fields.DateTimeField()
     estimated_hours = fields.DecimalField(precision=1)
