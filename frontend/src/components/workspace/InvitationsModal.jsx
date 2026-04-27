@@ -14,7 +14,7 @@ export default function InvitationsModal({ onClose }) {
     try {
       const invite = invitations.find((inv) => inv.id === id)
       await acceptInvitation(id)
-
+      
       // Emit socket event
       if (invite) {
         const socket = connectSocket()
@@ -27,7 +27,7 @@ export default function InvitationsModal({ onClose }) {
           }
         })
       }
-
+      
       toast.success('Invitation accepted!')
     } catch (err) {
       toast.error('Failed to accept invitation')
@@ -70,8 +70,8 @@ export default function InvitationsModal({ onClose }) {
           ) : (
             <div className="space-y-4">
               {invitations.map((invite) => (
-                <div
-                  key={invite.id}
+                <div 
+                  key={invite.id} 
                   className="bg-surface-900 border border-slate-800 rounded-xl p-4 flex items-center gap-4 hover:border-slate-700/50 transition-all"
                 >
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-inner" style={{ background: invite.workspace.color + '20' }}>
@@ -82,14 +82,14 @@ export default function InvitationsModal({ onClose }) {
                     <p className="text-xs text-slate-500 truncate">Invited by: {invite.workspace.owner.full_name}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
+                    <button 
                       onClick={() => setInviteToDecline(invite)}
                       className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all font-bold"
                       title="Decline"
                     >
                       <Trash2 size={16} />
                     </button>
-                    <button
+                    <button 
                       onClick={() => handleAccept(invite.id)}
                       className="p-2 rounded-lg bg-primary-600/20 text-primary-400 hover:bg-primary-600 hover:text-white transition-all shadow-lg shadow-primary-900/20"
                       title="Accept"
