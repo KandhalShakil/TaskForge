@@ -37,7 +37,24 @@ export default function WorkspaceMembersPage() {
       .catch((err) => {
         toast.error(getApiErrorMessage(err, 'Failed to load users'))
       })
-  }, [workspaceId])
+
+    // ── Real-time Member Updates ──────────────────────────────────────
+    const socket = connectSocket()
+    const workspaceRoom = `workspace_${workspaceId}`
+    
+    socket.emit('join', { chatId: workspaceRoom, userId: user?.id })
+
+    const onMemberAccepted = (payload) => {
+      fetchMembers(workspaceId)
+    }
+
+    socket.on('member_accepted', onMemberAccepted)
+
+    return () => {
+      socket.off('member_accepted', onMemberAccepted)
+      socket.emit('leave', { chatId: workspaceRoom })
+    }
+  }, [workspaceId, user?.id, fetchMembers])
 
   const memberUserIds = new Set(members.map((m) => m.user.id))
   const availableUsers = allUsers.filter(

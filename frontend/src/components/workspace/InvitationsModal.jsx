@@ -3,6 +3,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
 import ConfirmModal from '../common/ConfirmModal'
+import { connectSocket } from '../../utils/socket'
 
 export default function InvitationsModal({ onClose }) {
   const { invitations, acceptInvitation, declineInvitation } = useWorkspaceStore()
@@ -11,12 +12,26 @@ export default function InvitationsModal({ onClose }) {
 
   const handleAccept = async (id) => {
     try {
+      const invite = invitations.find((inv) => inv.id === id)
       await acceptInvitation(id)
+      
+      // Emit socket event
+      if (invite) {
+        const socket = connectSocket()
+        socket.emit('accept_invitation', {
+          workspaceId: invite.workspace.id,
+          member: {
+            id: invite.id,
+            user: invite.user,
+            status: 'accepted'
+          }
+        })
+      }
+      
       toast.success('Invitation accepted!')
     } catch (err) {
       toast.error('Failed to accept invitation')
     }
-  }
 
   const handleDecline = async () => {
     if (!inviteToDecline) return

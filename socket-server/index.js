@@ -81,6 +81,16 @@ io.on('connection', (socket) => {
     socket.to(userRoom).emit('new_invitation', payload)
   })
 
+  // Client accepts an invitation — notify the workspace room (so owners see the status update)
+  // Payload: { workspaceId: string, member: object }
+  socket.on('accept_invitation', (payload) => {
+    const { workspaceId } = payload || {}
+    if (!workspaceId) return
+    
+    const workspaceRoom = `workspace_${workspaceId}`
+    socket.to(workspaceRoom).emit('member_accepted', payload)
+  })
+
   // Handle disconnect — auto-leave all rooms
   socket.on('disconnect', (reason) => {
     socketRooms.delete(socket.id)
