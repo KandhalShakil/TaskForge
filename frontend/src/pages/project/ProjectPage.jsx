@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, List, Columns, Calendar, GanttChart, Loader2, RefreshCw } from 'lucide-react'
+import { Plus, List, Columns, Calendar, GanttChart, Loader2, RefreshCw, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useProjectStore } from '../../store/projectStore'
 import { useWorkspaceStore } from '../../store/workspaceStore'
@@ -10,16 +10,19 @@ import TaskModal from '../../components/tasks/TaskModal'
 import TaskFilters from '../../components/tasks/TaskFilters'
 import Skeleton from '../../components/common/Skeleton'
 import { useAuthStore } from '../../store/authStore'
+import { connectSocket } from '../../utils/socket'
 
 const KanbanBoard = lazy(() => import('../../components/kanban/KanbanBoard'))
 const CalendarView = lazy(() => import('../../components/calendar/CalendarView'))
 const TimelineView = lazy(() => import('../../components/timeline/TimelineView'))
+const ProjectMembersView = lazy(() => import('../../components/project/ProjectMembersView'))
 
 const VIEW_TABS = [
   { id: 'list', label: 'List', Icon: List },
   { id: 'kanban', label: 'Board', Icon: Columns },
   { id: 'calendar', label: 'Calendar', Icon: Calendar },
   { id: 'timeline', label: 'Timeline', Icon: GanttChart },
+  { id: 'members', label: 'Members', Icon: Users },
 ]
 
 export default function ProjectPage() {
@@ -81,10 +84,47 @@ export default function ProjectPage() {
       fetchCategories(workspaceId)
     }
 
+    // ── Real-time Project Synchronization ──────────────────────────────
+    const socket = connectSocket()
+    socket.emit('join_project', { projectId, userId: user?.id })
+
+    const onTaskUpdated = (payload) => {
+      const { projectId: pid, action, task: updatedTask } = payload
+      if (pid !== projectId) return
+
+      // Refresh tasks from server to ensure data integrity
+      loadTasks()
+      
+      // Optional: Visual cue for update
+      if (action === 'update') {
+        toast.success('Tasks updated in real-time', { id: 'task-sync-toast' })
+      }
+    }
+
+    const onEmployeeRemoved = (payload) => {
+      const { projectId: pid, userId: removedUserId } = payload
+      if (pid !== projectId) return
+
+      if (String(removedUserId) === String(user?.id)) {
+        toast.error('You have been removed from this project', { duration: 5000 })
+        navigate(workspaceId ? `/workspaces/${workspaceId}` : '/workspaces', { replace: true })
+      } else {
+        // Refresh members to update UI (filters, etc.)
+        if (workspaceId) fetchMembers(workspaceId)
+        toast.info('Project members updated')
+      }
+    }
+
+    socket.on('task_updated', onTaskUpdated)
+    socket.on('employee_removed', onEmployeeRemoved)
+
     return () => {
       isMounted = false
+      socket.emit('leave_project', { projectId })
+      socket.off('task_updated', onTaskUpdated)
+      socket.off('employee_removed', onEmployeeRemoved)
     }
-  }, [projectId, workspaceId, navigate, setActiveProject, fetchProjectById, fetchMembers, fetchCategories])
+  }, [projectId, workspaceId, user?.id, navigate, setActiveProject, fetchProjectById, fetchMembers, fetchCategories])
 
   useEffect(() => {
     if (projectId && project && !projectError) {
@@ -238,6 +278,12 @@ export default function ProjectPage() {
                 workspace={activeWorkspace}
                 onRefresh={loadTasks}
                 onCreateTask={() => setShowCreateModal(true)}
+              />
+            )}
+            {view === 'members' && (
+              <ProjectMembersView 
+                projectId={projectId}
+                workspaceId={workspaceId}
               />
             )}
           </Suspense>

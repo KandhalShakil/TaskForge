@@ -9,6 +9,7 @@ export const useProjectStore = create((set, get) => ({
   folderProjects: {},
   folderProjectsLoading: {},
   activeProject: null,
+  projectMembers: [],
   notFoundProjectIds: {},
   loading: false,
   isSubmitting: false,
@@ -240,6 +241,30 @@ export const useProjectStore = create((set, get) => ({
   getProjectById: (projectId) => {
     const { projects, activeProject } = get()
     return activeProject?.id === projectId ? activeProject : projects.find((p) => p.id === projectId)
+  },
+
+  fetchProjectMembers: async (projectId) => {
+    try {
+      const { data } = await projectsAPI.listMembers(projectId)
+      const membersList = data.results || data
+      set({ projectMembers: membersList })
+      return membersList
+    } catch {
+      return []
+    }
+  },
+
+  addProjectMember: async (projectId, memberData) => {
+    const { data } = await projectsAPI.addMember(projectId, memberData)
+    set((state) => ({ projectMembers: [...state.projectMembers, data] }))
+    return data
+  },
+
+  removeProjectMember: async (projectId, userId) => {
+    await projectsAPI.removeMember(projectId, userId)
+    set((state) => ({ 
+      projectMembers: state.projectMembers.filter((m) => m.user.id !== userId)
+    }))
   },
 
   clear: () => set({

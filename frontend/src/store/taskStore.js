@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { tasksAPI, categoriesAPI } from '../api/tasks'
+import { connectSocket } from '../utils/socket'
 
 export const useTaskStore = create((set, get) => ({
   tasks: [],
@@ -64,6 +65,15 @@ export const useTaskStore = create((set, get) => ({
     try {
       const { data } = await tasksAPI.create(taskData)
       set((state) => ({ tasks: [data, ...state.tasks], isSubmitting: false }))
+      
+      // Emit real-time update
+      const socket = connectSocket()
+      socket.emit('task_updated', {
+        projectId: data.projectId,
+        task: data,
+        action: 'create'
+      })
+      
       return data
     } catch (err) {
       set({ isSubmitting: false })
@@ -79,6 +89,15 @@ export const useTaskStore = create((set, get) => ({
         tasks: state.tasks.map((t) => (t.id === id ? data : t)),
         isSubmitting: false,
       }))
+
+      // Emit real-time update
+      const socket = connectSocket()
+      socket.emit('task_updated', {
+        projectId: data.projectId,
+        task: data,
+        action: 'update'
+      })
+
       return data
     } catch (err) {
       set({ isSubmitting: false })
@@ -89,11 +108,22 @@ export const useTaskStore = create((set, get) => ({
   deleteTask: async (id) => {
     set({ isSubmitting: true })
     try {
+      const taskToDelete = get().tasks.find(t => t.id === id)
       await tasksAPI.delete(id)
       set((state) => ({ 
         tasks: state.tasks.filter((t) => t.id !== id),
         isSubmitting: false
       }))
+
+      // Emit real-time update
+      if (taskToDelete) {
+        const socket = connectSocket()
+        socket.emit('task_updated', {
+          projectId: taskToDelete.projectId,
+          task: { id },
+          action: 'delete'
+        })
+      }
     } catch (err) {
       set({ isSubmitting: false })
       throw err
@@ -109,6 +139,16 @@ export const useTaskStore = create((set, get) => ({
         tasks: state.tasks.map((t) => updatedMap[t.id] || t),
       }
     })
+
+    // Emit real-time update
+    if (data.length > 0) {
+      const socket = connectSocket()
+      socket.emit('task_updated', {
+        projectId: data[0].projectId,
+        tasks: data,
+        action: 'bulk_update'
+      })
+    }
   },
 
   fetchStats: async (params) => {

@@ -13,4 +13,8 @@ export const projectsAPI = {
   createFolder: (data) => api.post('/projects/folders/', data),
   updateFolder: (id, data) => api.patch(`/projects/folders/${id}/`, data),
   hierarchy: (params) => api.get('/projects/hierarchy/', { params }),
+  // Member management
+  listMembers: (projectId) => api.get(`/projects/${projectId}/members/`),
+  addMember: (projectId, data) => api.post(`/projects/${projectId}/members/add/`, data),
+  removeMember: (projectId, userId) => api.delete(`/projects/${projectId}/members/${userId}/remove/`),
 }

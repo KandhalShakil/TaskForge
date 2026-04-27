@@ -91,6 +91,48 @@ io.on('connection', (socket) => {
     socket.to(workspaceRoom).emit('member_accepted', payload)
   })
 
+  // ── Project-specific Synchronization ────────────────────────────────
+  
+  // Join a project-specific room
+  socket.on('join_project', (payload) => {
+    const { projectId, userId } = payload || {}
+    if (!projectId) return
+    
+    const projectRoom = `project_${projectId}`
+    socket.join(projectRoom)
+    
+    console.log(`[Socket] User ${userId} joined room: ${projectRoom}`)
+  })
+
+  // Leave a project room
+  socket.on('leave_project', (payload) => {
+    const { projectId } = payload || {}
+    if (!projectId) return
+    
+    const projectRoom = `project_${projectId}`
+    socket.leave(projectRoom)
+  })
+
+  // Employee removed from project
+  socket.on('employee_removed', (payload) => {
+    const { projectId, userId } = payload || {}
+    if (!projectId) return
+    
+    const projectRoom = `project_${projectId}`
+    // Broadcast to everyone in the project room
+    io.to(projectRoom).emit('employee_removed', payload)
+  })
+
+  // Task created/updated/deleted
+  socket.on('task_updated', (payload) => {
+    const { projectId, task, action } = payload || {}
+    if (!projectId) return
+    
+    const projectRoom = `project_${projectId}`
+    // Broadcast to everyone in the project room
+    io.to(projectRoom).emit('task_updated', payload)
+  })
+
   // Handle disconnect — auto-leave all rooms
   socket.on('disconnect', (reason) => {
     socketRooms.delete(socket.id)
