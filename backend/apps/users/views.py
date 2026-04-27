@@ -64,6 +64,7 @@ class RegisterView(APIView):
                 full_name=payload['full_name'],
                 password=payload['password'],
                 user_type=payload.get('user_type', 'employee'),
+                company_name=payload.get('company_name'),
             )
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
