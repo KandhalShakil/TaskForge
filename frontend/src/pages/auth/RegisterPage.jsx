@@ -7,6 +7,7 @@ import { Layers, Eye, EyeOff, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
 import { getApiErrorMessage } from '../../utils/apiError'
+import axiosInstance from '../../api/axiosInstance'
 
 const schema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -52,8 +53,7 @@ export default function RegisterPage() {
     
     setIsValidating(true)
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/companies/check/?name=${encodeURIComponent(name)}`)
-      const data = await response.json()
+      const { data } = await axiosInstance.get('/companies/check/', { params: { name } })
       setCompanyExists(data.exists)
       
       if (userType === 'employee' && !data.exists) {
