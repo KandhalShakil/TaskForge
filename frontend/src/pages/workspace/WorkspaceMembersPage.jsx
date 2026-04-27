@@ -7,6 +7,7 @@ import { authAPI } from '../../api/auth'
 import { useAuthStore } from '../../store/authStore'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import { getApiErrorMessage } from '../../utils/apiError'
+import { connectSocket } from '../../utils/socket'
 
 const ROLE_ICONS = {
   admin: <Crown size={12} className="text-yellow-400" />,
@@ -51,6 +52,15 @@ export default function WorkspaceMembersPage() {
     setLoading(true)
     try {
       await addMember(workspaceId, { user_id: userId, role: inviteRole })
+      
+      // Emit socket event for real-time notification
+      const socket = connectSocket()
+      socket.emit('send_invitation', {
+        receiverId: userId,
+        sender: user,
+        workspace: activeWorkspace
+      })
+      
       toast.success('Member added!')
       setSearch('')
     } catch (err) {

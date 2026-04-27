@@ -60,9 +60,29 @@ io.on('connection', (socket) => {
     socket.to(chatId).emit('receive_message', message)
   })
 
+  // Join a private room for user-specific notifications (like invitations)
+  // Payload: { userId: string }
+  socket.on('join_user', ({ userId } = {}) => {
+    if (!userId) return
+    const userRoom = `user_${userId}`
+    socket.join(userRoom)
+    
+    if (!socketRooms.has(socket.id)) socketRooms.set(socket.id, new Set())
+    socketRooms.get(socket.id).add(userRoom)
+  })
+
+  // Client sends an invitation notification to another user
+  // Payload: { receiverId: string, sender: object, workspace: object }
+  socket.on('send_invitation', (payload) => {
+    const { receiverId } = payload || {}
+    if (!receiverId) return
+    
+    const userRoom = `user_${receiverId}`
+    socket.to(userRoom).emit('new_invitation', payload)
+  })
+
   // Handle disconnect — auto-leave all rooms
   socket.on('disconnect', (reason) => {
-    console.log(`[Socket.IO] Disconnected: ${socket.id} (${reason})`)
     socketRooms.delete(socket.id)
   })
 })

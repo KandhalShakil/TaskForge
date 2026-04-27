@@ -95,6 +95,9 @@ export default function AppLayout() {
 
     const socket = connectSocket()
 
+    // Join private room for user-specific notifications
+    socket.emit('join_user', { userId: user.id })
+
     const onReceiveMessage = (message) => {
       if (!message?.roomId) return
 
@@ -151,8 +154,32 @@ export default function AppLayout() {
     }
 
     socket.on('receive_message', onReceiveMessage)
-    return () => socket.off('receive_message', onReceiveMessage)
-  }, [user?.id, incrementUnread, navigateToRoom])
+
+    // ── Real-time Invitation Handler ───────────────────────────────────
+    const onNewInvitation = (payload) => {
+      const { sender, workspace } = payload || {}
+      
+      // Update store to show badge/new entry immediately
+      fetchInvitations()
+      
+      toast.success(
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-bold">New Invitation!</p>
+          <p className="text-xs text-slate-400">
+            <span className="text-white font-medium">{sender?.full_name || 'Someone'}</span> invited you to join <span className="text-white font-medium">{workspace?.name || 'a workspace'}</span>
+          </p>
+        </div>,
+        { duration: 6000, position: 'bottom-right' }
+      )
+    }
+
+    socket.on('new_invitation', onNewInvitation)
+
+    return () => {
+      socket.off('receive_message', onReceiveMessage)
+      socket.off('new_invitation', onNewInvitation)
+    }
+  }, [user?.id, incrementUnread, navigateToRoom, fetchInvitations])
 
   // ── Theme management ──────────────────────────────────────────────────────
   useEffect(() => {
