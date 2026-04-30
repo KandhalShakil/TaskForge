@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f4f7f6; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e1e4e8; }
+        .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em; }
+        .content { padding: 40px; }
+        .warning-box { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 20px; margin: 20px 0; color: #9f1239; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #64748b; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+        .btn { display: inline-block; padding: 12px 24px; background-color: #1e293b; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Account Deletion Initiated</h1>
+        </div>
+        <div class="content">
+            <p>Hello,</p>
+            <p>We've received a request to delete your TaskForge account.</p>
+            <div class="warning-box">
+                <p><strong>Your account is scheduled for permanent deletion on {{ deletion_date }}.</strong></p>
+                <p>All your projects, tasks, and personal data will be erased at that time.</p>
+            </div>
+            <p>If you didn't request this, or if you've changed your mind, you can recover your account anytime before the deletion date by logging in and selecting 'Recover Account'.</p>
+            <a href="{{ recovery_url }}" class="btn">Recover My Account</a>
+        </div>
+        <div class="footer">
+            &copy; 2026 TaskForge. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f4f7f6; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e1e4e8; }
+        .header { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em; }
+        .content { padding: 40px; }
+        .task-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .task-title { font-size: 18px; font-weight: 700; color: #1e293b; margin-top: 0; }
+        .deadline { color: #e11d48; font-weight: 600; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #64748b; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+        .btn { display: inline-block; padding: 12px 24px; background-color: #6366f1; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>TaskForge</h1>
+        </div>
+        <div class="content">
+            <p>Hello,</p>
+            <p>This is a friendly reminder that your task is approaching its deadline.</p>
+            <div class="task-box">
+                <p class="task-title">{{ task_title }}</p>
+                <p>Deadline: <span class="deadline">{{ deadline }}</span></p>
+            </div>
+            <p>Please make sure to complete it on time. You can view your tasks by clicking the button below:</p>
+            <a href="{{ dashboard_url }}" class="btn">View Tasks</a>
+        </div>
+        <div class="footer">
+            &copy; 2026 TaskForge. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>

@@ -5,7 +5,7 @@ from .views import (
     ForgotPasswordView, ResetPasswordView,
     CustomTokenObtainPairView, LogoutView,
     MeView, UserListView,
-    DeleteAccountView, ChangePasswordView, ExportDataView
+    DeleteAccountView, RecoverAccountView, ChangePasswordView, ExportDataView
 )
 
 urlpatterns = [
@@ -19,6 +19,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='auth-logout'),
     path('me/', MeView.as_view(), name='auth-me'),
     path('me/delete/', DeleteAccountView.as_view(), name='auth-delete-account'),
+    path('recover/', RecoverAccountView.as_view(), name='auth-recover-account'),
     path('me/change-password/', ChangePasswordView.as_view(), name='auth-change-password'),
     path('me/export/', ExportDataView.as_view(), name='auth-export-data'),
     path('users/', UserListView.as_view(), name='user-list'),

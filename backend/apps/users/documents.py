@@ -12,6 +12,7 @@ class UserDocument(Document):
     companyId = fields.StringField(blank=True, null=True)
     is_active = fields.BooleanField(default=True)
     is_deleted = fields.BooleanField(default=False)
+    deleted_at = fields.DateTimeField(null=True, blank=True)
     is_staff = fields.BooleanField(default=False)
     is_superuser = fields.BooleanField(default=False)
     password = fields.StringField()

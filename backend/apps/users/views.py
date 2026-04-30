@@ -365,40 +365,83 @@ class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request):
-        from apps.workspaces.documents import WorkspaceMemberDocument
-        from apps.projects.documents import ProjectMemberDocument
-        from apps.tasks.documents import TaskDocument, SubTaskDocument
-        
         user = request.user
         user_id = str(user.id)
         
         logger.info(f"Account deletion initiated for user ID: {user_id} ({user.email})")
         
-        # 1. Remove from Project Memberships
-        ProjectMemberDocument.objects(userId=user_id).delete()
-        
-        # 2. Remove from Workspace Memberships
-        WorkspaceMemberDocument.objects(userId=user_id).delete()
-        
-        # 3. Unassign from Tasks
-        TaskDocument.objects(assigneeId=user_id).update(set__assigneeId="")
-        
-        # 4. Unassign from Subtasks
-        SubTaskDocument.objects(assigneeId=user_id).update(set__assigneeId="")
-        
-        # 5. Use atomic update to mark user as deleted and inactive
+        # 1. Set soft delete flags
+        deletion_date = datetime.utcnow()
         updated = UserDocument.objects(id=user_id).update_one(
             set__is_deleted=True,
             set__is_active=False,
-            set__updated_at=datetime.utcnow()
+            set__deleted_at=deletion_date,
+            set__updated_at=deletion_date
         )
         
         if not updated:
-            logger.error(f"Failed to update user document for deletion: {user_id}")
-            return Response({'error': 'Failed to complete account deletion.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': 'Failed to initiate account deletion.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
-        logger.info(f"Account successfully marked as deleted: {user_id}")
-        return Response({'message': 'Account and all associated memberships deleted successfully.'}, status=status.HTTP_200_OK)
+        # 2. Send initiation email
+        from datetime import timedelta
+        perm_deletion_date = (deletion_date + timedelta(days=15)).strftime('%B %d, %Y')
+        
+        try:
+            html_message = render_to_string('emails/deletion_initiated.html', {
+                'deletion_date': perm_deletion_date,
+                'recovery_url': f"{settings.FRONTEND_URL}/login"
+            })
+            plain_message = f"Your TaskForge account is scheduled for deletion on {perm_deletion_date}. You can recover it within 15 days by logging in."
+
+            _send_html_email(
+                subject='TaskForge: Account Deletion Initiated',
+                plain_body=plain_message,
+                html_body=html_message,
+                recipient=user.email,
+            )
+        except Exception:
+            logger.exception('Failed to send deletion initiation email')
+
+        return Response({'message': 'Account scheduled for deletion. You have 15 days to recover it.'}, status=status.HTTP_200_OK)
+
+
+class RecoverAccountView(APIView):
+    permission_classes = [AllowAny] # Since they can't login, we need a way to identify them
+
+    def post(self, request):
+        email = request.data.get('email', '').lower().strip()
+        password = request.data.get('password', '')
+        
+        if not email or not password:
+            return Response({'error': 'Email and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        user_doc = UserDocument.objects(email=email).first()
+        if not user_doc or not check_password(password, user_doc.password):
+            return Response({'error': 'Invalid email or password.'}, status=status.HTTP_401_UNAUTHORIZED)
+            
+        if not user_doc.is_deleted:
+            return Response({'message': 'Account is already active.'}, status=status.HTTP_200_OK)
+            
+        # Check if within 15 days
+        from datetime import timedelta
+        if user_doc.deleted_at and datetime.utcnow() > (user_doc.deleted_at + timedelta(days=15)):
+            return Response({'error': 'Account deletion period has expired. Please create a new account.'}, status=status.HTTP_410_GONE)
+            
+        # Recover account
+        user_doc.is_deleted = False
+        user_doc.is_active = True
+        user_doc.deleted_at = None
+        user_doc.updated_at = datetime.utcnow()
+        user_doc.save()
+        
+        # Generate tokens for immediate login
+        refresh = RefreshToken.for_user(to_mongo_user(user_doc))
+        return Response({
+            'message': 'Account recovered successfully!',
+            'user': UserSerializer(user_doc).data,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        }, status=status.HTTP_200_OK)
 
 
 class ChangePasswordView(APIView):

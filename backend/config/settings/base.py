@@ -215,3 +215,6 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # OTP Settings
 OTP_EXPIRY = 900  # 15 minutes
+
+# Frontend URL for email links
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')

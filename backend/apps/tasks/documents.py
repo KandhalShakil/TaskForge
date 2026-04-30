@@ -38,6 +38,7 @@ class TaskDocument(Document):
     start_date = fields.DateTimeField()
     estimated_hours = fields.DecimalField(precision=1)
     order = fields.IntField(default=0)
+    reminder_sent = fields.BooleanField(default=False)
     created_at = fields.DateTimeField(default=datetime.utcnow)
     updated_at = fields.DateTimeField(default=datetime.utcnow)
 
@@ -84,6 +85,7 @@ class SubTaskDocument(Document):
     estimated_hours = fields.DecimalField(precision=1)
     is_completed = fields.BooleanField(default=False)
     order = fields.IntField(default=0)
+    reminder_sent = fields.BooleanField(default=False)
     created_at = fields.DateTimeField(default=datetime.utcnow)
     updated_at = fields.DateTimeField(default=datetime.utcnow)
 

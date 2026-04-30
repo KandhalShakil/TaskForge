@@ -93,7 +93,7 @@ def authenticate_user(*, email: str, password: str) -> UserDocument | None:
     # Check if account is deleted
     if getattr(user, 'is_deleted', False):
         logger.warning(f"Login attempt for deleted account: {normalized_email}")
-        raise ValueError('Account not found or has been deleted')
+        raise ValueError('Your account is scheduled for deletion. Please recover it within 15 days.')
         
     # Check if account is inactive
     if not user.is_active:
