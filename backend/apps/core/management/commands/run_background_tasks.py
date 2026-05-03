@@ -6,7 +6,7 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from apps.users.documents import UserDocument
 from apps.tasks.documents import TaskDocument, SubTaskDocument
-from apps.users.views import _send_html_email
+from apps.users.emails import send_html_email
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class Command(BaseCommand):
             })
             plain_message = f"Reminder: Your task '{task.title}' is due on {task.due_date}."
             
-            _send_html_email(
+            send_html_email(
                 subject=f"Deadline Reminder: {task.title}",
                 plain_body=plain_message,
                 html_body=html_message,
@@ -89,40 +89,61 @@ class Command(BaseCommand):
 
     def process_deletion_reminders(self):
         self.stdout.write('Checking for deletion reminders...')
-        # Send reminder on day 14 (one day before permanent deletion)
         now = datetime.utcnow()
-        start_range = now - timedelta(days=14, hours=2)
-        end_range = now - timedelta(days=14)
         
-        users = UserDocument.objects(
+        # 1. 10-Day Reminder (now - deleted_at >= 10 days)
+        limit_10d = now - timedelta(days=10)
+        users_10d = UserDocument.objects(
             is_deleted=True,
-            deleted_at__lte=end_range,
-            deleted_at__gt=start_range
+            deleted_at__lte=limit_10d,
+            reminder_10_day_sent=False
         )
-        
-        for user in users:
-            from django.core.cache import cache
-            cache_key = f"deletion_reminder_sent_{user.id}"
-            if not cache.get(cache_key):
-                self.send_deletion_reminder(user)
-                cache.set(cache_key, True, timeout=86400 * 2) # Flag for 2 days
-                self.stdout.write(f'Sent deletion reminder to {user.email}')
+        for user in users_10d:
+            self.send_deletion_reminder(user, "10-day")
+            user.update(set__reminder_10_day_sent=True)
+            self.stdout.write(f'Sent 10-day deletion reminder to {user.email}')
 
-    def send_deletion_reminder(self, user):
+        # 2. Final Warning (1 hour before 15 days: 14 days and 23 hours)
+        limit_final = now - timedelta(days=14, hours=23)
+        users_final = UserDocument.objects(
+            is_deleted=True,
+            deleted_at__lte=limit_final,
+            final_warning_sent=False
+        )
+        for user in users_final:
+            self.send_deletion_reminder(user, "final")
+            user.update(set__final_warning_sent=True)
+            self.stdout.write(f'Sent final deletion warning to {user.email}')
+
+    def send_deletion_reminder(self, user, type):
         try:
-            html_message = render_to_string('emails/deletion_reminder.html', {
-                'recovery_url': f"{settings.FRONTEND_URL}/login"
-            })
-            plain_message = "Final Reminder: Your account will be permanently deleted tomorrow."
+            recovery_url = f"{settings.FRONTEND_URL}/recover-account?token={user.recovery_token}"
+            if type == "10-day":
+                subject = "Account Deletion Reminder"
+                template = 'emails/deletion_reminder.html'
+                plain_message = "Your account will be permanently deleted in 5 days. Recover your account if needed."
+                context = {
+                    'days_remaining': 5,
+                    'recovery_url': recovery_url
+                }
+            else: # final warning
+                subject = "Final Warning: Account Deletion"
+                template = 'emails/final_warning.html'
+                plain_message = "Your account will be permanently deleted in 1 hour. Recover now to avoid data loss."
+                context = {
+                    'recovery_url': recovery_url
+                }
+
+            html_message = render_to_string(template, context)
             
-            _send_html_email(
-                subject="Final Reminder: Account Deletion",
+            send_html_email(
+                subject=subject,
                 plain_body=plain_message,
                 html_body=html_message,
                 recipient=user.email
             )
         except Exception:
-            logger.exception(f"Failed to send deletion reminder to {user.email}")
+            logger.exception(f"Failed to send {type} deletion reminder to {user.email}")
 
     def process_permanent_deletions(self):
         self.stdout.write('Checking for permanent deletions...')

@@ -4,27 +4,27 @@
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f4f7f6; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e1e4e8; }
-        .header { background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); color: #ffffff; padding: 30px; text-align: center; }
+        .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff; padding: 30px; text-align: center; }
         .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em; }
         .content { padding: 40px; }
-        .urgent-box { background: #fff1f2; border: 2px solid #fb7185; border-radius: 8px; padding: 20px; margin: 20px 0; color: #9f1239; }
+        .info-box { background: #fef3c7; border: 2px solid #fbbf24; border-radius: 8px; padding: 20px; margin: 20px 0; color: #92400e; }
         .footer { padding: 20px; text-align: center; font-size: 12px; color: #64748b; background: #f8fafc; border-top: 1px solid #e2e8f0; }
-        .btn { display: inline-block; padding: 12px 24px; background-color: #e11d48; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 10px; }
+        .btn { display: inline-block; padding: 12px 24px; background-color: #d97706; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Final Reminder: Account Deletion</h1>
+            <h1>Account Deletion Reminder</h1>
         </div>
         <div class="content">
             <p>Hello,</p>
-            <p>This is a final reminder that your TaskForge account is scheduled for permanent deletion <strong>tomorrow</strong>.</p>
-            <div class="urgent-box">
-                <p>Once deleted, your data cannot be recovered. If you wish to keep your account, you must act now.</p>
+            <p>This is a reminder that your TaskForge account is scheduled for permanent deletion in <strong>{{ days_remaining }} days</strong>.</p>
+            <div class="info-box">
+                <p>Your account will be permanently deleted in 5 days. Recover your account if needed.</p>
             </div>
-            <p>To stop the deletion process, please click the button below to recover your account immediately.</p>
-            <a href="{{ recovery_url }}" class="btn">Recover My Account Now</a>
+            <p>If you wish to keep your account and data, you can cancel this process by logging in before the deadline.</p>
+            <a href="{{ recovery_url }}" class="btn">Recover My Account</a>
         </div>
         <div class="footer">
             &copy; 2026 TaskForge. All rights reserved.

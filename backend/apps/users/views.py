@@ -19,6 +19,7 @@ from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 import random
 import logging
+import uuid
 
 from pymongo.errors import ServerSelectionTimeoutError
 
@@ -29,25 +30,7 @@ from .mongo_services import authenticate_user, create_user, to_mongo_user, updat
 logger = logging.getLogger(__name__)
 
 
-from concurrent.futures import ThreadPoolExecutor
-
-executor = ThreadPoolExecutor(max_workers=2)
-
-def _send_email_task(subject, plain_body, html_body, recipient):
-    try:
-        email_message = EmailMultiAlternatives(
-            subject=subject,
-            body=plain_body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[recipient],
-        )
-        email_message.attach_alternative(html_body, 'text/html')
-        email_message.send()
-    except Exception:
-        logger.exception('Async email sending failed')
-
-def _send_html_email(*, subject, plain_body, html_body, recipient):
-    executor.submit(_send_email_task, subject, plain_body, html_body, recipient)
+from .emails import send_html_email
 
 
 class RegisterView(APIView):
@@ -159,7 +142,7 @@ class ResendOTPView(APIView):
             html_message = render_to_string('emails/otp_email.html', {'otp': otp})
             plain_message = f'Your new verification code is: {otp}. It will expire in 15 minutes.'
 
-            _send_html_email(
+            send_html_email(
                 subject='Your new TaskForge verification code',
                 plain_body=plain_message,
                 html_body=html_message,
@@ -189,7 +172,7 @@ class ForgotPasswordView(APIView):
             try:
                 html_message = render_to_string('emails/otp_email.html', {'otp': otp})
                 plain_message = f'Your password reset code is: {otp}. It will expire in 15 minutes.'
-                _send_html_email(
+                send_html_email(
                     subject='TaskForge password reset code',
                     plain_body=plain_message,
                     html_body=html_message,
@@ -370,13 +353,21 @@ class DeleteAccountView(APIView):
         
         logger.info(f"Account deletion initiated for user ID: {user_id} ({user.email})")
         
-        # 1. Set soft delete flags
+        # 1. Set soft delete flags and generate recovery token
         deletion_date = datetime.utcnow()
+        recovery_token = str(uuid.uuid4())
+        # Recovery token valid for the entire 15-day window
+        recovery_expires = deletion_date + timedelta(days=15)
+        
         updated = UserDocument.objects(id=user_id).update_one(
             set__is_deleted=True,
             set__is_active=False,
             set__deleted_at=deletion_date,
-            set__updated_at=deletion_date
+            set__updated_at=deletion_date,
+            set__reminder_10_day_sent=False,
+            set__final_warning_sent=False,
+            set__recovery_token=recovery_token,
+            set__recovery_token_expires=recovery_expires
         )
         
         if not updated:
@@ -387,14 +378,15 @@ class DeleteAccountView(APIView):
         perm_deletion_date = (deletion_date + timedelta(days=15)).strftime('%B %d, %Y')
         
         try:
+            recovery_url = f"{settings.FRONTEND_URL}/recover-account?token={recovery_token}"
             html_message = render_to_string('emails/deletion_initiated.html', {
                 'deletion_date': perm_deletion_date,
-                'recovery_url': f"{settings.FRONTEND_URL}/login"
+                'recovery_url': recovery_url
             })
-            plain_message = f"Your TaskForge account is scheduled for deletion on {perm_deletion_date}. You can recover it within 15 days by logging in."
+            plain_message = f"Your TaskForge account is scheduled for deletion on {perm_deletion_date}. You can recover it within 15 days using this link: {recovery_url}"
 
-            _send_html_email(
-                subject='TaskForge: Account Deletion Initiated',
+            send_html_email(
+                subject='Account Deletion Initiated',
                 plain_body=plain_message,
                 html_body=html_message,
                 recipient=user.email,
@@ -431,6 +423,8 @@ class RecoverAccountView(APIView):
         user_doc.is_deleted = False
         user_doc.is_active = True
         user_doc.deleted_at = None
+        user_doc.reminder_10_day_sent = False
+        user_doc.final_warning_sent = False
         user_doc.updated_at = datetime.utcnow()
         user_doc.save()
         
@@ -438,6 +432,43 @@ class RecoverAccountView(APIView):
         refresh = RefreshToken.for_user(to_mongo_user(user_doc))
         return Response({
             'message': 'Account recovered successfully!',
+            'user': UserSerializer(user_doc).data,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        }, status=status.HTTP_200_OK)
+
+
+class RecoverWithTokenView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        token = request.query_params.get('token')
+        if not token:
+            return Response({'error': 'Token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        user_doc = UserDocument.objects(recovery_token=token).first()
+        if not user_doc:
+            return Response({'error': 'Invalid or expired recovery link.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Check if token is expired
+        if user_doc.recovery_token_expires and datetime.utcnow() > user_doc.recovery_token_expires:
+            return Response({'error': 'Recovery link has expired.'}, status=status.HTTP_410_GONE)
+            
+        # Recover account
+        user_doc.is_deleted = False
+        user_doc.is_active = True
+        user_doc.deleted_at = None
+        user_doc.recovery_token = None # Expire token after use
+        user_doc.recovery_token_expires = None
+        user_doc.reminder_10_day_sent = False
+        user_doc.final_warning_sent = False
+        user_doc.updated_at = datetime.utcnow()
+        user_doc.save()
+        
+        # Generate tokens for immediate login
+        refresh = RefreshToken.for_user(to_mongo_user(user_doc))
+        return Response({
+            'message': 'Account recovered successfully via token!',
             'user': UserSerializer(user_doc).data,
             'access': str(refresh.access_token),
             'refresh': str(refresh),
