@@ -389,7 +389,6 @@ class DeleteAccountView(APIView):
                 plain_body=plain_message,
                 html_body=html_message,
                 recipient=user.email,
-                sync=True
             )
         except Exception:
             logger.exception('Failed to send deletion initiation email')
