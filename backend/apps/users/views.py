@@ -374,7 +374,6 @@ class DeleteAccountView(APIView):
         user_doc.save()
             
         # 2. Send initiation email
-        from datetime import timedelta
         perm_deletion_date = (deletion_date + timedelta(days=15)).strftime('%B %d, %Y')
         
         try:
@@ -416,7 +415,6 @@ class RecoverAccountView(APIView):
             return Response({'message': 'Account is already active.'}, status=status.HTTP_200_OK)
             
         # Check if within 15 days
-        from datetime import timedelta
         if user_doc.deleted_at and datetime.utcnow() > (user_doc.deleted_at + timedelta(days=15)):
             return Response({'error': 'Account deletion period has expired. Please create a new account.'}, status=status.HTTP_410_GONE)
             
