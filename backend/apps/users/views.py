@@ -11,7 +11,7 @@ from .serializers import (
     ChangePasswordSerializer,
 )
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.template.loader import render_to_string
 from django.core.cache import cache
 from django.core.mail import EmailMultiAlternatives
@@ -359,19 +359,19 @@ class DeleteAccountView(APIView):
         # Recovery token valid for the entire 15-day window
         recovery_expires = deletion_date + timedelta(days=15)
         
-        updated = UserDocument.objects(id=user_id).update_one(
-            set__is_deleted=True,
-            set__is_active=False,
-            set__deleted_at=deletion_date,
-            set__updated_at=deletion_date,
-            set__reminder_10_day_sent=False,
-            set__final_warning_sent=False,
-            set__recovery_token=recovery_token,
-            set__recovery_token_expires=recovery_expires
-        )
-        
-        if not updated:
-            return Response({'error': 'Failed to initiate account deletion.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        user_doc = UserDocument.objects(pk=user_id).first()
+        if not user_doc:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+            
+        user_doc.is_deleted = True
+        user_doc.is_active = False
+        user_doc.deleted_at = deletion_date
+        user_doc.updated_at = deletion_date
+        user_doc.reminder_10_day_sent = False
+        user_doc.final_warning_sent = False
+        user_doc.recovery_token = recovery_token
+        user_doc.recovery_token_expires = recovery_expires
+        user_doc.save()
             
         # 2. Send initiation email
         from datetime import timedelta
@@ -390,6 +390,7 @@ class DeleteAccountView(APIView):
                 plain_body=plain_message,
                 html_body=html_message,
                 recipient=user.email,
+                sync=True
             )
         except Exception:
             logger.exception('Failed to send deletion initiation email')

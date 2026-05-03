@@ -6,24 +6,43 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 # Centralized executor for background emails
-executor = ThreadPoolExecutor(max_workers=5)
+executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="EmailWorker")
 
 def _send_email_task(subject, plain_body, html_body, recipient):
     try:
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', settings.EMAIL_HOST_USER)
+        logger.info(f"Attempting to send email to {recipient} with subject: {subject}")
+        
         email_message = EmailMultiAlternatives(
             subject=subject,
             body=plain_body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
+            from_email=from_email,
             to=[recipient],
         )
         email_message.attach_alternative(html_body, 'text/html')
-        email_message.send()
-        logger.info(f"Email sent successfully to {recipient}")
-    except Exception:
-        logger.exception(f'Async email sending failed to {recipient}')
+        
+        # This is a blocking call
+        result = email_message.send()
+        
+        if result:
+            logger.info(f"Successfully sent email to {recipient}")
+        else:
+            logger.error(f"Email sending returned 0 for {recipient} (no emails sent)")
+            
+    except Exception as e:
+        logger.error(f"CRITICAL: Email sending failed for {recipient}. Error: {str(e)}", exc_info=True)
 
-def send_html_email(*, subject, plain_body, html_body, recipient):
+def send_html_email(*, subject, plain_body, html_body, recipient, sync=False):
     """
-    Centralized method to send HTML emails asynchronously.
+    Centralized method to send HTML emails.
     """
-    executor.submit(_send_email_task, subject, plain_body, html_body, recipient)
+    if not recipient:
+        logger.warning(f"Skipped sending email '{subject}' because recipient is empty.")
+        return
+        
+    if sync:
+        logger.info(f"Sending email to {recipient} synchronously...")
+        _send_email_task(subject, plain_body, html_body, recipient)
+    else:
+        logger.debug(f"Queueing email to {recipient}...")
+        executor.submit(_send_email_task, subject, plain_body, html_body, recipient)
