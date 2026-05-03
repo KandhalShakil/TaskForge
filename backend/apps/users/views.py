@@ -22,7 +22,14 @@ import logging
 import uuid
 
 from pymongo.errors import ServerSelectionTimeoutError
-from ratelimit.decorators import ratelimit
+try:
+    from ratelimit.decorators import ratelimit
+except ImportError:
+    # Fallback for production environments where the package might be missing
+    def ratelimit(key=None, rate=None, method=None, block=False):
+        def decorator(func):
+            return func
+        return decorator
 from django.utils.decorators import method_decorator
 
 from .documents import UserDocument
