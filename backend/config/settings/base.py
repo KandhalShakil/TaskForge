@@ -220,6 +220,7 @@ else:
 EMAILJS_SERVICE_ID = config('EMAILJS_SERVICE_ID', default='')
 EMAILJS_TEMPLATE_ID = config('EMAILJS_TEMPLATE_ID', default='')
 EMAILJS_PUBLIC_KEY = config('EMAILJS_PUBLIC_KEY', default='')
+EMAILJS_PRIVATE_KEY = config('EMAILJS_PRIVATE_KEY', default='')
 
 # OTP Settings
 OTP_EXPIRY = 900  # 15 minutes

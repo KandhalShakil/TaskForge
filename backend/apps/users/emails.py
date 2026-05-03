@@ -19,6 +19,7 @@ def _send_email_task(subject, plain_body, html_body, recipient):
     service_id = settings.EMAILJS_SERVICE_ID
     template_id = settings.EMAILJS_TEMPLATE_ID
     public_key = settings.EMAILJS_PUBLIC_KEY
+    private_key = settings.EMAILJS_PRIVATE_KEY
     
     if not all([service_id, template_id, public_key]):
         logger.error("EmailJS: Configuration missing (service_id, template_id, or public_key). Check .env file.")
@@ -28,6 +29,7 @@ def _send_email_task(subject, plain_body, html_body, recipient):
         "service_id": service_id,
         "template_id": template_id,
         "user_id": public_key,
+        "accessToken": private_key,  # Required for strict mode
         "template_params": {
             "subject": subject,
             "email": recipient,
