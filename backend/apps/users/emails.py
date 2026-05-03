@@ -11,7 +11,7 @@ executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="EmailWorker")
 def _send_email_task(subject, plain_body, html_body, recipient):
     try:
         from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', settings.EMAIL_HOST_USER)
-        logger.info(f"Attempting to send email to {recipient} with subject: {subject}")
+        logger.info(f"Attempting to send email to {recipient} using {settings.EMAIL_HOST}:{settings.EMAIL_PORT} (TLS: {settings.EMAIL_USE_TLS}, SSL: {settings.EMAIL_USE_SSL})")
         
         email_message = EmailMultiAlternatives(
             subject=subject,
