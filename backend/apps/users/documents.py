@@ -40,5 +40,8 @@ class UserDocument(Document):
             {'fields': ['email'], 'unique': True, 'name': 'users_email_unique'},
             'user_type',
             'companyId',
+            'is_deleted',
+            'deleted_at',
+            'recovery_token',
         ],
     }

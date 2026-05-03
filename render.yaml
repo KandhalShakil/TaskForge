@@ -28,3 +28,14 @@ services:
         value: "10000"
       - key: CORS_ORIGIN
         value: "https://www.task-forge.kandhal.tech,https://task-forge.kandhal.tech"
+
+  - type: worker
+    name: taskforge-worker
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && python manage.py run_background_tasks
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.2

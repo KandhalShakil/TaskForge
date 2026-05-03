@@ -1,6 +1,7 @@
 import logging
+import json
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -9,40 +10,73 @@ logger = logging.getLogger(__name__)
 executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="EmailWorker")
 
 def _send_email_task(subject, plain_body, html_body, recipient):
+    """
+    Sends email via EmailJS REST API using centralized credentials.
+    """
+    url = "https://api.emailjs.com/api/v1.0/email/send"
+    
+    # EmailJS Configuration from settings
+    service_id = settings.EMAILJS_SERVICE_ID
+    template_id = settings.EMAILJS_TEMPLATE_ID
+    public_key = settings.EMAILJS_PUBLIC_KEY
+    
+    if not all([service_id, template_id, public_key]):
+        logger.error("EmailJS: Configuration missing (service_id, template_id, or public_key). Check .env file.")
+        return
+
+    data = {
+        "service_id": service_id,
+        "template_id": template_id,
+        "user_id": public_key,
+        "template_params": {
+            "subject": subject,
+            "email": recipient,
+            "HTML_CODE": html_body
+        }
+    }
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0'
+    }
+    
     try:
-        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', settings.EMAIL_HOST_USER)
-        logger.info(f"Attempting to send email to {recipient} using {settings.EMAIL_HOST}:{settings.EMAIL_PORT} (TLS: {settings.EMAIL_USE_TLS}, SSL: {settings.EMAIL_USE_SSL})")
+        logger.info(f"EmailJS: Attempting to send '{subject}' to {recipient}...")
         
-        email_message = EmailMultiAlternatives(
-            subject=subject,
-            body=plain_body,
-            from_email=from_email,
-            to=[recipient],
+        req = urllib.request.Request(
+            url, 
+            data=json.dumps(data).encode('utf-8'), 
+            headers=headers, 
+            method='POST'
         )
-        email_message.attach_alternative(html_body, 'text/html')
         
-        # This is a blocking call
-        result = email_message.send()
-        
-        if result:
-            logger.info(f"Successfully sent email to {recipient}")
-        else:
-            logger.error(f"Email sending returned 0 for {recipient} (no emails sent)")
+        with urllib.request.urlopen(req, timeout=20) as response:
+            status = response.getcode()
+            res_body = response.read().decode('utf-8')
             
+            if status == 200:
+                logger.info(f"EmailJS: Successfully sent email to {recipient}")
+            else:
+                logger.error(f"EmailJS Error: Received status {status}. Response: {res_body}")
+                
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8')
+        logger.error(f"EmailJS HTTP Error {e.code}: {error_body}")
     except Exception as e:
-        logger.error(f"CRITICAL: Email sending failed for {recipient}. Error: {str(e)}", exc_info=True)
+        logger.error(f"EmailJS CRITICAL Error for {recipient}: {str(e)}", exc_info=True)
 
 def send_html_email(*, subject, plain_body, html_body, recipient, sync=False):
     """
-    Centralized method to send HTML emails.
+    Unified method to send emails across the application lifecycle.
+    Supported: Registration, Deletion, Task Reminders, Account Recovery, Password Reset.
     """
     if not recipient:
         logger.warning(f"Skipped sending email '{subject}' because recipient is empty.")
         return
         
     if sync:
-        logger.info(f"Sending email to {recipient} synchronously...")
+        logger.info(f"Sending email to {recipient} synchronously via EmailJS...")
         _send_email_task(subject, plain_body, html_body, recipient)
     else:
-        logger.debug(f"Queueing email to {recipient}...")
+        logger.debug(f"Queueing email to {recipient} via EmailJS...")
         executor.submit(_send_email_task, subject, plain_body, html_body, recipient)

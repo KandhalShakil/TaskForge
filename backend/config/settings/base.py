@@ -8,8 +8,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = ['*']
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
 
 # Application definition
@@ -79,6 +77,19 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # MongoDB Atlas configuration
 MONGO_URI = config('MONGO_URI', default='')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
+
+# Production Security Settings
+if not DEBUG:
+    SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=True, cast=bool)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 MONGO_DB_NAME = config('MONGO_DB_NAME', default='takify')
 
 # Django still requires a default database for its migration machinery.
@@ -204,16 +215,11 @@ else:
         }
     }
 
-# Email Settings
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
-EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
-EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-EMAIL_TIMEOUT = config('EMAIL_TIMEOUT', default=10, cast=int)
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
+
+# EmailJS Configuration
+EMAILJS_SERVICE_ID = config('EMAILJS_SERVICE_ID', default='')
+EMAILJS_TEMPLATE_ID = config('EMAILJS_TEMPLATE_ID', default='')
+EMAILJS_PUBLIC_KEY = config('EMAILJS_PUBLIC_KEY', default='')
 
 # OTP Settings
 OTP_EXPIRY = 900  # 15 minutes

@@ -22,6 +22,8 @@ import logging
 import uuid
 
 from pymongo.errors import ServerSelectionTimeoutError
+from ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
 
 from .documents import UserDocument
 from .mongo_services import authenticate_user, create_user, to_mongo_user, update_password
@@ -33,6 +35,7 @@ logger = logging.getLogger(__name__)
 from .emails import send_html_email
 
 
+@method_decorator(ratelimit(key='ip', rate='5/m', block=True), name='post')
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -72,6 +75,7 @@ class RegisterView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+@method_decorator(ratelimit(key='ip', rate='10/m', block=True), name='post')
 class VerifyRegistrationView(APIView):
     permission_classes = [AllowAny]
 
@@ -104,6 +108,21 @@ class VerifyRegistrationView(APIView):
             # Clear cache
             cache.delete(cache_key)
             
+            # 2. Send Welcome email
+            try:
+                html_message = render_to_string('emails/welcome.html', {
+                    'full_name': user.full_name,
+                    'dashboard_url': f"{settings.FRONTEND_URL}/dashboard"
+                })
+                send_html_email(
+                    subject='Welcome to TaskForge!',
+                    plain_body=f"Hi {user.full_name}, welcome to TaskForge! Start managing your tasks at {settings.FRONTEND_URL}/dashboard",
+                    html_body=html_message,
+                    recipient=user.email,
+                )
+            except Exception:
+                logger.exception(f"Failed to send welcome email to {user.email}")
+            
             # Generate tokens
             refresh = RefreshToken.for_user(to_mongo_user(user))
             return Response({
@@ -119,6 +138,7 @@ class VerifyRegistrationView(APIView):
             return Response({'error': 'Something went wrong'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@method_decorator(ratelimit(key='ip', rate='3/m', block=True), name='post')
 class ResendOTPView(APIView):
     permission_classes = [AllowAny]
 
@@ -154,6 +174,7 @@ class ResendOTPView(APIView):
             return Response({'error': 'Failed to send email.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@method_decorator(ratelimit(key='ip', rate='5/m', block=True), name='post')
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -191,6 +212,7 @@ class ForgotPasswordView(APIView):
         )
 
 
+@method_decorator(ratelimit(key='ip', rate='10/m', block=True), name='post')
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -229,6 +251,7 @@ class ResetPasswordView(APIView):
         return Response({'message': 'Password reset successful.'}, status=status.HTTP_200_OK)
 
 
+@method_decorator(ratelimit(key='ip', rate='10/m', block=True), name='post')
 class CustomTokenObtainPairView(APIView):
     permission_classes = [AllowAny]
 
@@ -344,6 +367,7 @@ class UserListView(generics.ListAPIView):
         return qs.order_by('full_name').only('id', 'full_name', 'email', 'avatar', 'user_type', 'companyId')
 
 
+@method_decorator(ratelimit(key='ip', rate='3/m', block=True), name='delete')
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -426,6 +450,20 @@ class RecoverAccountView(APIView):
         user_doc.updated_at = datetime.utcnow()
         user_doc.save()
         
+        # Send Recovery Confirmation
+        try:
+            html_message = render_to_string('emails/account_recovered.html', {
+                'dashboard_url': f"{settings.FRONTEND_URL}/dashboard"
+            })
+            send_html_email(
+                subject='Account Successfully Recovered',
+                plain_body=f"Welcome back! Your TaskForge account has been restored. Access your dashboard at {settings.FRONTEND_URL}/dashboard",
+                html_body=html_message,
+                recipient=user_doc.email,
+            )
+        except Exception:
+            logger.exception(f"Failed to send recovery confirmation to {user_doc.email}")
+        
         # Generate tokens for immediate login
         refresh = RefreshToken.for_user(to_mongo_user(user_doc))
         return Response({
@@ -462,6 +500,20 @@ class RecoverWithTokenView(APIView):
         user_doc.final_warning_sent = False
         user_doc.updated_at = datetime.utcnow()
         user_doc.save()
+        
+        # Send Recovery Confirmation
+        try:
+            html_message = render_to_string('emails/account_recovered.html', {
+                'dashboard_url': f"{settings.FRONTEND_URL}/dashboard"
+            })
+            send_html_email(
+                subject='Account Successfully Recovered',
+                plain_body=f"Welcome back! Your TaskForge account has been restored. Access your dashboard at {settings.FRONTEND_URL}/dashboard",
+                html_body=html_message,
+                recipient=user_doc.email,
+            )
+        except Exception:
+            logger.exception(f"Failed to send recovery confirmation to {user_doc.email}")
         
         # Generate tokens for immediate login
         refresh = RefreshToken.for_user(to_mongo_user(user_doc))

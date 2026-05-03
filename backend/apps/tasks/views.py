@@ -13,6 +13,56 @@ from django.core.cache import cache
 from apps.workspaces.documents import WorkspaceMemberDocument
 
 from .documents import CategoryDocument, CommentDocument, SubTaskDocument, TaskDocument
+from apps.users.emails import send_html_email
+from apps.users.documents import UserDocument
+from apps.projects.documents import ProjectDocument
+from django.template.loader import render_to_string
+from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _send_task_assignment_email(task, request):
+    assignee_id = task.assigneeId
+    if not assignee_id:
+        return
+        
+    assignee = UserDocument.objects(id=str(assignee_id)).first()
+    if not assignee or not assignee.email:
+        return
+        
+    # Handle both TaskDocument and SubTaskDocument
+    project_id = None
+    if hasattr(task, 'projectId') and task.projectId:
+        project_id = task.projectId
+    elif hasattr(task, 'taskId') and task.taskId:
+        parent_task = TaskDocument.objects(id=str(task.taskId)).first()
+        if parent_task:
+            project_id = parent_task.projectId
+
+    project = ProjectDocument.objects(id=str(project_id)).first() if project_id else None
+    project_name = project.name if project else "General"
+
+    try:
+        due_date_str = task.due_date.strftime('%B %d, %Y') if task.due_date else "No due date"
+        
+        html_message = render_to_string('emails/task_assigned.html', {
+            'assignee_name': assignee.full_name,
+            'task_title': task.title,
+            'project_name': project_name,
+            'due_date': due_date_str,
+            'task_url': f"{settings.FRONTEND_URL}/tasks/{task.id}"
+        })
+        
+        send_html_email(
+            subject=f"New Task Assigned: {task.title}",
+            plain_body=f"Hi {assignee.full_name}, you have been assigned to '{task.title}' in project {project_name}.",
+            html_body=html_message,
+            recipient=assignee.email,
+        )
+    except Exception:
+        logger.exception(f"Failed to send task assignment email to {assignee.email}")
 from .serializers import (
     BulkUpdateTaskSerializer,
     CategorySerializer,
@@ -114,6 +164,7 @@ class SubTaskListCreateView(generics.ListCreateAPIView):
         payload['parentId'] = parent_id
         subtask = SubTaskDocument(id=str(uuid.uuid4()), **payload)
         subtask.save()
+        _send_task_assignment_email(subtask, self.request)
 
 
 class SubTaskDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -130,6 +181,12 @@ class SubTaskDetailView(generics.RetrieveUpdateDestroyAPIView):
         return SubTaskDocument.objects(taskId__in=task_ids)
 
 
+    def perform_update(self, serializer):
+        old_assignee = self.get_object().assigneeId
+        subtask = serializer.save(updated_at=timezone.now())
+        if subtask.assigneeId and subtask.assigneeId != old_assignee:
+            _send_task_assignment_email(subtask, self.request)
+
 class TaskListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
 
@@ -137,6 +194,10 @@ class TaskListCreateView(generics.ListCreateAPIView):
         if self.request.method == 'GET':
             return TaskListSerializer
         return TaskSerializer
+
+    def perform_create(self, serializer):
+        task = serializer.save(createdById=str(self.request.user.id))
+        _send_task_assignment_email(task, self.request)
 
     def get_queryset(self):
         qs = TaskDocument.objects(workspaceId__in=_member_workspace_ids(self.request.user.id))
@@ -165,6 +226,12 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TaskSerializer
     lookup_field = 'id'
     lookup_url_kwarg = 'pk'
+
+    def perform_update(self, serializer):
+        old_assignee = self.get_object().assigneeId
+        task = serializer.save(updated_at=timezone.now())
+        if task.assigneeId and task.assigneeId != old_assignee:
+            _send_task_assignment_email(task, self.request)
 
     def get_queryset(self):
         return TaskDocument.objects(workspaceId__in=_member_workspace_ids(self.request.user.id))
