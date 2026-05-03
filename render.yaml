@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: taskforge-backend
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: cd backend && pip install "setuptools<70" wheel && pip install django-mongoengine==0.5.6 --no-build-isolation && pip install -r requirements.txt && python manage.py collectstatic --no-input
+    startCommand: cd backend && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DEBUG
+        value: "True"
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DB_ENGINE
+        value: django.db.backends.sqlite3
+
+  - type: web
+    name: taskforge-socket
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd socket-server && npm install
+    startCommand: cd socket-server && node index.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: PORT
+        value: "10000"
+      - key: CORS_ORIGIN
+        value: "https://www.task-forge.kandhal.tech,https://task-forge.kandhal.tech"
+
+  - type: worker
+    name: taskforge-worker
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: cd backend && pip install "setuptools<70" wheel && pip install django-mongoengine==0.5.6 --no-build-isolation && pip install -r requirements.txt
+    startCommand: cd backend && python manage.py run_background_tasks
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DEBUG
+        value: "True"
+      - key: PYTHON_VERSION
+        value: 3.11.9
