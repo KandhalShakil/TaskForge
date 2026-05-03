@@ -4,8 +4,8 @@ services:
     env: python
     region: oregon
     plan: free
-    buildCommand: cd backend && pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --no-input
-    startCommand: cd backend && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    buildCommand: cd backend && pip install setuptools==65.5.0 pip==23.2.1 wheel==0.41.2 && pip install --no-build-isolation -r requirements.txt && python manage.py collectstatic --no-input
+    startCommand: cd backend && python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.2
@@ -34,7 +34,7 @@ services:
     env: python
     region: oregon
     plan: free
-    buildCommand: cd backend && pip install -r requirements.txt
+    buildCommand: cd backend && pip install setuptools==65.5.0 pip==23.2.1 wheel==0.41.2 && pip install --no-build-isolation -r requirements.txt
     startCommand: cd backend && python manage.py run_background_tasks
     envVars:
       - key: PYTHON_VERSION
