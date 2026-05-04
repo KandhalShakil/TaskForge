@@ -1,8 +1,7 @@
 import logging
-import json
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
 
 logger = logging.getLogger(__name__)
 
@@ -11,61 +10,24 @@ executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="EmailWorker")
 
 def _send_email_task(subject, plain_body, html_body, recipient):
     """
-    Sends email via EmailJS REST API using centralized credentials.
+    Sends email via Django's SMTP backend.
     """
-    url = "https://api.emailjs.com/api/v1.0/email/send"
-    
-    # EmailJS Configuration from settings
-    service_id = settings.EMAILJS_SERVICE_ID
-    template_id = settings.EMAILJS_TEMPLATE_ID
-    public_key = settings.EMAILJS_PUBLIC_KEY
-    # private_key = settings.EMAILJS_PRIVATE_KEY
-    
-    if not all([service_id, template_id, public_key]):
-        logger.error("EmailJS: Configuration missing (service_id, template_id, or public_key). Check .env file.")
-        return
-
-    data = {
-    "service_id": service_id,
-    "template_id": template_id,
-    "public_key": public_key,
-    "template_params": {
-        "subject": subject,
-        "to_email": recipient,
-        "from_name": "TaskForge",
-        "HTML_CODE": html_body
-    }
-}
-    
-    headers = {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0'
-    }
-    
     try:
-        logger.info(f"EmailJS: Attempting to send '{subject}' to {recipient}...")
+        logger.info(f"SMTP: Attempting to send '{subject}' to {recipient}...")
         
-        req = urllib.request.Request(
-            url, 
-            data=json.dumps(data).encode('utf-8'), 
-            headers=headers, 
-            method='POST'
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[recipient],
         )
+        email.attach_alternative(html_body, "text/html")
         
-        with urllib.request.urlopen(req, timeout=20) as response:
-            status = response.getcode()
-            res_body = response.read().decode('utf-8')
-            
-            if status == 200:
-                logger.info(f"EmailJS: Successfully sent email to {recipient}")
-            else:
-                logger.error(f"EmailJS Error: Received status {status}. Response: {res_body}")
-                
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8')
-        logger.error(f"EmailJS HTTP Error {e.code}: {error_body}")
+        email.send(fail_silently=False)
+        logger.info(f"SMTP: Successfully sent email to {recipient}")
+        
     except Exception as e:
-        logger.error(f"EmailJS CRITICAL Error for {recipient}: {str(e)}", exc_info=True)
+        logger.error(f"SMTP CRITICAL Error for {recipient}: {str(e)}", exc_info=True)
 
 def send_html_email(*, subject, plain_body, html_body, recipient, sync=False):
     """
@@ -77,8 +39,8 @@ def send_html_email(*, subject, plain_body, html_body, recipient, sync=False):
         return
         
     if sync:
-        logger.info(f"Sending email to {recipient} synchronously via EmailJS...")
+        logger.info(f"Sending email to {recipient} synchronously via SMTP...")
         _send_email_task(subject, plain_body, html_body, recipient)
     else:
-        logger.debug(f"Queueing email to {recipient} via EmailJS...")
+        logger.debug(f"Queueing email to {recipient} via SMTP...")
         executor.submit(_send_email_task, subject, plain_body, html_body, recipient)
