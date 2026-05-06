@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { parseISO, differenceInDays, format, startOfMonth, endOfMonth, addMonths, subMonths, isValid } from 'date-fns'
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 import TaskModal from '../tasks/TaskModal'
@@ -11,20 +11,32 @@ const STATUS_COLORS = {
   cancelled: '#ef4444',
 }
 
-const DAYS_TO_SHOW = 30
-
 export default function TimelineView({ tasks = [], project, workspace, onRefresh }) {
-  const [viewStart, setViewStart] = useState(startOfMonth(new Date()))
+  // Calculate project boundaries or fallback to current month
+  const projectStart = useMemo(() => project?.start_date ? parseISO(project.start_date) : startOfMonth(new Date()), [project?.start_date])
+  const projectEnd = useMemo(() => project?.end_date ? parseISO(project.end_date) : endOfMonth(projectStart), [project?.end_date, projectStart])
+  
+  // Total days to show based on project range (min 1, max 366 for safety)
+  const daysToShow = useMemo(() => {
+    const diff = differenceInDays(projectEnd, projectStart) + 1
+    return Math.max(1, Math.min(diff, 366))
+  }, [projectStart, projectEnd])
+
+  const [viewStart, setViewStart] = useState(projectStart)
   const [editingTask, setEditingTask] = useState(null)
 
-  const viewEnd = new Date(viewStart)
-  viewEnd.setDate(viewStart.getDate() + DAYS_TO_SHOW)
+  // Sync viewStart if projectStart changes
+  useEffect(() => {
+    setViewStart(projectStart)
+  }, [projectStart])
 
-  const days = Array.from({ length: DAYS_TO_SHOW }, (_, i) => {
+  const viewEnd = projectEnd
+
+  const days = useMemo(() => Array.from({ length: daysToShow }, (_, i) => {
     const d = new Date(viewStart)
     d.setDate(viewStart.getDate() + i)
     return d
-  })
+  }), [viewStart, daysToShow])
 
   const tasksWithDates = useMemo(() => {
     return tasks.filter((t) => t.due_date || t.start_date)
@@ -39,49 +51,41 @@ export default function TimelineView({ tasks = [], project, workspace, onRefresh
     const startOffset = differenceInDays(start, viewStart)
     const duration = differenceInDays(end, start) + 1
 
-    if (startOffset >= DAYS_TO_SHOW || startOffset + duration < 0) return null
+    if (startOffset >= daysToShow || startOffset + duration < 0) return null
 
     const clampedStart = Math.max(0, startOffset)
-    const clampedDuration = Math.min(duration - (clampedStart - startOffset), DAYS_TO_SHOW - clampedStart)
+    const clampedDuration = Math.min(duration - (clampedStart - startOffset), daysToShow - clampedStart)
 
     return {
-      left: `${(clampedStart / DAYS_TO_SHOW) * 100}%`,
-      width: `${(Math.max(1, clampedDuration) / DAYS_TO_SHOW) * 100}%`,
+      left: `${(clampedStart / daysToShow) * 100}%`,
+      width: `${(Math.max(1, clampedDuration) / daysToShow) * 100}%`,
     }
   }
 
   const today = new Date()
   const todayOffset = differenceInDays(today, viewStart)
-  const todayPct = (todayOffset / DAYS_TO_SHOW) * 100
+  const todayPct = (todayOffset / daysToShow) * 100
 
   return (
     <>
       <div className="card overflow-hidden">
-        {/* Navigation */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-800">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setViewStart((d) => { const nd = new Date(d); nd.setDate(d.getDate() - 7); return nd })}
-              className="btn-ghost p-1.5"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="text-sm font-semibold text-white">
-              {format(viewStart, 'MMM d')} – {format(viewEnd, 'MMM d, yyyy')}
-            </span>
-            <button
-              onClick={() => setViewStart((d) => { const nd = new Date(d); nd.setDate(d.getDate() + 7); return nd })}
-              className="btn-ghost p-1.5"
-            >
-              <ChevronRight size={16} />
-            </button>
+        {/* Navigation - Locked to Project Dates */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-surface-900/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-primary-500/10 text-primary-400 border border-primary-500/20">
+              <Calendar size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Project Timeline</p>
+              <h3 className="text-sm font-bold text-white mt-0.5">
+                {format(projectStart, 'MMMM d')} – {format(projectEnd, 'MMMM d, yyyy')}
+              </h3>
+            </div>
           </div>
-          <button
-            onClick={() => setViewStart(startOfMonth(new Date()))}
-            className="btn-ghost text-xs px-3"
-          >
-            Today
-          </button>
+          
+          <div className="flex items-center gap-2">
+             <span className="badge bg-slate-800 text-slate-400 border-white/5">{daysToShow} Days Scope</span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -145,7 +149,7 @@ export default function TimelineView({ tasks = [], project, workspace, onRefresh
                           <div
                             key={i}
                             className="absolute top-0 bottom-0 border-l border-slate-800/50"
-                            style={{ left: `${(i / DAYS_TO_SHOW) * 100}%` }}
+                            style={{ left: `${(i / daysToShow) * 100}%` }}
                           />
                         ))}
                         {/* Task bar */}

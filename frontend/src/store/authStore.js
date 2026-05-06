@@ -26,11 +26,9 @@ export const useAuthStore = create(
 
       register: async (userData) => {
         const { data } = await authAPI.register(userData)
-        const { user, access, refresh } = data
-        localStorage.setItem('access_token', access)
-        localStorage.setItem('refresh_token', refresh)
-        set({ user, accessToken: access, refreshToken: refresh, isAuthenticated: true })
-        return user
+        // We do NOT set tokens or isAuthenticated here.
+        // The user must verify their email first.
+        return data
       },
 
       verifyRegistration: async (verificationData) => {
@@ -107,6 +105,14 @@ export const useAuthStore = create(
           set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false })
           window.location.href = '/login'
         }
+      },
+      recoverAccountToken: async (token) => {
+        const { data } = await authAPI.recoverAccountToken(token)
+        const { user, access, refresh } = data
+        localStorage.setItem('access_token', access)
+        localStorage.setItem('refresh_token', refresh)
+        set({ user, accessToken: access, refreshToken: refresh, isAuthenticated: true })
+        return data
       },
       exportData: async () => {
         const { data } = await authAPI.exportData()

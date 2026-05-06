@@ -21,6 +21,7 @@ class WorkspaceDocument(Document):
             {'fields': ['ownerId'], 'name': 'workspaces_owner_idx'},
             {'fields': ['companyId'], 'name': 'workspaces_company_idx'},
             {'fields': ['name'], 'name': 'workspaces_name_idx'},
+            {'fields': ['companyId', 'name'], 'name': 'workspaces_company_name_idx'},
         ],
     }
 

@@ -42,7 +42,7 @@ def create_user(*, email: str, full_name: str, password: str, user_type: str = '
         avatar='',
         user_type=user_type,
         password=make_password(password),
-        is_active=True,
+        is_active=False, # Must verify email first
         is_staff=(user_type == 'admin'),
         is_superuser=False,
         date_joined=datetime.utcnow(),
@@ -98,7 +98,7 @@ def authenticate_user(*, email: str, password: str) -> UserDocument | None:
     # Check if account is inactive
     if not user.is_active:
         logger.warning(f"Login attempt for inactive account: {normalized_email}")
-        return None
+        raise ValueError('Please verify your email address before logging in.')
         
     # Verify password
     if not check_password(password, user.password):

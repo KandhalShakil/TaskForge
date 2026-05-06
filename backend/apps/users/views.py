@@ -59,13 +59,26 @@ class RegisterView(APIView):
                 user_type=payload.get('user_type', 'employee'),
                 company_name=payload.get('company_name'),
             )
+            
+            # Generate OTP for verification
+            otp = str(random.randint(100000, 999999))
+            cache_key = f"register_otp_{user.email}"
+            cache.set(cache_key, otp, timeout=settings.OTP_EXPIRY)
+            
+            # Send verification email asynchronously
+            try:
+                html_message = render_to_string('emails/otp_email.html', {'otp': otp})
+                send_html_email(
+                    subject='Verify your TaskForge account',
+                    plain_body=f'Your verification code is: {otp}. It will expire in 15 minutes.',
+                    html_body=html_message,
+                    recipient=user.email,
+                )
+            except Exception:
+                logger.exception(f"Failed to queue verification email to {user.email}")
+                
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        except ServerSelectionTimeoutError:
-            return Response(
-                {'error': 'Server not responding. Try again later.'},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
         except Exception:
             logger.exception('Registration failed')
             return Response(
@@ -73,12 +86,9 @@ class RegisterView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        refresh = RefreshToken.for_user(to_mongo_user(user))
         return Response({
-            'user': UserSerializer(user).data,
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'message': 'Account created successfully.',
+            'message': 'Account created successfully. Please check your email for the verification code.',
+            'email': user.email
         }, status=status.HTTP_201_CREATED)
 
 
@@ -93,29 +103,32 @@ class VerifyRegistrationView(APIView):
         if not email or not otp:
             return Response({'error': 'Email and OTP are required.'}, status=status.HTTP_400_BAD_REQUEST)
             
-        cache_key = f"register_data_{email}"
-        cache_data = cache.get(cache_key)
+        cache_key = f"register_otp_{email}"
+        cached_otp = cache.get(cache_key)
         
-        if not cache_data:
-            return Response({'error': 'Registration session expired or invalid.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not cached_otp:
+            return Response({'error': 'Verification code expired or invalid.'}, status=status.HTTP_400_BAD_REQUEST)
             
-        if cache_data['otp'] != str(otp):
-            return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+        if str(cached_otp) != str(otp):
+            return Response({'error': 'Invalid verification code.'}, status=status.HTTP_400_BAD_REQUEST)
             
-        # OTP is valid, create the user
+        # OTP is valid, activate the user
         try:
-            payload = cache_data['data']
-            user = create_user(
-                email=payload['email'],
-                full_name=payload['full_name'],
-                password=payload['password'],
-                user_type=payload.get('user_type', 'employee'),
-            )
+            user = UserDocument.objects(email=email.lower().strip()).first()
+            if not user:
+                return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+            
+            if user.is_active:
+                return Response({'message': 'Account already verified.'}, status=status.HTTP_200_OK)
+                
+            user.is_active = True
+            user.updated_at = datetime.utcnow()
+            user.save()
             
             # Clear cache
             cache.delete(cache_key)
             
-            # 2. Send Welcome email
+            # Send Welcome email
             try:
                 html_message = render_to_string('emails/welcome.html', {
                     'full_name': user.full_name,
@@ -136,12 +149,12 @@ class VerifyRegistrationView(APIView):
                 'user': UserSerializer(user).data,
                 'access': str(refresh.access_token),
                 'refresh': str(refresh),
-                'message': 'Account verified and created successfully.'
-            }, status=status.HTTP_201_CREATED)
+                'message': 'Account verified and activated successfully.'
+            }, status=status.HTTP_200_OK)
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception:
-            logger.exception('Unexpected error while creating user during registration verification')
+            logger.exception('Unexpected error during registration verification')
             return Response({'error': 'Something went wrong'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -155,15 +168,16 @@ class ResendOTPView(APIView):
         if not email:
             return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
             
-        cache_key = f"register_data_{email}"
-        cache_data = cache.get(cache_key)
-        
-        if not cache_data:
-            return Response({'error': 'No pending registration found for this email.'}, status=status.HTTP_400_BAD_REQUEST)
+        user = UserDocument.objects(email=email.lower().strip()).first()
+        if not user:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
             
+        if user.is_active:
+            return Response({'message': 'Account is already verified.'}, status=status.HTTP_200_OK)
+
+        cache_key = f"register_otp_{email}"
         otp = str(random.randint(100000, 999999))
-        cache_data['otp'] = otp
-        cache.set(cache_key, cache_data, timeout=settings.OTP_EXPIRY)
+        cache.set(cache_key, otp, timeout=settings.OTP_EXPIRY)
         
         try:
             html_message = render_to_string('emails/otp_email.html', {'otp': otp})
@@ -186,35 +200,35 @@ class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        email = request.data.get('email')
+        email = request.data.get('email', '').lower().strip()
         if not email:
             return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Do not reveal if user exists to prevent account enumeration
-        user = UserDocument.objects(email=email.lower().strip()).first()
+        user = UserDocument.objects(email=email).first()
         if user:
-            otp = str(random.randint(100000, 999999))
-            cache_key = f"forgot_password_{email}"
-            cache.set(cache_key, {'otp': otp}, timeout=settings.OTP_EXPIRY)
+            token = str(uuid.uuid4())
+            cache_key = f"forgot_password_{token}"
+            # Store the email associated with this token
+            cache.set(cache_key, email, timeout=settings.OTP_EXPIRY)
 
             try:
-                html_message = render_to_string('emails/otp_email.html', {'otp': otp})
-                plain_message = f'Your password reset code is: {otp}. It will expire in 15 minutes.'
+                reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}&email={email}"
+                html_message = render_to_string('emails/password_reset_email.html', {'reset_url': reset_url})
+                plain_message = f'Please use the following link to reset your password: {reset_url}. It will expire in 15 minutes.'
+                
                 send_html_email(
-                    subject='TaskForge password reset code',
+                    subject='TaskForge Password Reset',
                     plain_body=plain_message,
                     html_body=html_message,
                     recipient=email,
                 )
             except Exception:
                 logger.exception('Failed to send password reset email')
-                return Response(
-                    {'error': 'Failed to send reset email. Please try again.'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-
+                # We still return 200 to prevent enumeration, but log the error
+        
         return Response(
-            {'message': 'If this email exists, a reset code has been sent.'},
+            {'message': 'If this email exists, a recovery link has been sent.'},
             status=status.HTTP_200_OK,
         )
 
@@ -224,14 +238,14 @@ class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        email = request.data.get('email')
-        otp = str(request.data.get('otp', ''))
+        email = request.data.get('email', '').lower().strip()
+        otp = str(request.data.get('otp', '')) # This is our token from the URL
         password = request.data.get('password')
         password2 = request.data.get('password2')
 
         if not email or not otp or not password or not password2:
             return Response(
-                {'error': 'Email, otp, password and password2 are required.'},
+                {'error': 'All fields are required.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -243,12 +257,13 @@ class ResetPasswordView(APIView):
         except Exception as exc:
             return Response({'error': exc.messages if hasattr(exc, 'messages') else str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        cache_key = f"forgot_password_{email}"
-        cache_data = cache.get(cache_key)
-        if not cache_data or cache_data.get('otp') != otp:
-            return Response({'error': 'Invalid or expired OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+        cache_key = f"forgot_password_{otp}"
+        cached_email = cache.get(cache_key)
+        
+        if not cached_email or cached_email.lower().strip() != email:
+            return Response({'error': 'Invalid or expired reset link.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = UserDocument.objects(email=email.lower().strip()).first()
+        user = UserDocument.objects(email=email).first()
         if not user:
             return Response({'error': 'Invalid request.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -481,55 +496,74 @@ class RecoverAccountView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+@method_decorator(ratelimit(key='ip', rate='5/m', block=True), name='get')
 class RecoverWithTokenView(APIView):
+    """
+    Handles account recovery via a token sent in the deletion initiation email.
+    The token is a UUID string.
+    """
     permission_classes = [AllowAny]
 
     def get(self, request):
         token = request.query_params.get('token')
         if not token:
-            return Response({'error': 'Token is required.'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        user_doc = UserDocument.objects(recovery_token=token).first()
-        if not user_doc:
-            return Response({'error': 'Invalid or expired recovery link.'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        # Check if token is expired
-        if user_doc.recovery_token_expires and datetime.utcnow() > user_doc.recovery_token_expires:
-            return Response({'error': 'Recovery link has expired.'}, status=status.HTTP_410_GONE)
-            
-        # Recover account
-        user_doc.is_deleted = False
-        user_doc.is_active = True
-        user_doc.deleted_at = None
-        user_doc.recovery_token = None # Expire token after use
-        user_doc.recovery_token_expires = None
-        user_doc.reminder_10_day_sent = False
-        user_doc.final_warning_sent = False
-        user_doc.updated_at = datetime.utcnow()
-        user_doc.save()
-        
-        # Send Recovery Confirmation
+            return Response({'error': 'Recovery token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            html_message = render_to_string('emails/account_recovered.html', {
-                'dashboard_url': f"{settings.FRONTEND_URL}/dashboard"
-            })
-            send_html_email(
-                subject='Account Successfully Recovered',
-                plain_body=f"Welcome back! Your TaskForge account has been restored. Access your dashboard at {settings.FRONTEND_URL}/dashboard",
-                html_body=html_message,
-                recipient=user_doc.email,
-            )
+            # Find user with this token
+            user_doc = UserDocument.objects(recovery_token=token).first()
+            
+            if not user_doc:
+                logger.warning(f"Invalid recovery token attempt: {token}")
+                return Response({'error': 'Invalid or expired recovery token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if token is expired
+            if user_doc.recovery_token_expires and user_doc.recovery_token_expires < datetime.utcnow():
+                logger.warning(f"Expired recovery token attempt for user {user_doc.email}")
+                # Clear expired token
+                user_doc.recovery_token = None
+                user_doc.recovery_token_expires = None
+                user_doc.save()
+                return Response({'error': 'Recovery token has expired. Please contact support.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Restore the account
+            user_doc.is_deleted = False
+            user_doc.deletion_scheduled_at = None
+            user_doc.recovery_token = None
+            user_doc.recovery_token_expires = None
+            user_doc.updated_at = datetime.utcnow()
+            user_doc.save()
+
+            logger.info(f"Account successfully recovered via token for user: {user_doc.email}")
+
+            # Send confirmation email asynchronously
+            try:
+                html_body = render_to_string('emails/welcome.html', {
+                    'full_name': user_doc.full_name,
+                    'dashboard_url': f"{settings.FRONTEND_URL}/dashboard"
+                })
+                send_html_email(
+                    subject='Welcome Back to TaskForge!',
+                    plain_body=f"Your account has been successfully recovered. Welcome back!",
+                    html_body=html_body,
+                    recipient=user_doc.email,
+                )
+            except Exception:
+                logger.exception(f"Failed to queue recovery confirmation email for {user_doc.email}")
+
+            # Return tokens so user is immediately logged in
+            refresh = RefreshToken.for_user(to_mongo_user(user_doc))
+            return Response({
+                'message': 'Account recovered successfully! Welcome back.',
+                'user': UserSerializer(user_doc).data,
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+            }, status=status.HTTP_200_OK)
+
         except Exception:
-            logger.exception(f"Failed to send recovery confirmation to {user_doc.email}")
-        
-        # Generate tokens for immediate login
-        refresh = RefreshToken.for_user(to_mongo_user(user_doc))
-        return Response({
-            'message': 'Account recovered successfully via token!',
-            'user': UserSerializer(user_doc).data,
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-        }, status=status.HTTP_200_OK)
+            logger.exception('Critical error during token-based account recovery')
+            return Response({'error': 'A system error occurred during recovery. Please try again later.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 class ChangePasswordView(APIView):

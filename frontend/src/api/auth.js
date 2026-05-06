@@ -13,5 +13,6 @@ export const authAPI = {
   changePassword: (data) => api.post('/auth/me/change-password/', data),
   deleteAccount: () => api.delete('/auth/me/delete/'),
   exportData: () => api.get('/auth/me/export/'),
+  recoverAccountToken: (token) => api.get(`/auth/recover-token/?token=${token}`),
   listUsers: () => api.get('/auth/users/'),
 }

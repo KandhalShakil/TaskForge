@@ -6,6 +6,10 @@ import AppLayout from './components/layout/AppLayout'
 
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
 const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'))
+const VerifyEmailPage = lazy(() => import('./pages/auth/VerifyEmailPage'))
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'))
+const RecoverAccountPage = lazy(() => import('./pages/auth/RecoverAccountPage'))
 const WorkspacePage = lazy(() => import('./pages/workspace/WorkspacePage'))
 const ProjectPage = lazy(() => import('./pages/project/ProjectPage'))
 const AnalyticsDashboard = lazy(() => import('./pages/dashboard/AnalyticsDashboard'))
@@ -45,6 +49,10 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+          <Route path="/verify-email" element={<PublicRoute><VerifyEmailPage /></PublicRoute>} />
+          <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+          <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
+          <Route path="/recover-account" element={<PublicRoute><RecoverAccountPage /></PublicRoute>} />
 
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/workspaces" replace />} />

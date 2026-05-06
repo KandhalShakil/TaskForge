@@ -34,6 +34,7 @@ class TaskDocument(Document):
     categoryId = fields.StringField(null=True, blank=True)
     assigneeId = fields.StringField(null=True, blank=True)
     createdById = fields.StringField()
+    companyId = fields.StringField() # Multi-tenancy
     due_date = fields.DateTimeField()
     start_date = fields.DateTimeField()
     estimated_hours = fields.DecimalField(precision=1)
@@ -45,7 +46,15 @@ class TaskDocument(Document):
     meta = {
         'collection': 'tasks',
         'ordering': ['order', '-created_at'],
-        'indexes': ['workspaceId', 'projectId', 'status', 'assigneeId', 'due_date'],
+        'indexes': [
+            'workspaceId', 
+            'projectId', 
+            'status', 
+            'assigneeId', 
+            'due_date',
+            'companyId',
+            {'fields': ['companyId', 'projectId'], 'name': 'task_project_company_idx'}
+        ],
     }
 
 

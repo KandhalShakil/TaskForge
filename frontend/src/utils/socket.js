@@ -33,6 +33,13 @@ export function getSocket() {
  */
 export function connectSocket() {
   const s = getSocket()
+  
+  // Attach token to auth handshake
+  const token = localStorage.getItem('access_token')
+  if (token) {
+    s.auth = { token }
+  }
+
   if (!s.connected) s.connect()
   return s
 }

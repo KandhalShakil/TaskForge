@@ -12,6 +12,8 @@ const FIELD_LABELS = {
   category_id: 'Category',
   estimated_hours: 'Estimated hours',
   email: 'Email',
+  space: 'Space assignment',
+  folder: 'Folder assignment',
 }
 
 const isEmpty = (value) => value === null || value === undefined || String(value).trim() === ''
@@ -113,7 +115,7 @@ const addCommonDateAndHoursErrors = (data, errors, referenceDate = new Date()) =
 
 export const validateProject = (data, referenceDate = new Date()) => {
   const errors = {}
-  addRequiredErrors(data, ['name', 'description', 'start_date', 'end_date'], errors)
+  addRequiredErrors(data, ['name', 'start_date', 'end_date', 'space', 'folder'], errors)
 
   const { start, end } = addCommonDateAndHoursErrors(
     { ...data, due_date: undefined, estimated_hours: undefined },
@@ -143,11 +145,16 @@ export const validateTask = (data, { project, referenceDate = new Date() } = {})
   const { start, end } = addCommonDateAndHoursErrors(data, errors, referenceDate)
 
   if (project?.start_date && project?.end_date && start && end) {
-    const projectStart = new Date(project.start_date)
-    const projectEnd = new Date(project.end_date)
-    if (start < projectStart || end > projectEnd) {
-      errors.start_date = 'Task date must be within project date range'
-      errors.due_date = 'Task date must be within project date range'
+    const projectStart = toLocalDate(project.start_date)
+    const projectEnd = toLocalDate(project.end_date)
+    
+    if (projectStart && projectEnd) {
+      if (start < projectStart) {
+        errors.start_date = `Start date cannot be before project start (${project.start_date})`
+      }
+      if (end > projectEnd) {
+        errors.due_date = `Due date cannot be after project end (${project.end_date})`
+      }
     }
   }
 

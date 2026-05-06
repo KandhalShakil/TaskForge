@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Calendar, User, GripVertical, Edit2 } from 'lucide-react'
+import { Calendar, User, GripVertical, Edit2, MessageSquare, CheckCircle2 } from 'lucide-react'
 import { formatDueDate, isOverdue } from '../../utils/dateUtils'
 import { TASK_PRIORITIES } from '../../utils/constants'
 import TaskModal from '../tasks/TaskModal'
+import { motion } from 'framer-motion'
 
 export default function KanbanCard({ task, project, workspace, onRefresh, isDragging = false }) {
   const [showEdit, setShowEdit] = useState(false)
@@ -29,76 +30,91 @@ export default function KanbanCard({ task, project, workspace, onRefresh, isDrag
 
   return (
     <>
-      <div
+      <motion.div
+        layout
         ref={setNodeRef}
         style={style}
-        className={`bg-surface-900 border rounded-lg p-3 group cursor-default select-none hover:border-slate-600 transition-all duration-150 ${
-          isDragging ? 'border-primary-500 shadow-lg shadow-primary-900/30' : 'border-slate-800'
+        className={`bg-slate-900/60 border rounded-2xl p-4 group cursor-default select-none hover:bg-slate-900/80 hover:border-white/10 transition-all duration-200 backdrop-blur-sm relative ${
+          isDragging ? 'border-primary-500/50 shadow-2xl shadow-primary-500/20 scale-105 z-50' : 'border-white/5 shadow-lg'
         }`}
       >
-        {/* Drag handle + priority */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5">
+        {/* Top Section: Category & Actions */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
             <div
               {...attributes}
               {...listeners}
-              className="cursor-grab active:cursor-grabbing p-0.5 rounded text-slate-700 hover:text-slate-500 transition-colors"
+              className="cursor-grab active:cursor-grabbing p-1 rounded-lg bg-slate-800/50 text-slate-600 hover:text-slate-400 transition-colors"
             >
               <GripVertical size={12} />
             </div>
-            {priority && task.priority !== 'no_priority' && (
-              <span className="text-sm">{priority.icon}</span>
+            {task.category && (
+              <span
+                className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border"
+                style={{ backgroundColor: task.category.color + '10', borderColor: task.category.color + '30', color: task.category.color }}
+              >
+                {task.category.name}
+              </span>
             )}
           </div>
-          <button
-            onClick={() => setShowEdit(true)}
-            className="p-1 rounded text-slate-600 hover:text-slate-300 hover:bg-surface-700 opacity-0 group-hover:opacity-100 transition-all"
-          >
-            <Edit2 size={11} />
-          </button>
+          
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+            <button
+              onClick={() => setShowEdit(true)}
+              className="p-1.5 rounded-lg bg-slate-800/50 text-slate-500 hover:text-white transition-all"
+            >
+              <Edit2 size={12} />
+            </button>
+          </div>
         </div>
 
-        {/* Task title */}
-        <p
-          className={`text-sm font-medium leading-snug mb-2 cursor-pointer hover:text-primary-300 transition-colors ${
-            task.status === 'done' ? 'line-through text-slate-500' : 'text-slate-100'
+        {/* Task Title */}
+        <h4
+          className={`text-sm font-bold leading-relaxed mb-4 cursor-pointer hover:text-primary-400 transition-colors line-clamp-2 ${
+            task.status === 'done' ? 'text-slate-600 line-through' : 'text-slate-200'
           }`}
           onClick={() => setShowEdit(true)}
         >
           {task.title}
-        </p>
+        </h4>
 
-        {/* Category tag */}
-        {task.category && (
-          <span
-            className="badge text-xs px-1.5 py-0.5 mb-2 block w-fit"
-            style={{ background: task.category.color + '30', color: task.category.color }}
-          >
-            {task.category.name}
-          </span>
-        )}
+        {/* Middle Section: Indicators */}
+        <div className="flex items-center gap-3 mb-5">
+          {priority && task.priority !== 'no_priority' && (
+            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${priority.color}`}>
+              {priority.icon} {priority.label}
+            </div>
+          )}
+          {task.status === 'done' && (
+            <div className="flex items-center gap-1 text-[10px] font-bold text-green-500 uppercase tracking-widest">
+              <CheckCircle2 size={12} /> Completed
+            </div>
+          )}
+        </div>
 
-        {/* Footer: assignee + due date */}
-        <div className="flex items-center justify-between mt-2">
+        {/* Footer: User & Date */}
+        <div className="flex items-center justify-between pt-4 border-t border-white/5">
           {task.assignee ? (
-            <div className="flex items-center gap-1.5">
-              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center text-[9px] font-black text-white shadow-inner">
                 {task.assignee.initials}
               </div>
-              <span className="text-xs text-slate-500 truncate max-w-[80px]">{task.assignee.full_name}</span>
+              <span className="text-[10px] font-bold text-slate-500 truncate max-w-[60px] uppercase tracking-wider">{task.assignee.full_name.split(' ')[0]}</span>
             </div>
           ) : (
-            <span className="text-xs text-slate-700 flex items-center gap-1"><User size={10} /> None</span>
+            <div className="w-6 h-6 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center text-slate-700">
+              <User size={12} />
+            </div>
           )}
 
           {task.due_date && (
-            <span className={`text-xs flex items-center gap-1 ${overdue ? 'text-red-400' : 'text-slate-500'}`}>
-              <Calendar size={10} />
+            <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider ${overdue ? 'text-red-400' : 'text-slate-500'}`}>
+              <Calendar size={12} />
               {formatDueDate(task.due_date)}
-            </span>
+            </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {showEdit && (
         <TaskModal

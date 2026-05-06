@@ -61,7 +61,13 @@ class ProjectDocument(Document):
     meta = {
         'collection': 'projects',
         'ordering': ['-created_at'],
-        'indexes': ['workspaceId', 'status', 'name', 'companyId'],
+        'indexes': [
+            'workspaceId', 
+            'status', 
+            'name', 
+            'companyId',
+            {'fields': ['companyId', 'workspaceId'], 'name': 'project_company_ws_idx'}
+        ],
     }
 
 class ProjectMemberDocument(Document):

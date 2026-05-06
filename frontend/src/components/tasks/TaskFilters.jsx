@@ -1,114 +1,109 @@
-import { Search, X, ChevronDown, Filter } from 'lucide-react'
+import { Search, X, Filter, User, Tag, Calendar, ChevronUp } from 'lucide-react'
 import { useTaskStore } from '../../store/taskStore'
 import { TASK_STATUSES, TASK_PRIORITIES } from '../../utils/constants'
+import FilterDropdown from './FilterDropdown'
+import AdvancedDatePicker from '../common/AdvancedDatePicker'
 
-export default function TaskFilters({ members = [], categories = [] }) {
+export default function TaskFilters({ members = [], categories = [], onClose }) {
   const { filters, setFilters, clearFilters } = useTaskStore()
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== '')
 
   return (
-    <div className="flex flex-col lg:flex-row lg:flex-nowrap items-center gap-2 lg:gap-2.5 w-full overflow-hidden">
-      {/* Search */}
-      <div className="relative w-full lg:flex-[2] lg:min-w-[120px] shrink">
-        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+    <div className="flex flex-col lg:flex-row items-center gap-3 w-full">
+      {/* ... existing search and dropdowns ... */}
+      
+      {/* Search (repeated for context in replacement) */}
+      <div className="relative w-full lg:flex-[2]">
+        <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" strokeWidth={2.5} />
         <input
           type="text"
-          className="input pl-8 py-1.5 w-full text-xs"
-          placeholder="Search tasks..."
+          className="w-full rounded-xl h-10 pl-11 pr-4 text-[13px] font-bold bg-[#12141a]/60 border border-white/5 text-slate-200 placeholder:text-slate-600 focus:border-primary-500/50 outline-none transition-all"
+          placeholder="Search protocol..."
           value={filters.search}
           onChange={(e) => setFilters({ search: e.target.value })}
         />
       </div>
 
-      {/* Status filter */}
-      <div className="relative w-full lg:flex-1 lg:min-w-[100px] lg:max-w-[160px] shrink">
-        <select
-          className="select py-1.5 text-xs pr-7 appearance-none cursor-pointer w-full"
+      <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+        <FilterDropdown
+          placeholder="Status"
+          options={TASK_STATUSES}
           value={filters.status}
-          onChange={(e) => setFilters({ status: e.target.value })}
-        >
-          <option value="">Status</option>
-          {TASK_STATUSES.map((s) => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
-      </div>
+          onChange={(val) => setFilters({ status: val })}
+          icon={Filter}
+        />
 
-      {/* Priority filter */}
-      <div className="relative w-full lg:flex-1 lg:min-w-[100px] lg:max-w-[160px] shrink">
-        <select
-          className="select py-1.5 text-xs pr-7 appearance-none cursor-pointer w-full"
+        <FilterDropdown
+          placeholder="Priority"
+          options={TASK_PRIORITIES}
           value={filters.priority}
-          onChange={(e) => setFilters({ priority: e.target.value })}
-        >
-          <option value="">Priority</option>
-          {TASK_PRIORITIES.map((p) => (
-            <option key={p.value} value={p.value}>{p.icon} {p.label}</option>
-          ))}
-        </select>
-      </div>
+          onChange={(val) => setFilters({ priority: val })}
+          icon={Filter}
+        />
 
-      {/* Assignee filter */}
-      {members.length > 0 && (
-        <div className="relative w-full lg:flex-1 lg:min-w-[100px] lg:max-w-[160px] shrink">
-          <select
-            className="select py-1.5 text-xs pr-7 appearance-none cursor-pointer w-full"
+        {members.length > 0 && (
+          <FilterDropdown
+            placeholder="Assignee"
+            options={members.map(m => ({ id: m.user.id, name: m.user.full_name }))}
             value={filters.assignee}
-            onChange={(e) => setFilters({ assignee: e.target.value })}
-          >
-            <option value="">Assignees</option>
-            {members.map((m) => (
-              <option key={m.user.id} value={m.user.id}>{m.user.full_name}</option>
-            ))}
-          </select>
-        </div>
-      )}
+            onChange={(val) => setFilters({ assignee: val })}
+            icon={User}
+          />
+        )}
 
-      {/* Category filter */}
-      {categories.length > 0 && (
-        <div className="relative w-full lg:flex-1 lg:min-w-[100px] lg:max-w-[160px] shrink">
-          <select
-            className="select py-1.5 text-xs pr-7 appearance-none cursor-pointer w-full"
+        {categories.length > 0 && (
+          <FilterDropdown
+            placeholder="Category"
+            options={categories}
             value={filters.category}
-            onChange={(e) => setFilters({ category: e.target.value })}
-          >
-            <option value="">Categories</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Due date range */}
-      <div className="flex flex-row items-center gap-1 w-full lg:flex-[1.5] lg:min-w-[200px] lg:max-w-[240px] shrink">
-        <input
-          type="date"
-          className="input py-1.5 px-2 text-xs w-full flex-1"
-          placeholder="From"
-          value={filters.due_date_from}
-          onChange={(e) => setFilters({ due_date_from: e.target.value })}
-        />
-        <span className="text-slate-600 text-xs">-</span>
-        <input
-          type="date"
-          className="input py-1.5 px-2 text-xs w-full flex-1"
-          placeholder="To"
-          value={filters.due_date_to}
-          onChange={(e) => setFilters({ due_date_to: e.target.value })}
-        />
+            onChange={(val) => setFilters({ category: val })}
+            icon={Tag}
+          />
+        )}
       </div>
 
-      {/* Clear filters */}
-      {hasActiveFilters && (
-        <button
-          onClick={clearFilters}
-          className="flex lg:inline-flex justify-center items-center gap-1 text-xs text-slate-400 hover:text-red-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-950/20 w-full lg:w-auto shrink-0 border border-transparent"
-        >
-          <X size={12} /> Clear
-        </button>
-      )}
+      <div className="flex items-center gap-2 w-full lg:w-auto">
+        <div className="w-[130px]">
+          <AdvancedDatePicker
+            value={filters.due_date_from}
+            onChange={(val) => setFilters({ due_date_from: val })}
+            compact={true}
+            placeholder="From Date"
+          />
+        </div>
+        <span className="text-slate-700 text-[10px] font-black uppercase shrink-0">to</span>
+        <div className="w-[130px]">
+          <AdvancedDatePicker
+            value={filters.due_date_to}
+            onChange={(val) => setFilters({ due_date_to: val })}
+            compact={true}
+            placeholder="To Date"
+            align="right"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 ml-auto">
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-rose-400 transition-colors px-3 h-10 rounded-xl hover:bg-rose-500/5"
+          >
+            <X size={12} /> Clear
+          </button>
+        )}
+        
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="p-2.5 rounded-xl bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-white/5"
+            title="Hide Filters"
+          >
+            <ChevronUp size={16} />
+          </button>
+        )}
+      </div>
     </div>
   )
 }

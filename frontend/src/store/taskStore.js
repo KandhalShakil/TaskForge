@@ -4,7 +4,9 @@ import { connectSocket } from '../utils/socket'
 
 export const useTaskStore = create((set, get) => ({
   tasks: [],
+  taskMap: {}, // O(1) lookup
   categories: [],
+  categoryMap: {}, // O(1) lookup
   stats: null,
   statsLoading: false,
   statsError: null,
@@ -51,9 +53,10 @@ export const useTaskStore = create((set, get) => ({
         ...(filters.due_date_to && { due_date_to: filters.due_date_to }),
       }
       const { data } = await tasksAPI.list(queryParams)
-      const tasks = data.results || data
-      set({ tasks, loading: false })
-      return tasks
+      const tasksList = data.results || data
+      const tMap = tasksList.reduce((acc, t) => ({ ...acc, [t.id]: t }), {})
+      set({ tasks: tasksList, taskMap: tMap, loading: false })
+      return tasksList
     } catch (err) {
       set({ loading: false })
       return []
@@ -64,9 +67,12 @@ export const useTaskStore = create((set, get) => ({
     set({ isSubmitting: true })
     try {
       const { data } = await tasksAPI.create(taskData)
-      set((state) => ({ tasks: [data, ...state.tasks], isSubmitting: false }))
+      set((state) => ({ 
+        tasks: [data, ...state.tasks], 
+        taskMap: { ...state.taskMap, [data.id]: data },
+        isSubmitting: false 
+      }))
       
-      // Emit real-time update
       const socket = connectSocket()
       socket.emit('task_updated', {
         projectId: data.projectId,
@@ -87,10 +93,10 @@ export const useTaskStore = create((set, get) => ({
       const { data } = await tasksAPI.update(id, taskData)
       set((state) => ({
         tasks: state.tasks.map((t) => (t.id === id ? data : t)),
+        taskMap: { ...state.taskMap, [id]: data },
         isSubmitting: false,
       }))
 
-      // Emit real-time update
       const socket = connectSocket()
       socket.emit('task_updated', {
         projectId: data.projectId,
@@ -108,14 +114,18 @@ export const useTaskStore = create((set, get) => ({
   deleteTask: async (id) => {
     set({ isSubmitting: true })
     try {
-      const taskToDelete = get().tasks.find(t => t.id === id)
+      const taskToDelete = get().taskMap[id] || get().tasks.find(t => t.id === id)
       await tasksAPI.delete(id)
-      set((state) => ({ 
-        tasks: state.tasks.filter((t) => t.id !== id),
-        isSubmitting: false
-      }))
+      set((state) => {
+        const nextMap = { ...state.taskMap }
+        delete nextMap[id]
+        return { 
+          tasks: state.tasks.filter((t) => t.id !== id),
+          taskMap: nextMap,
+          isSubmitting: false
+        }
+      })
 
-      // Emit real-time update
       if (taskToDelete) {
         const socket = connectSocket()
         socket.emit('task_updated', {
@@ -133,14 +143,14 @@ export const useTaskStore = create((set, get) => ({
   bulkUpdateTasks: async (updates) => {
     const { data } = await tasksAPI.bulkUpdate(updates)
     set((state) => {
-      const updatedMap = {}
-      data.forEach((t) => { updatedMap[t.id] = t })
+      const nextMap = { ...state.taskMap }
+      data.forEach((t) => { nextMap[t.id] = t })
       return {
-        tasks: state.tasks.map((t) => updatedMap[t.id] || t),
+        tasks: state.tasks.map((t) => nextMap[t.id] || t),
+        taskMap: nextMap
       }
     })
 
-    // Emit real-time update
     if (data.length > 0) {
       const socket = connectSocket()
       socket.emit('task_updated', {
@@ -152,7 +162,6 @@ export const useTaskStore = create((set, get) => ({
   },
 
   fetchStats: async (params) => {
-    // Client-side cache: 1 minute TTL
     const cacheKey = JSON.stringify(params)
     const now = Date.now()
     if (get()._statsCache?.[cacheKey] && now - get()._statsCache[cacheKey].timestamp < 60000) {
@@ -174,8 +183,7 @@ export const useTaskStore = create((set, get) => ({
       }))
       return data
     } catch (err) {
-      const message =
-        err?.response?.data?.error || err?.message || 'Failed to load analytics data.'
+      const message = err?.response?.data?.error || err?.message || 'Failed to load analytics data.'
       set({ statsError: message, statsLoading: false })
       throw err
     }
@@ -184,7 +192,8 @@ export const useTaskStore = create((set, get) => ({
   fetchCategories: async (workspaceId) => {
     const { data } = await categoriesAPI.list({ workspace: workspaceId })
     const categoriesList = data.results || data
-    set({ categories: categoriesList })
+    const cMap = categoriesList.reduce((acc, c) => ({ ...acc, [c.id]: c }), {})
+    set({ categories: categoriesList, categoryMap: cMap })
     return categoriesList
   },
 
@@ -192,7 +201,11 @@ export const useTaskStore = create((set, get) => ({
     set({ isSubmitting: true })
     try {
       const { data } = await categoriesAPI.create(categoryData)
-      set((state) => ({ categories: [...state.categories, data], isSubmitting: false }))
+      set((state) => ({ 
+        categories: [...state.categories, data], 
+        categoryMap: { ...state.categoryMap, [data.id]: data },
+        isSubmitting: false 
+      }))
       return data
     } catch (err) {
       set({ isSubmitting: false })
@@ -200,14 +213,19 @@ export const useTaskStore = create((set, get) => ({
     }
   },
 
+  clearStatsCache: () => set({ _statsCache: {} }),
+
   clear: () => set({
     tasks: [],
+    taskMap: {},
     categories: [],
+    categoryMap: {},
     stats: null,
     statsLoading: false,
     statsError: null,
     loading: false,
     isSubmitting: false,
+    _statsCache: {},
     filters: {
       status: '',
       priority: '',

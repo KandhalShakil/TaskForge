@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, memo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -11,6 +12,7 @@ import {
 import { useTaskStore } from '../../store/taskStore'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import { TASK_STATUSES, TASK_PRIORITIES } from '../../utils/constants'
+import { connectSocket } from '../../utils/socket'
 
 // ─── Color maps ───────────────────────────────────────────────────────────────
 const STATUS_COLORS = {
@@ -92,7 +94,7 @@ export default function AnalyticsDashboard() {
   const { workspaceId } = useParams()
   const navigate = useNavigate()
   const { activeWorkspace } = useWorkspaceStore()
-  const { stats, statsLoading, statsError, fetchStats } = useTaskStore()
+  const { stats, statsLoading, statsError, fetchStats, clearStatsCache } = useTaskStore()
 
   const [lastUpdated, setLastUpdated] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -116,6 +118,36 @@ export default function AnalyticsDashboard() {
   useEffect(() => {
     load()
   }, [load])
+
+  // ── Real-time Synchronization ──
+  useEffect(() => {
+    if (!workspaceId) return
+    
+    const socket = connectSocket()
+    const workspaceRoom = `workspace_${workspaceId}`
+    
+    // Join room for this workspace
+    socket.emit('join', { chatId: workspaceRoom })
+    
+    // Listen for task updates
+    socket.on('task_updated', (payload) => {
+      console.log('[Socket] Task updated, refreshing analytics...', payload)
+      clearStatsCache() // Force fresh fetch
+      load()
+    })
+    
+    // Listen for member updates
+    socket.on('member_accepted', () => {
+      clearStatsCache()
+      load()
+    })
+
+    return () => {
+      socket.off('task_updated')
+      socket.off('member_accepted')
+      socket.emit('leave', { chatId: workspaceRoom })
+    }
+  }, [workspaceId, load, clearStatsCache])
 
   const handleRefresh = () => load(true)
 
@@ -223,7 +255,11 @@ export default function AnalyticsDashboard() {
   const isEmpty = total === 0
 
   return (
-    <div className="app-container py-4 md:py-6 space-y-4 md:space-y-6 pb-12">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="app-container py-4 md:py-6 space-y-4 md:space-y-6 pb-12"
+    >
 
       {/* ── Header ── */}
       <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
@@ -298,9 +334,20 @@ export default function AnalyticsDashboard() {
       ) : (
         <>
           {/* ── Stat cards — 2-col on mobile, 4-col on desktop ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-            {statCards.map((card) => (
-              <div key={card.label} className="card p-4 md:p-5 flex items-center gap-3 md:gap-4 card-hover group">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, staggerChildren: 0.1 }}
+            className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4"
+          >
+            {statCards.map((card, i) => (
+              <motion.div 
+                key={card.label} 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.05 }}
+                className="card p-4 md:p-5 flex items-center gap-3 md:gap-4 card-hover group"
+              >
                 <div
                   className={`w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br ${card.bg} border ${card.ring} flex items-center justify-center ${card.color} flex-shrink-0 transition-transform duration-200 group-hover:scale-110`}
                 >
@@ -310,9 +357,9 @@ export default function AnalyticsDashboard() {
                   <p className="text-xl md:text-2xl font-black tabular-nums leading-none" style={{ color: 'var(--text-main)' }}>{card.value}</p>
                   <p className="text-[10px] md:text-xs mt-1 font-medium leading-tight" style={{ color: 'var(--text-muted)' }}>{card.label}</p>
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
 
           {/* ── Charts row — stacked on mobile, side-by-side on md+ ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
@@ -488,6 +535,6 @@ export default function AnalyticsDashboard() {
           </div>
         </>
       )}
-    </div>
+    </motion.div>
   )
 }

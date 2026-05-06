@@ -13,7 +13,7 @@ from apps.core.validation import (
 )
 from apps.projects.documents import ProjectDocument
 from apps.users.documents import UserDocument
-from apps.users.serializers import UserSerializer
+from apps.users.serializers import UserSerializer, get_cached_user_summary
 
 from .documents import CategoryDocument, CommentDocument, SubTaskDocument, TaskDocument
 
@@ -59,8 +59,7 @@ class CommentSerializer(serializers.Serializer):
     updated_at = serializers.DateTimeField(read_only=True)
 
     def get_author(self, obj):
-        user = UserDocument.objects(id=str(getattr(obj, 'authorId', ''))).first()
-        return UserSerializer(user).data if user else None
+        return get_cached_user_summary(getattr(obj, 'authorId', None))
 
 
 class SubTaskSummarySerializer(serializers.Serializer):
@@ -82,18 +81,20 @@ class SubTaskSummarySerializer(serializers.Serializer):
     updated_at = serializers.DateTimeField(read_only=True)
 
     def get_category(self, obj):
-        category_id = getattr(obj, 'categoryId', None)
+        category_id = str(getattr(obj, 'categoryId', ''))
         if not category_id:
             return None
-        category = CategoryDocument.objects(id=str(category_id)).first()
+        
+        # Check bulk context first
+        bulk = self.context.get('bulk_categories')
+        if bulk and category_id in bulk:
+            return CategorySerializer(bulk[category_id]).data
+            
+        category = CategoryDocument.objects(id=category_id).first()
         return CategorySerializer(category).data if category else None
 
     def get_assignee(self, obj):
-        assignee_id = getattr(obj, 'assigneeId', None)
-        if not assignee_id:
-            return None
-        user = UserDocument.objects(id=str(assignee_id)).first()
-        return UserSerializer(user).data if user else None
+        return get_cached_user_summary(getattr(obj, 'assigneeId', None))
 
 
 class SubTaskSerializer(serializers.Serializer):
@@ -119,18 +120,20 @@ class SubTaskSerializer(serializers.Serializer):
     updated_at = serializers.DateTimeField(read_only=True)
 
     def get_category(self, obj):
-        category_id = getattr(obj, 'categoryId', None)
+        category_id = str(getattr(obj, 'categoryId', ''))
         if not category_id:
             return None
-        category = CategoryDocument.objects(id=str(category_id)).first()
+        
+        # Check bulk context first
+        bulk = self.context.get('bulk_categories')
+        if bulk and category_id in bulk:
+            return CategorySerializer(bulk[category_id]).data
+            
+        category = CategoryDocument.objects(id=category_id).first()
         return CategorySerializer(category).data if category else None
 
     def get_assignee(self, obj):
-        assignee_id = getattr(obj, 'assigneeId', None)
-        if not assignee_id:
-            return None
-        user = UserDocument.objects(id=str(assignee_id)).first()
-        return UserSerializer(user).data if user else None
+        return get_cached_user_summary(getattr(obj, 'assigneeId', None))
 
     def get_children(self, obj):
         children = SubTaskDocument.objects(parentId=str(obj.id)).order_by('order', 'created_at')
@@ -245,25 +248,23 @@ class TaskSerializer(serializers.Serializer):
     updated_at = serializers.DateTimeField(read_only=True)
 
     def get_category(self, obj):
-        category_id = getattr(obj, 'categoryId', None)
+        category_id = str(getattr(obj, 'categoryId', ''))
         if not category_id:
             return None
-        category = CategoryDocument.objects(id=str(category_id)).first()
+        
+        # Check bulk context first
+        bulk = self.context.get('bulk_categories')
+        if bulk and category_id in bulk:
+            return CategorySerializer(bulk[category_id]).data
+            
+        category = CategoryDocument.objects(id=category_id).first()
         return CategorySerializer(category).data if category else None
 
     def get_assignee(self, obj):
-        assignee_id = getattr(obj, 'assigneeId', None)
-        if not assignee_id:
-            return None
-        user = UserDocument.objects(id=str(assignee_id)).first()
-        return UserSerializer(user).data if user else None
+        return get_cached_user_summary(getattr(obj, 'assigneeId', None))
 
     def get_created_by(self, obj):
-        created_by_id = getattr(obj, 'createdById', None)
-        if not created_by_id:
-            return None
-        user = UserDocument.objects(id=str(created_by_id)).first()
-        return UserSerializer(user).data if user else None
+        return get_cached_user_summary(getattr(obj, 'createdById', None))
 
     def get_is_overdue(self, obj):
         from django.utils import timezone
@@ -275,10 +276,19 @@ class TaskSerializer(serializers.Serializer):
         return False
 
     def get_comment_count(self, obj):
-        return CommentDocument.objects(taskId=str(obj.id)).count()
+        t_id = str(obj.id)
+        bulk = self.context.get('bulk_comment_counts')
+        if bulk and t_id in bulk:
+            return bulk[t_id]
+        return CommentDocument.objects(taskId=t_id).count()
 
     def get_subtasks(self, obj):
-        roots = SubTaskDocument.objects(taskId=str(obj.id), parentId__in=[None, '']).order_by('order', 'created_at')
+        t_id = str(obj.id)
+        bulk = self.context.get('bulk_subtasks')
+        if bulk and t_id in bulk:
+            return SubTaskSummarySerializer(bulk[t_id], many=True, context=self.context).data
+            
+        roots = SubTaskDocument.objects(taskId=t_id, parentId__in=[None, '']).order_by('order', 'created_at')
         return SubTaskSummarySerializer(roots, many=True, context=self.context).data
 
     def validate(self, attrs):

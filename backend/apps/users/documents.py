@@ -43,5 +43,7 @@ class UserDocument(Document):
             'is_deleted',
             'deleted_at',
             'recovery_token',
+            'is_active',
+            {'fields': ['companyId', 'user_type'], 'name': 'company_role_idx'},
         ],
     }

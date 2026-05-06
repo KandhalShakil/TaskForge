@@ -19,6 +19,10 @@ def send_email(subject, to_email, html_content):
         logger.error("Brevo API: Configuration missing (BREVO_API_KEY). Check settings.")
         return False
 
+    # Masked logging for debugging (Visible in console)
+    masked_key = f"{api_key[:10]}...{api_key[-4:]}" if len(api_key) > 15 else "***"
+    logger.info(f"Brevo API: Using key {masked_key}")
+
     payload = {
         "sender": {
             "name": settings.DEFAULT_FROM_NAME,
@@ -41,14 +45,21 @@ def send_email(subject, to_email, html_content):
     
     try:
         logger.info(f"Brevo API: Attempting to send '{subject}' to {to_email}...")
+        print(f"\n>>> [EMAIL DEBUG] Target: {to_email} | Subject: {subject}")
+        print(f">>> [EMAIL DEBUG] Using Key: {masked_key}")
         
         response = requests.post(url, json=payload, headers=headers, timeout=20)
+        
+        print(f">>> [EMAIL DEBUG] Brevo Response Status: {response.status_code}")
         
         if response.status_code in [200, 201, 202]:
             logger.info(f"Brevo API: Successfully sent email to {to_email}. Message ID: {response.json().get('messageId')}")
             return True
         else:
-            logger.error(f"Brevo API Error: Received status {response.status_code}. Response: {response.text}")
+            print(f">>> [EMAIL DEBUG] Error Response: {response.text}")
+            logger.error(f"Brevo API Error {response.status_code}: {response.text}")
+            if response.status_code == 401:
+                print("!!! HINT: 401 'Key not found' usually means you used an SMTP Password instead of a V3 API Key.")
             return False
             
     except requests.exceptions.RequestException as e:

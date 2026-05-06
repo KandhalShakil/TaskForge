@@ -6,6 +6,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore'
 import { authAPI } from '../../api/auth'
 import { useAuthStore } from '../../store/authStore'
 import ConfirmModal from '../../components/common/ConfirmModal'
+import SegmentedControl from '../../components/common/SegmentedControl'
 import { getApiErrorMessage } from '../../utils/apiError'
 import { connectSocket } from '../../utils/socket'
 
@@ -15,13 +16,18 @@ const ROLE_ICONS = {
   viewer: <Eye size={12} className="text-slate-400" />,
 }
 
+const ROLE_OPTIONS = [
+  { value: 'admin', label: 'Admin', icon: <Crown size={10} /> },
+  { value: 'member', label: 'Member', icon: <Shield size={10} /> },
+  { value: 'viewer', label: 'Viewer', icon: <Eye size={10} /> },
+]
+
 export default function WorkspaceMembersPage() {
   const { workspaceId } = useParams()
   const { user } = useAuthStore()
   const { activeWorkspace, members, fetchMembers, addMember, removeMember, updateMemberRole } = useWorkspaceStore()
   const [allUsers, setAllUsers] = useState([])
   const [search, setSearch] = useState('')
-  const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('member')
   const [loading, setLoading] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState(null)
@@ -38,7 +44,6 @@ export default function WorkspaceMembersPage() {
         toast.error(getApiErrorMessage(err, 'Failed to load users'))
       })
 
-    // ── Real-time Member Updates ──────────────────────────────────────
     const socket = connectSocket()
     const workspaceRoom = `workspace_${workspaceId}`
     
@@ -48,10 +53,16 @@ export default function WorkspaceMembersPage() {
       fetchMembers(workspaceId)
     }
 
+    const onRoleUpdated = (payload) => {
+      fetchMembers(workspaceId)
+    }
+
     socket.on('member_accepted', onMemberAccepted)
+    socket.on('role_updated', onRoleUpdated)
 
     return () => {
       socket.off('member_accepted', onMemberAccepted)
+      socket.off('role_updated', onRoleUpdated)
       socket.emit('leave', { chatId: workspaceRoom })
     }
   }, [workspaceId, user?.id, fetchMembers])
@@ -70,7 +81,6 @@ export default function WorkspaceMembersPage() {
     try {
       await addMember(workspaceId, { user_id: userId, role: inviteRole })
       
-      // Emit socket event for real-time notification
       const socket = connectSocket()
       socket.emit('send_invitation', {
         receiverId: userId,
@@ -104,6 +114,14 @@ export default function WorkspaceMembersPage() {
   const handleRoleChange = async (memberId, newRole) => {
     try {
       await updateMemberRole(workspaceId, memberId, newRole)
+      
+      const socket = connectSocket()
+      socket.emit('role_updated', {
+        workspaceId,
+        userId: memberId,
+        role: newRole
+      })
+      
       toast.success('Member role updated')
     } catch (err) {
       toast.error('Failed to update role')
@@ -114,60 +132,60 @@ export default function WorkspaceMembersPage() {
   const isAdmin = currentUserMember?.role === 'admin'
 
   return (
-    <div className="app-container py-4 md:py-6 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-bold tracking-tight" style={{ color: 'var(--text-main)' }}>Workspace Members</h1>
-        <p className="text-xs md:text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          {activeWorkspace?.name} · {members.length} members
+    <div className="app-container py-6 max-w-4xl">
+      <div className="mb-8">
+        <h1 className="text-3xl font-black uppercase tracking-tighter text-white">Security Protocol</h1>
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
+          {activeWorkspace?.name} • {members.length} Authorized Entities
         </p>
       </div>
 
       {isAdmin && (
-        <div className="card p-5 mb-6">
-          <h2 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-main)' }}>
-            <UserPlus size={16} className="text-primary-400" /> Add Members
+        <div className="bg-[#12141a]/40 border border-white/5 rounded-[2rem] p-8 mb-8 backdrop-blur-xl">
+          <h2 className="text-[11px] font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+            <UserPlus size={16} className="text-primary-400" /> Personnel Induction
           </h2>
-          <div className="flex flex-col sm:flex-row gap-3 mb-3">
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="text"
-                className="input pl-9"
-                placeholder="Search users..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-end">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block opacity-70">Identify Personnel</label>
+              <div className="relative">
+                <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  type="text"
+                  className="w-full rounded-xl h-12 pl-12 pr-4 text-[13px] font-bold bg-[#12141a]/60 border border-white/5 text-slate-200 focus:border-primary-500/50 outline-none transition-all"
+                  placeholder="Email or Full Name..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
             </div>
-            <select
+            <SegmentedControl
+              label="Assigned Clearance"
+              options={ROLE_OPTIONS}
               value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value)}
-              className="select w-full sm:w-32"
-            >
-              <option value="admin">Admin</option>
-              <option value="member">Member</option>
-              <option value="viewer">Viewer</option>
-            </select>
+              onChange={setInviteRole}
+            />
           </div>
 
           {search && (
-            <div className="border border-slate-700 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+            <div className="mt-4 bg-[#12141a]/60 border border-white/5 rounded-2xl overflow-hidden max-h-64 overflow-y-auto">
               {availableUsers.length === 0 ? (
-                <div className="p-4 text-center text-slate-500 text-sm">No users found</div>
+                <div className="p-8 text-center text-[11px] font-black text-slate-600 uppercase tracking-widest">No matching personnel found</div>
               ) : (
                 availableUsers.map((u) => (
                   <div
                     key={u.id}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-surface-800 cursor-pointer border-b border-slate-800 last:border-0"
+                    className="flex items-center gap-4 px-6 py-4 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-0 transition-colors group"
                     onClick={() => handleAddMember(u.id)}
                   >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500/20 to-purple-500/20 border border-white/5 flex items-center justify-center text-white text-[11px] font-black flex-shrink-0 group-hover:scale-110 transition-transform">
                       {u.initials}
                     </div>
                     <div>
-                      <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>{u.full_name}</p>
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{u.email}</p>
+                      <p className="text-[13px] font-black text-white uppercase tracking-tight">{u.full_name}</p>
+                      <p className="text-[10px] font-bold text-slate-500">{u.email}</p>
                     </div>
-                    <button className="ml-auto btn-primary py-1 px-3 text-xs">Add</button>
+                    <button className="ml-auto text-[10px] font-black text-primary-400 uppercase tracking-widest px-4 py-2 rounded-lg bg-primary-500/10 border border-primary-500/20 hover:bg-primary-500/20 transition-all">Induct</button>
                   </div>
                 ))
               )}
@@ -176,76 +194,75 @@ export default function WorkspaceMembersPage() {
         </div>
       )}
 
-      {/* Member list */}
-      <div className="card overflow-hidden">
-        <div className="p-4 border-b" style={{ borderColor: 'var(--border-main)' }}>
-          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>Current Members ({members.length})</h2>
+      <div className="bg-[#12141a]/40 border border-white/5 rounded-[2rem] overflow-hidden backdrop-blur-xl">
+        <div className="px-8 py-6 border-b border-white/5">
+          <h2 className="text-[11px] font-black text-white uppercase tracking-widest">Active Clearance List ({members.length})</h2>
         </div>
-        <div className="divide-y divide-slate-800">
+        <div className="divide-y divide-white/5">
           {members.map((member) => (
-            <div key={member.id} className="flex flex-col sm:flex-row sm:items-center gap-4 px-4 md:px-5 py-4">
+            <div key={member.id} className="flex flex-col sm:flex-row sm:items-center gap-6 px-8 py-6 group hover:bg-white/[0.02] transition-colors">
               <div className="flex items-center gap-4 flex-1">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-500/20 to-purple-500/20 border border-white/5 flex items-center justify-center text-white text-xs font-black flex-shrink-0">
                   {member.user.initials}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium truncate max-w-[120px] md:max-w-none" style={{ color: 'var(--text-main)' }}>{member.user.full_name}</p>
+                    <p className="text-[14px] font-black text-white uppercase tracking-tight">{member.user.full_name}</p>
                     {member.user.id === user?.id && (
-                      <span className="badge bg-surface-800 text-slate-400 text-[10px] uppercase">You</span>
+                      <span className="text-[9px] font-black bg-white/5 text-slate-500 px-2 py-0.5 rounded-md uppercase tracking-widest">Primary</span>
                     )}
                     {member.status === 'pending' && (
-                      <span className="badge bg-amber-900/30 text-amber-500 border border-amber-800/50 text-[10px] uppercase font-bold tracking-tight px-1.5 py-0.5">Pending</span>
+                      <span className="text-[9px] font-black bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-md uppercase tracking-widest animate-pulse">Awaiting Approval</span>
                     )}
                   </div>
-                  <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{member.user.email}</p>
+                  <p className="text-[10px] font-bold text-slate-500 mt-0.5">{member.user.email}</p>
                 </div>
               </div>
               
-              <div className="flex items-center justify-between sm:justify-end gap-2 pl-12 sm:pl-0">
+              <div className="flex items-center justify-between sm:justify-end gap-6">
                 {isAdmin && member.user.id !== user?.id ? (
-                  <select
-                    value={member.role}
-                    onChange={(e) => handleRoleChange(member.user.id, e.target.value)}
-                    className="select py-1 h-8 text-xs w-28 bg-surface-800 border-slate-700"
-                  >
-                    <option value="admin">Admin</option>
-                    <option value="member">Member</option>
-                    <option value="viewer">Viewer</option>
-                  </select>
+                  <div className="w-64">
+                    <SegmentedControl
+                      options={ROLE_OPTIONS}
+                      value={member.role}
+                      onChange={(newRole) => handleRoleChange(member.user.id, newRole)}
+                    />
+                  </div>
                 ) : (
-                  <span className={`badge flex items-center gap-1.5 px-2.5 py-1 text-[11px] ${
-                    member.role === 'admin' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-800/50'
-                    : member.role === 'member' ? 'bg-primary-900/30 text-primary-400 border border-primary-800/50'
-                    : 'bg-slate-800 text-slate-400'
+                  <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
+                    member.role === 'admin' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                    : member.role === 'member' ? 'bg-primary-500/10 text-primary-400 border-primary-500/20'
+                    : 'bg-white/5 text-slate-500 border-white/5'
                   }`}>
                     {ROLE_ICONS[member.role]}
                     {member.role}
-                  </span>
+                  </div>
                 )}
                 {isAdmin && member.user.id !== user?.id && (
                   <button
                     onClick={() => setMemberToRemove(member)}
-                    className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all font-bold"
+                    className="p-3 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all opacity-0 group-hover:opacity-100"
+                    title="Terminate Access"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={16} strokeWidth={2.5} />
                   </button>
                 )}
               </div>
             </div>
           ))}
         </div>
-    </div>
-    <ConfirmModal
-      isOpen={!!memberToRemove}
-      onClose={() => setMemberToRemove(null)}
-      onConfirm={handleRemove}
-      title="Remove Member?"
-      message={`Are you sure you want to remove "${memberToRemove?.user?.full_name}" from the workspace? They will lose access to all projects and tasks.`}
-      confirmText="Remove Member"
-      isDanger={true}
-      isLoading={isRemoving}
-    />
+      </div>
+
+      <ConfirmModal
+        isOpen={!!memberToRemove}
+        onClose={() => setMemberToRemove(null)}
+        onConfirm={handleRemove}
+        title="Revoke Clearance?"
+        message={`Warning: You are about to revoke all access for "${memberToRemove?.user?.full_name}". This will terminate their connection to all localized projects and data streams.`}
+        confirmText="Revoke Access"
+        isDanger={true}
+        isLoading={isRemoving}
+      />
     </div>
   )
 }

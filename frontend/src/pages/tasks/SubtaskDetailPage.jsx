@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Trash2 } from 'lucide-react'
+import { ChevronLeft, Trash2, User, Tag, Flag, AlignLeft } from 'lucide-react'
 import { useForm, Controller } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import ReactQuill from 'react-quill'
@@ -11,6 +11,9 @@ import { tasksAPI } from '../../api/tasks'
 import { workspacesAPI } from '../../api/workspaces'
 import Button from '../../components/common/Button'
 import ConfirmModal from '../../components/common/ConfirmModal'
+import SelectionList from '../../components/common/SelectionList'
+import AdvancedDatePicker from '../../components/common/AdvancedDatePicker'
+import SegmentedControl from '../../components/common/SegmentedControl'
 import { TASK_STATUSES, TASK_PRIORITIES } from '../../utils/constants'
 import { stripHtml } from '../../utils/html'
 import { extractApiError, validateSubtask } from '../../utils/validation'
@@ -28,7 +31,7 @@ export default function SubtaskDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [error, setPageError] = useState('')
+  const [pageError, setPageError] = useState('')
   const [formError, setFormError] = useState('')
 
   const {
@@ -38,7 +41,6 @@ export default function SubtaskDetailPage() {
     watch,
     reset,
     setError,
-    setFocus,
     clearErrors,
     formState: { errors, isSubmitting, isValid },
   } = useForm()
@@ -50,20 +52,10 @@ export default function SubtaskDetailPage() {
   }, [workspaceId, projectId, taskId, subtaskId])
 
   const loadData = async () => {
-    if (!workspaceId || !projectId || !taskId || !subtaskId) {
-      setPageError('Missing route context for subtask page.')
-      setIsLoading(false)
-      return
-    }
-
     try {
       setIsLoading(true)
-      setPageError('')
-
       let proj = getProjectById(projectId)
-      if (!proj) {
-        proj = await fetchProjectById(projectId)
-      }
+      if (!proj) proj = await fetchProjectById(projectId)
       setProject(proj)
       setActiveProject(proj)
 
@@ -89,8 +81,7 @@ export default function SubtaskDetailPage() {
       const { data: membersData } = await workspacesAPI.listMembers(workspaceId)
       setMembers(membersData?.results || membersData || [])
     } catch (err) {
-      setPageError('Failed to load subtask page data.')
-      toast.error('Failed to load subtask page data')
+      setPageError('Access Denied or System Failure.')
     } finally {
       setIsLoading(false)
     }
@@ -98,18 +89,11 @@ export default function SubtaskDetailPage() {
 
   const onSubmit = async (data) => {
     if (!subtask?.id) return
-
     setFormError('')
     clearErrors()
-
     const validation = validateSubtask(data, { parent: parentTask })
     if (!validation.isValid) {
-      setFormError(validation.generalError || 'All fields are required')
-      Object.entries(validation.errors).forEach(([field, message]) => {
-        setError(field, { type: 'manual', message })
-      })
-      const firstField = Object.keys(validation.errors)[0]
-      if (firstField) setFocus(firstField)
+      setFormError(validation.generalError || 'Invalid configuration')
       return
     }
 
@@ -125,218 +109,135 @@ export default function SubtaskDetailPage() {
         due_date: data.due_date || null,
         estimated_hours: data.estimated_hours || null,
       }
-
       await updateTask(subtask.id, payload)
-      toast.success('Subtask updated')
-      navigate(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`)
+      toast.success('System parameters updated')
+      navigate(-1)
     } catch (err) {
-      const message = extractApiError(err, 'Failed to update subtask')
-      setFormError(message)
-      toast.error(message)
+      setFormError(extractApiError(err, 'Update failed'))
     }
   }
 
   const handleDelete = async () => {
-    if (!subtask?.id) return
-
     try {
       setIsDeleting(true)
       await deleteTask(subtask.id)
-      toast.success('Subtask deleted')
-      navigate(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`)
+      toast.success('Entity purged')
+      navigate(-1)
     } catch (err) {
-      toast.error('Failed to delete subtask')
+      toast.error('Purge failed')
     } finally {
       setIsDeleting(false)
       setShowDeleteModal(false)
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-surface-950 flex items-center justify-center">
-        <div className="text-slate-400">Loading...</div>
-      </div>
-    )
-  }
+  if (isLoading) return <div className="min-h-screen bg-[#0b0c10] flex items-center justify-center text-slate-500 font-black uppercase tracking-widest text-xs">Syncing Data Streams...</div>
 
-  if (error || !subtask || !parentTask || !project) {
-    return (
-      <div className="min-h-screen bg-surface-950 flex items-center justify-center p-6">
-        <div className="text-center space-y-3">
-          <div className="text-slate-200">{error || 'Subtask not found'}</div>
-          <button
-            onClick={() => navigate(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`)}
-            className="text-sm text-primary-300 hover:text-primary-200"
-          >
-            Go back to parent task
-          </button>
-        </div>
-      </div>
-    )
-  }
+  if (pageError || !subtask) return <div className="min-h-screen bg-[#0b0c10] flex items-center justify-center p-6 text-rose-500 font-black uppercase tracking-widest text-xs">{pageError || 'Entity not found'}</div>
 
   return (
-    <div className="min-h-screen bg-surface-950">
-      <div className="sticky top-0 z-10 bg-surface-900/80 backdrop-blur border-b border-slate-800 px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            <button
-              onClick={() => navigate(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`)}
-              className="p-2 hover:bg-surface-800 rounded-lg transition-colors flex-shrink-0"
-            >
+    <div className="min-h-screen bg-[#0b0c10] pb-20">
+      <div className="sticky top-0 z-10 bg-[#0b0c10]/80 backdrop-blur-xl border-b border-white/5 px-8 py-6">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <button onClick={() => navigate(-1)} className="p-3 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all">
               <ChevronLeft size={20} className="text-slate-400" />
             </button>
-            <div className="min-w-0">
-              <h1 className="text-lg font-semibold text-white truncate">{subtask.title}</h1>
-              <p className="text-xs text-slate-400 mt-1">Parent: {parentTask.title}</p>
+            <div>
+              <h1 className="text-2xl font-black uppercase tracking-tighter text-white truncate max-w-[300px]">{subtask.title}</h1>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Parent Entity: {parentTask?.title}</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            className="p-2 text-red-400 hover:bg-red-950/30 rounded-lg transition-colors flex-shrink-0"
-          >
-            <Trash2 size={18} />
+          <button onClick={() => setShowDeleteModal(true)} className="p-3 text-rose-500 bg-rose-500/5 border border-rose-500/10 rounded-2xl hover:bg-rose-500/10 transition-all">
+            <Trash2 size={20} strokeWidth={2.5} />
           </button>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto p-6">
-        <div className="bg-surface-900/50 rounded-xl border border-slate-800 p-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {formError && (
-              <div className="rounded-lg border border-red-700/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
-                {formError}
-              </div>
-            )}
-            <div>
-              <label className="label text-sm">Title*</label>
-              <input
-                className={`input ${errors.title ? 'border-red-500' : ''}`}
-                placeholder="Subtask title..."
-                {...register('title', { required: 'Title is required' })}
-              />
-              {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title.message}</p>}
-            </div>
+      <div className="max-w-3xl mx-auto p-8">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-10 bg-[#12141a]/40 border border-white/5 rounded-[2.5rem] p-10 backdrop-blur-xl">
+          {formError && <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[11px] font-black uppercase tracking-widest">{formError}</div>}
+          
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block opacity-70">Entity Designation</label>
+            <input
+              className={`w-full rounded-2xl h-14 px-6 text-[15px] font-bold bg-[#12141a]/60 border border-white/5 text-white focus:border-primary-500/50 outline-none transition-all ${errors.title ? 'border-rose-500/50' : ''}`}
+              {...register('title', { required: 'Required' })}
+            />
+          </div>
 
-            <div>
-              <label className="label text-sm">Description</label>
-              <Controller
-                name="description"
-                control={control}
-                rules={{ required: 'Description is required' }}
-                render={({ field }) => (
-                  <div className="bg-surface-800 border border-slate-700 rounded-lg overflow-hidden [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-slate-700 [&_.ql-toolbar]:bg-surface-700 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[120px] [&_.ql-editor]:text-sm [&_.ql-editor]:text-slate-200">
-                    <ReactQuill
-                      theme="snow"
-                      value={field.value || ''}
-                      onChange={field.onChange}
-                      placeholder="Add description..."
-                    />
-                  </div>
-                )}
-              />
-              {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>}
-            </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block opacity-70">Functional Overview</label>
+            <Controller
+              name="description"
+              control={control}
+              render={({ field }) => (
+                <div className="bg-[#12141a]/60 border border-white/5 rounded-2xl overflow-hidden [&_.ql-toolbar]:bg-white/5 [&_.ql-toolbar]:border-none [&_.ql-container]:border-none [&_.ql-editor]:min-h-[180px] [&_.ql-editor]:text-slate-300">
+                  <ReactQuill theme="snow" value={field.value || ''} onChange={field.onChange} />
+                </div>
+              )}
+            />
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label text-sm">Status</label>
-                <select className="select" {...register('status')}>
-                  {TASK_STATUSES.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label text-sm">Priority</label>
-                <select className={`select ${errors.priority ? 'border-red-500' : ''}`} {...register('priority', { required: 'Priority is required' })}>
-                  {TASK_PRIORITIES.map((p) => (
-                    <option key={p.value} value={p.value}>{p.icon} {p.label}</option>
-                  ))}
-                </select>
-                {errors.priority && <p className="text-red-400 text-xs mt-1">{errors.priority.message}</p>}
-              </div>
-            </div>
+          <div className="grid grid-cols-1 gap-8">
+            <Controller name="status" control={control} render={({ field }) => <SegmentedControl label="Execution State" options={TASK_STATUSES} value={field.value} onChange={field.onChange} />} />
+            <Controller name="priority" control={control} render={({ field }) => <SegmentedControl label="Mission Priority" options={TASK_PRIORITIES} value={field.value} onChange={field.onChange} />} />
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label text-sm">Assignee</label>
-                <select className={`select ${errors.assignee_id ? 'border-red-500' : ''}`} {...register('assignee_id', { required: 'Assignee is required' })}>
-                  <option value="">Unassigned</option>
-                  {members.map((member) => (
-                    <option key={member.user.id} value={member.user.id}>{member.user.full_name}</option>
-                  ))}
-                </select>
-                {errors.assignee_id && <p className="text-red-400 text-xs mt-1">{errors.assignee_id.message}</p>}
-              </div>
-              <div>
-                <label className="label text-sm">Category</label>
-                <select className="select" {...register('category_id')}>
-                  <option value="">No category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="label text-sm">Start Date</label>
-                <input type="date" className={`input ${errors.start_date ? 'border-red-500' : ''}`} {...register('start_date', { required: 'Start date is required' })} />
-                {errors.start_date && <p className="text-red-400 text-xs mt-1">{errors.start_date.message}</p>}
-              </div>
-              <div>
-                <label className="label text-sm">Due Date</label>
-                <input
-                  type="date"
-                  className={`input ${errors.due_date ? 'border-red-500' : ''}`}
-                  {...register('due_date', {
-                    required: 'End date is required',
-                    validate: (value) => {
-                      if (!value || !startDate) return true
-                      return value >= startDate || 'End date cannot be before start date'
-                    },
-                  })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+            <Controller
+              name="assignee_id"
+              control={control}
+              render={({ field }) => (
+                <SelectionList
+                  label="Assigned Personnel"
+                  options={members.map(m => ({ id: m.user.id, name: m.user.full_name, icon: <User size={14} /> }))}
+                  value={field.value}
+                  onChange={field.onChange}
                 />
-                {errors.due_date && <p className="text-red-400 text-xs mt-1">{errors.due_date.message}</p>}
-              </div>
-              <div>
-                <label className="label text-sm">Est. Hours</label>
-                <input type="number" step="0.5" min="0.5" className={`input ${errors.estimated_hours ? 'border-red-500' : ''}`} placeholder="0" {...register('estimated_hours', {
-                  required: 'Estimated hours is required',
-                  validate: (value) => {
-                    const parsed = Number(value)
-                    return Number.isFinite(parsed) && parsed > 0 || 'Estimated hours must be a positive number'
-                  },
-                })} />
-                {errors.estimated_hours && <p className="text-red-400 text-xs mt-1">{errors.estimated_hours.message}</p>}
-              </div>
-            </div>
+              )}
+            />
+            <Controller
+              name="category_id"
+              control={control}
+              render={({ field }) => (
+                <SelectionList
+                  label="Protocol Classification"
+                  options={categories.map(c => ({ id: c.id, name: c.name, icon: <Tag size={14} /> }))}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          </div>
 
-            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-6 border-t border-slate-800">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => navigate(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button type="submit" loading={isSubmitting} disabled={!isValid} className="flex-1">Save Changes</Button>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            <Controller name="start_date" control={control} render={({ field }) => <AdvancedDatePicker label="Kickoff" value={field.value} onChange={field.onChange} />} />
+            <Controller name="due_date" control={control} render={({ field }) => <AdvancedDatePicker label="Final Deadline" value={field.value} onChange={field.onChange} />} />
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block opacity-70">Resource Allocation (Hrs)</label>
+              <input
+                type="number" step="0.5"
+                className="w-full rounded-2xl h-14 px-6 text-[15px] font-bold bg-[#12141a]/60 border border-white/5 text-white outline-none focus:border-primary-500/50 transition-all"
+                {...register('estimated_hours')}
+              />
             </div>
-          </form>
-        </div>
+          </div>
+
+          <div className="flex gap-4 pt-6">
+            <Button type="button" variant="ghost" onClick={() => navigate(-1)} className="flex-1 h-14 rounded-2xl uppercase tracking-widest text-[11px] font-black">Cancel Sync</Button>
+            <Button type="submit" loading={isSubmitting} disabled={!isValid} className="flex-[2] h-14 rounded-2xl uppercase tracking-widest text-[11px] font-black shadow-lg shadow-primary-500/10">Commit Updates</Button>
+          </div>
+        </form>
       </div>
 
       <ConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDelete}
-        title="Delete Subtask?"
-        message={`Are you sure you want to delete "${subtask.title}"? This action cannot be undone.`}
-        confirmText="Delete Subtask"
+        title="Purge Entity?"
+        message={`Warning: You are about to permanently delete "${subtask.title}". This action will terminate this data stream and all associated sub-processes.`}
+        confirmText="Confirm Purge"
         isDanger={true}
         isLoading={isDeleting}
       />

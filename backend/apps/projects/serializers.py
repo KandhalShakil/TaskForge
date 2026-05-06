@@ -303,8 +303,9 @@ class HierarchyFolderSerializer(FolderSerializer):
         return str(obj.id)
 
     def get_lists(self, obj):
-        lists_qs = ProjectDocument.objects(folderId=str(obj.id))
-        return HierarchyProjectSerializer(lists_qs, many=True, context=self.context).data
+        folder_id = str(obj.id)
+        projects = self.context.get('folder_projects', {}).get(folder_id, [])
+        return HierarchyProjectSerializer(projects, many=True, context=self.context).data
 
     def get_projects(self, obj):
         return self.get_lists(obj)
@@ -315,9 +316,11 @@ class HierarchySpaceSerializer(SpaceSerializer):
     lists = serializers.SerializerMethodField()
 
     def get_folders(self, obj):
-        folders_qs = FolderDocument.objects(spaceId=str(obj.id))
-        return HierarchyFolderSerializer(folders_qs, many=True, context=self.context).data
+        space_id = str(obj.id)
+        folders = self.context.get('space_folders', {}).get(space_id, [])
+        return HierarchyFolderSerializer(folders, many=True, context=self.context).data
 
     def get_lists(self, obj):
-        root_lists = ProjectDocument.objects(spaceId=str(obj.id), folderId__in=[None, ''])
-        return HierarchyProjectSerializer(root_lists, many=True, context=self.context).data
+        space_id = str(obj.id)
+        projects = self.context.get('root_projects', {}).get(space_id, [])
+        return HierarchyProjectSerializer(projects, many=True, context=self.context).data

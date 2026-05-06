@@ -235,7 +235,10 @@ export default function ChatPage() {
 
     clearUnread(activeContext.roomId)
 
-    // 2. Save to MongoDB via Django REST API
+    // 2. Broadcast immediately via Socket.IO for instant receipt by others
+    emitMessage(optimisticMessage)
+
+    // 3. Save to MongoDB via Django REST API
     chatAPI.sendMessage({
       room: activeContext.roomId,
       workspace_id: activeContext.workspaceId || workspaceId,
@@ -245,10 +248,11 @@ export default function ChatPage() {
     })
       .then(({ data }) => {
         if (data) {
-          // 3. Replace optimistic message with server-confirmed message
-          upsertMessage({ ...data, status: 'sent' })
-          // 4. Broadcast to other room members via Socket.IO
-          emitMessage(data)
+          // 4. Replace optimistic message with server-confirmed message
+          // We pass clientMessageId explicitly to ensure merge logic finds it
+          upsertMessage({ ...data, status: 'sent', clientMessageId: optimisticId })
+          // 5. Broadcast the final confirmed message to ensure everyone has the real DB ID
+          emitMessage({ ...data, status: 'sent', clientMessageId: optimisticId })
         } else {
           markMessageStatus(optimisticId, 'sent')
         }
@@ -343,13 +347,8 @@ export default function ChatPage() {
     if (taskId || directUserId) setShowMobileThreads(false)
   }, [taskId, directUserId])
 
-  if (loadingContext) {
-    return (
-      <div className="flex h-full items-center justify-center bg-surface-950 text-slate-400">
-        Loading chat...
-      </div>
-    )
-  }
+  // We no longer block the whole UI with loadingContext. 
+  // Instead, ChatWindow handles the loading state via skeletons.
 
   return (
     <div className="flex h-full min-h-0 flex-1 overflow-hidden bg-surface-950">
@@ -361,6 +360,7 @@ export default function ChatPage() {
         activeTaskRoom={taskId ? buildTaskRoom(taskId) : null}
         onSelectThread={handleSelectThread}
         onStartDirectMessage={handleStartDirectMessage}
+        loading={loadingContext}
         className={`${showMobileThreads ? 'flex' : 'hidden'} lg:flex`}
       />
 

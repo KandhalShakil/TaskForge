@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, User, Tag, Flag } from 'lucide-react'
 import { useForm, Controller } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import ReactQuill from 'react-quill'
@@ -10,7 +10,10 @@ import { useProjectStore } from '../../store/projectStore'
 import { tasksAPI } from '../../api/tasks'
 import { workspacesAPI } from '../../api/workspaces'
 import Button from '../../components/common/Button'
-import { TASK_PRIORITIES } from '../../utils/constants'
+import SelectionList from '../../components/common/SelectionList'
+import AdvancedDatePicker from '../../components/common/AdvancedDatePicker'
+import SegmentedControl from '../../components/common/SegmentedControl'
+import { TASK_PRIORITIES, TASK_STATUSES } from '../../utils/constants'
 import { stripHtml } from '../../utils/html'
 import { extractApiError, validateSubtask } from '../../utils/validation'
 
@@ -43,6 +46,7 @@ export default function CreateSubtaskPage() {
       assignee_id: '',
       category_id: '',
       priority: 'no_priority',
+      status: 'todo',
       start_date: '',
       due_date: '',
       estimated_hours: '',
@@ -58,23 +62,10 @@ export default function CreateSubtaskPage() {
   const loadData = async () => {
     try {
       setIsLoading(true)
+      if (!workspaceId || !projectId || !taskId) return
 
-      if (!workspaceId || !projectId || !taskId) {
-        toast.error('Missing route context for subtask creation')
-        return
-      }
-
-      // Get or fetch project
       let proj = getProjectById(projectId)
-      if (!proj) {
-        try {
-          proj = await fetchProjectById(projectId)
-        } catch (err) {
-          toast.error('Project not found')
-          navigate(`/workspaces/${workspaceId}`)
-          return
-        }
-      }
+      if (!proj) proj = await fetchProjectById(projectId)
       setProject(proj)
       setActiveProject(proj)
 
@@ -86,20 +77,12 @@ export default function CreateSubtaskPage() {
         const { data } = await tasksAPI.getSubtask(taskId)
         parentNode = data
       }
-
-      if (!parentNode) {
-        toast.error('Parent task not found')
-        navigate(`/workspaces/${workspaceId}/projects/${projectId}/tasks`)
-        return
-      }
-
       setParentTask(parentNode)
 
       const { data: membersData } = await workspacesAPI.listMembers(workspaceId)
       setMembers(membersData?.results || membersData || [])
     } catch (error) {
       toast.error('Error loading data')
-      console.error(error)
     } finally {
       setIsLoading(false)
     }
@@ -108,15 +91,10 @@ export default function CreateSubtaskPage() {
   const onSubmit = async (data) => {
     setFormError('')
     clearErrors()
-
     const validation = validateSubtask(data, { parent: parentTask })
     if (!validation.isValid) {
       setFormError(validation.generalError || 'All fields are required')
-      Object.entries(validation.errors).forEach(([field, message]) => {
-        setError(field, { type: 'manual', message })
-      })
-      const firstField = Object.keys(validation.errors)[0]
-      if (firstField) setFocus(firstField)
+      Object.entries(validation.errors).forEach(([field, message]) => setError(field, { type: 'manual', message }))
       return
     }
 
@@ -125,193 +103,114 @@ export default function CreateSubtaskPage() {
         title: (data.title || '').trim(),
         description: stripHtml(data.description),
         priority: data.priority,
+        status: data.status,
         assignee_id: data.assignee_id || null,
         category_id: data.category_id || null,
         start_date: data.start_date || null,
         due_date: data.due_date || null,
         estimated_hours: data.estimated_hours || null,
       }
-
-      await tasksAPI.addSubtask(taskId, {
-        task: taskId,
-        parent_id: null,
-        ...payload,
-      })
+      await tasksAPI.addSubtask(taskId, { task: taskId, parent_id: null, ...payload })
       toast.success('Subtask created')
-      navigate(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`)
+      navigate(-1)
     } catch (error) {
-      const message = extractApiError(error, 'Failed to create subtask')
-      setFormError(message)
-      toast.error(message)
+      setFormError(extractApiError(error, 'Failed to create subtask'))
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-surface-950 flex items-center justify-center">
-        <div className="text-slate-400">Loading...</div>
-      </div>
-    )
-  }
+  if (isLoading) return <div className="min-h-screen bg-[#0b0c10] flex items-center justify-center text-slate-500 font-black uppercase tracking-widest text-xs">Loading Protocol...</div>
 
   return (
-    <div className="min-h-screen bg-surface-950">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-surface-900/80 backdrop-blur border-b border-slate-800 px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center gap-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 hover:bg-surface-800 rounded-lg transition-colors"
-          >
+    <div className="min-h-screen bg-[#0b0c10] pb-20">
+      <div className="sticky top-0 z-10 bg-[#0b0c10]/80 backdrop-blur-xl border-b border-white/5 px-8 py-6">
+        <div className="max-w-3xl mx-auto flex items-center gap-6">
+          <button onClick={() => navigate(-1)} className="p-3 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all">
             <ChevronLeft size={20} className="text-slate-400" />
           </button>
-          <h1 className="text-xl font-semibold text-white">Create Subtask</h1>
+          <div>
+            <h1 className="text-2xl font-black uppercase tracking-tighter text-white">Subtask Initiation</h1>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Parent: {parentTask?.title || 'Root Task'}</p>
+          </div>
         </div>
       </div>
 
-      {/* Form */}
-      <div className="max-w-2xl mx-auto p-6">
-        <div className="bg-surface-900/50 rounded-xl border border-slate-800 p-6">
-          {parentTask && (
-            <div className="mb-6 p-3 rounded-lg bg-surface-800/50 border border-slate-700">
-              <p className="text-xs text-slate-400">Parent Task</p>
-              <p className="text-sm font-medium text-white mt-1">{parentTask.title}</p>
-            </div>
-          )}
+      <div className="max-w-3xl mx-auto p-8">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-10 bg-[#12141a]/40 border border-white/5 rounded-[2.5rem] p-10 backdrop-blur-xl">
+          {formError && <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[11px] font-black uppercase tracking-widest">{formError}</div>}
+          
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block opacity-70">Objective Title</label>
+            <input
+              className={`w-full rounded-2xl h-14 px-6 text-[15px] font-bold bg-[#12141a]/60 border border-white/5 text-white placeholder:text-slate-600 focus:border-primary-500/50 outline-none transition-all ${errors.title ? 'border-rose-500/50' : ''}`}
+              placeholder="Enter subtask designation..."
+              {...register('title', { required: 'Title is required' })}
+            />
+          </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {formError && (
-              <div className="rounded-lg border border-red-700/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
-                {formError}
-              </div>
-            )}
-            {/* Title */}
-            <div>
-              <label className="label text-sm">Title *</label>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block opacity-70">Technical Brief</label>
+            <Controller
+              name="description"
+              control={control}
+              rules={{ required: 'Description is required' }}
+              render={({ field }) => (
+                <div className="bg-[#12141a]/60 border border-white/5 rounded-2xl overflow-hidden [&_.ql-toolbar]:bg-white/5 [&_.ql-toolbar]:border-none [&_.ql-toolbar]:px-4 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[180px] [&_.ql-editor]:px-6 [&_.ql-editor]:text-slate-300">
+                  <ReactQuill theme="snow" value={field.value || ''} onChange={field.onChange} />
+                </div>
+              )}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-8">
+            <Controller name="status" control={control} render={({ field }) => <SegmentedControl label="Execution Status" options={TASK_STATUSES} value={field.value} onChange={field.onChange} />} />
+            <Controller name="priority" control={control} render={({ field }) => <SegmentedControl label="Mission Priority" options={TASK_PRIORITIES} value={field.value} onChange={field.onChange} />} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+            <Controller
+              name="assignee_id"
+              control={control}
+              render={({ field }) => (
+                <SelectionList
+                  label="Primary Operator"
+                  options={members.map(m => ({ id: m.user.id, name: m.user.full_name, icon: <User size={14} /> }))}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            <Controller
+              name="category_id"
+              control={control}
+              render={({ field }) => (
+                <SelectionList
+                  label="Classification"
+                  options={categories.map(c => ({ id: c.id, name: c.name, icon: <Tag size={14} /> }))}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            <Controller name="start_date" control={control} render={({ field }) => <AdvancedDatePicker label="Kickoff" value={field.value} onChange={field.onChange} />} />
+            <Controller name="due_date" control={control} render={({ field }) => <AdvancedDatePicker label="Deadline" value={field.value} onChange={field.onChange} />} />
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block opacity-70">Allocation (Hrs)</label>
               <input
-                className={`input ${errors.title ? 'border-red-500' : ''}`}
-                placeholder="Subtask title..."
-                {...register('title', { required: 'Title is required' })}
+                type="number" step="0.5" min="0.5"
+                className="w-full rounded-2xl h-14 px-6 text-[15px] font-bold bg-[#12141a]/60 border border-white/5 text-white outline-none focus:border-primary-500/50 transition-all"
+                {...register('estimated_hours')}
               />
-              {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title.message}</p>}
             </div>
+          </div>
 
-            {/* Description */}
-            <div>
-              <label className="label text-sm">Description</label>
-              <Controller
-                name="description"
-                control={control}
-                rules={{ required: 'Description is required' }}
-                render={({ field }) => (
-                  <div className="bg-surface-800 border border-slate-700 rounded-lg overflow-hidden [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-slate-700 [&_.ql-toolbar]:bg-surface-700 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[120px] [&_.ql-editor]:text-sm [&_.ql-editor]:text-slate-200">
-                    <ReactQuill
-                      theme="snow"
-                      value={field.value || ''}
-                      onChange={field.onChange}
-                      placeholder="Add description..."
-                    />
-                  </div>
-                )}
-              />
-              {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>}
-            </div>
-
-            {/* Priority & Assignee */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label text-sm">Priority</label>
-                <select className={`select ${errors.priority ? 'border-red-500' : ''}`} {...register('priority', { required: 'Priority is required' })}>
-                  {TASK_PRIORITIES.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.icon} {p.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.priority && <p className="text-red-400 text-xs mt-1">{errors.priority.message}</p>}
-              </div>
-              <div>
-                <label className="label text-sm">Assignee</label>
-                <select className={`select ${errors.assignee_id ? 'border-red-500' : ''}`} {...register('assignee_id', { required: 'Assignee is required' })}>
-                  <option value="">Unassigned</option>
-                  {members.map((member) => (
-                    <option key={member.user.id} value={member.user.id}>
-                      {member.user.full_name}
-                    </option>
-                  ))}
-                </select>
-                {errors.assignee_id && <p className="text-red-400 text-xs mt-1">{errors.assignee_id.message}</p>}
-              </div>
-            </div>
-
-            {/* Category & Dates */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label text-sm">Category</label>
-                <select className="select" {...register('category_id')}>
-                  <option value="">No category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label text-sm">Est. Hours</label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0.5"
-                  className={`input ${errors.estimated_hours ? 'border-red-500' : ''}`}
-                  placeholder="0"
-                  {...register('estimated_hours', {
-                    required: 'Estimated hours is required',
-                    validate: (value) => {
-                      const parsed = Number(value)
-                      return Number.isFinite(parsed) && parsed > 0 || 'Estimated hours must be a positive number'
-                    },
-                  })}
-                />
-                {errors.estimated_hours && <p className="text-red-400 text-xs mt-1">{errors.estimated_hours.message}</p>}
-              </div>
-            </div>
-
-            {/* Date Range */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label text-sm">Start Date</label>
-                <input type="date" className={`input ${errors.start_date ? 'border-red-500' : ''}`} {...register('start_date', { required: 'Start date is required' })} />
-                {errors.start_date && <p className="text-red-400 text-xs mt-1">{errors.start_date.message}</p>}
-              </div>
-              <div>
-                <label className="label text-sm">Due Date</label>
-                <input
-                  type="date"
-                  className={`input ${errors.due_date ? 'border-red-500' : ''}`}
-                  {...register('due_date', {
-                    required: 'End date is required',
-                    validate: (value) => {
-                      if (!value || !startDate) return true
-                      return value >= startDate || 'End date cannot be before start date'
-                    },
-                  })}
-                />
-                {errors.due_date && <p className="text-red-400 text-xs mt-1">{errors.due_date.message}</p>}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-6 border-t border-slate-800">
-              <Button type="button" variant="secondary" onClick={() => navigate(-1)} className="flex-1">
-                Cancel
-              </Button>
-              <Button type="submit" loading={isSubmitting} disabled={!isValid} className="flex-1">
-                Create Subtask
-              </Button>
-            </div>
-          </form>
-        </div>
+          <div className="flex gap-4 pt-6">
+            <Button type="button" variant="ghost" onClick={() => navigate(-1)} className="flex-1 h-14 rounded-2xl uppercase tracking-widest text-[11px] font-black">Abort</Button>
+            <Button type="submit" loading={isSubmitting} disabled={!isValid} className="flex-[2] h-14 rounded-2xl uppercase tracking-widest text-[11px] font-black shadow-lg shadow-primary-500/10">Authorize Initiation</Button>
+          </div>
+        </form>
       </div>
     </div>
   )

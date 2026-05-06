@@ -116,18 +116,20 @@ export default function ChatWindow({
         )}
       </header>
 
-      {/* ── Loading skeleton ── */}
+      {/* ── Loading indicator ── */}
       {loadingMessages && (
-        <div className="flex flex-1 flex-col gap-4 overflow-hidden px-5 py-5">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className={`flex gap-3 ${i % 2 === 0 ? 'flex-row-reverse' : ''}`}>
-              <div className="h-8 w-8 flex-shrink-0 rounded-full skeleton" />
-              <div className={`flex max-w-[60%] flex-col gap-1.5 ${i % 2 === 0 ? 'items-end' : ''}`}>
-                <div className="h-3 w-16 rounded skeleton" />
-                <div className={`h-10 rounded-2xl skeleton ${i % 2 === 0 ? 'w-48' : 'w-56'}`} />
-              </div>
-            </div>
-          ))}
+        <div className="flex flex-1 flex-col items-center justify-center bg-surface-950/20 backdrop-blur-[2px]">
+          <div className="relative flex items-center justify-center">
+            {/* Outer spinning ring */}
+            <div 
+              className="h-12 w-12 rounded-full border-[3px] border-slate-800 border-t-primary-500 animate-spin shadow-[0_0_20px_rgba(6,182,212,0.15)]"
+            ></div>
+            {/* Inner pulsing core */}
+            <div className="absolute h-6 w-6 rounded-full border-2 border-primary-500/10 animate-ping"></div>
+          </div>
+          <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 animate-pulse">
+            Synchronizing
+          </p>
         </div>
       )}
 

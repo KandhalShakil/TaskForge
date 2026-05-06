@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.permissions import IsWorkspaceMemberOrAdmin
+from apps.core.permissions import IsWorkspaceMemberOrAdmin, CompanyTenantMixin
 from apps.users.documents import UserDocument
 from apps.workspaces.documents import WorkspaceDocument, WorkspaceMemberDocument
 
@@ -28,19 +28,17 @@ def _is_workspace_editor(workspace_id, user_id):
     ).first()
     if not membership:
         return False
-    return membership.role in ('admin', 'member')
+    # RBAC: Only Admins can manage the structural elements (Spaces, Folders, Projects)
+    return membership.role == 'admin'
 
 
-class ProjectListCreateView(generics.ListCreateAPIView):
+class ProjectListCreateView(CompanyTenantMixin, generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = ProjectSerializer
+    document_class = ProjectDocument
 
     def get_queryset(self):
-        user = self.request.user
-        if not hasattr(user, 'companyId') or not user.companyId:
-            return ProjectDocument.objects.none()
-            
-        qs = ProjectDocument.objects(companyId=user.companyId)
+        qs = super().get_queryset()
 
         workspace_id = self.request.query_params.get('workspace')
         if workspace_id:
@@ -79,8 +77,9 @@ class ProjectListCreateView(generics.ListCreateAPIView):
         serializer.save()
 
 
-class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
+class ProjectDetailView(CompanyTenantMixin, generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
+    document_class = ProjectDocument
     lookup_field = 'id'
     lookup_url_kwarg = 'pk'
 
@@ -88,12 +87,6 @@ class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method == 'GET':
             return ProjectDetailSerializer
         return ProjectSerializer
-
-    def get_queryset(self):
-        user = self.request.user
-        if not hasattr(user, 'companyId') or not user.companyId:
-            return ProjectDocument.objects.none()
-        return ProjectDocument.objects(companyId=user.companyId)
 
     def destroy(self, request, *args, **kwargs):
         project = self.get_object()
@@ -193,17 +186,13 @@ class RemoveProjectMemberView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class SpaceListCreateView(generics.ListCreateAPIView):
+class SpaceListCreateView(CompanyTenantMixin, generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = SpaceSerializer
+    document_class = SpaceDocument
 
     def get_queryset(self):
-        user = self.request.user
-        if not hasattr(user, 'companyId') or not user.companyId:
-            return SpaceDocument.objects.none()
-            
-        qs = SpaceDocument.objects(companyId=user.companyId)
-
+        qs = super().get_queryset()
         workspace_id = self.request.query_params.get('workspace')
         if workspace_id:
             qs = qs.filter(workspaceId=str(workspace_id))
@@ -224,30 +213,21 @@ class SpaceListCreateView(generics.ListCreateAPIView):
         serializer.save()
 
 
-class SpaceDetailView(generics.RetrieveUpdateDestroyAPIView):
+class SpaceDetailView(CompanyTenantMixin, generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = SpaceSerializer
+    document_class = SpaceDocument
     lookup_field = 'id'
     lookup_url_kwarg = 'pk'
 
-    def get_queryset(self):
-        user = self.request.user
-        if not hasattr(user, 'companyId') or not user.companyId:
-            return SpaceDocument.objects.none()
-        return SpaceDocument.objects(companyId=user.companyId)
 
-
-class FolderListCreateView(generics.ListCreateAPIView):
+class FolderListCreateView(CompanyTenantMixin, generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = FolderSerializer
+    document_class = FolderDocument
 
     def get_queryset(self):
-        user = self.request.user
-        if not hasattr(user, 'companyId') or not user.companyId:
-            return FolderDocument.objects.none()
-            
-        qs = FolderDocument.objects(companyId=user.companyId)
-
+        qs = super().get_queryset()
         workspace_id = self.request.query_params.get('workspace')
         if workspace_id:
             qs = qs.filter(workspaceId=str(workspace_id))
@@ -272,17 +252,12 @@ class FolderListCreateView(generics.ListCreateAPIView):
         serializer.save()
 
 
-class FolderDetailView(generics.RetrieveUpdateDestroyAPIView):
+class FolderDetailView(CompanyTenantMixin, generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
     serializer_class = FolderSerializer
+    document_class = FolderDocument
     lookup_field = 'id'
     lookup_url_kwarg = 'pk'
-
-    def get_queryset(self):
-        user = self.request.user
-        if not hasattr(user, 'companyId') or not user.companyId:
-            return FolderDocument.objects.none()
-        return FolderDocument.objects(companyId=user.companyId)
 
 
 class ProjectHierarchyView(APIView):
@@ -297,6 +272,41 @@ class ProjectHierarchyView(APIView):
         if not workspace or str(workspace.companyId) != str(request.user.companyId):
             return Response({'error': 'Workspace not found or inaccessible.'}, status=status.HTTP_404_NOT_FOUND)
 
-        spaces = SpaceDocument.objects(workspaceId=str(workspace_id), companyId=request.user.companyId)
-        serializer = HierarchySpaceSerializer(spaces, many=True, context={'request': request})
+        # Bulk fetch all hierarchy components for the workspace
+        spaces = list(SpaceDocument.objects(workspaceId=str(workspace_id), companyId=request.user.companyId).order_by('order'))
+        folders = list(FolderDocument.objects(workspaceId=str(workspace_id)).order_by('order'))
+        projects = list(ProjectDocument.objects(workspaceId=str(workspace_id)).order_by('order'))
+
+        # Group data in memory for the serializers to avoid N+1 queries
+        space_folders = {}
+        for folder in folders:
+            s_id = str(folder.spaceId)
+            if s_id not in space_folders:
+                space_folders[s_id] = []
+            space_folders[s_id].append(folder)
+
+        folder_projects = {}
+        root_projects = {} # Projects with space but no folder
+        
+        for project in projects:
+            p_folder_id = str(project.folderId) if getattr(project, 'folderId', None) else ''
+            p_space_id = str(project.spaceId) if getattr(project, 'spaceId', None) else ''
+            
+            if p_folder_id:
+                if p_folder_id not in folder_projects:
+                    folder_projects[p_folder_id] = []
+                folder_projects[p_folder_id].append(project)
+            elif p_space_id:
+                if p_space_id not in root_projects:
+                    root_projects[p_space_id] = []
+                root_projects[p_space_id].append(project)
+
+        context = {
+            'request': request,
+            'space_folders': space_folders,
+            'folder_projects': folder_projects,
+            'root_projects': root_projects
+        }
+
+        serializer = HierarchySpaceSerializer(spaces, many=True, context=context)
         return Response(serializer.data)

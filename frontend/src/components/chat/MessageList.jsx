@@ -65,16 +65,37 @@ export default function MessageList({
 
   const typingCount = Object.keys(typingUsers).length
 
-  // Group messages by date
+  // Group messages by date and sender
   const grouped = []
   let lastDate = null
+  let lastSenderId = null
+  let lastTime = null
+
   visibleMessages.forEach((msg) => {
-    const d = msg.createdAt ? new Date(msg.createdAt).toDateString() : null
-    if (d && d !== lastDate) {
-      grouped.push({ type: 'date', label: formatDateLabel(d), key: `date-${d}` })
-      lastDate = d
+    const msgDate = msg.createdAt ? new Date(msg.createdAt) : new Date()
+    const dateLabel = msgDate.toDateString()
+    
+    // 1. Check if we need a date separator
+    if (dateLabel !== lastDate) {
+      grouped.push({ type: 'date', label: formatDateLabel(dateLabel), key: `date-${dateLabel}` })
+      lastDate = dateLabel
+      lastSenderId = null // Reset grouping on new day
     }
-    grouped.push({ type: 'message', msg, key: msg.id || msg.clientMessageId })
+
+    // 2. Check if this is a continued message (same sender + within 5 mins)
+    const isContinued = 
+      String(msg.senderId) === String(lastSenderId) && 
+      lastTime && (msgDate - lastTime < 300000)
+
+    grouped.push({ 
+      type: 'message', 
+      msg, 
+      isContinued,
+      key: msg.id || msg.clientMessageId 
+    })
+
+    lastSenderId = msg.senderId
+    lastTime = msgDate
   })
 
   return (
@@ -138,6 +159,7 @@ export default function MessageList({
               key={item.key}
               message={item.msg}
               isMine={String(item.msg.senderId) === String(currentUserId)}
+              isContinued={item.isContinued}
               onEdit={onEdit}
               onDelete={onDelete}
               onRetry={onRetry}

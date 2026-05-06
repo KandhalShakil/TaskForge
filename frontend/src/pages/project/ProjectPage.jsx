@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, List, Columns, Calendar, GanttChart, Loader2, RefreshCw, Users } from 'lucide-react'
+import { Plus, List, Columns, Calendar, GanttChart, Loader2, RefreshCw, Users, Settings, Filter, ArrowLeft } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { useProjectStore } from '../../store/projectStore'
 import { useWorkspaceStore } from '../../store/workspaceStore'
@@ -11,6 +12,7 @@ import TaskFilters from '../../components/tasks/TaskFilters'
 import Skeleton from '../../components/common/Skeleton'
 import { useAuthStore } from '../../store/authStore'
 import { connectSocket } from '../../utils/socket'
+import Button from '../../components/common/Button'
 
 const KanbanBoard = lazy(() => import('../../components/kanban/KanbanBoard'))
 const CalendarView = lazy(() => import('../../components/calendar/CalendarView'))
@@ -40,6 +42,7 @@ export default function ProjectPage() {
   const [view, setView] = useState('list')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [projectError, setProjectError] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
   const notFoundHandledRef = useRef(false)
 
   const loadTasks = () => {
@@ -48,12 +51,9 @@ export default function ProjectPage() {
 
   useEffect(() => {
     let isMounted = true
+    notFoundHandledRef.current = false // Reset error handling on project change
 
-    if (!projectId || notFoundHandledRef.current) {
-      return () => {
-        isMounted = false
-      }
-    }
+    if (!projectId) return
 
     fetchProjectById(projectId)
       .then((projectData) => {
@@ -61,21 +61,13 @@ export default function ProjectPage() {
         setProject(projectData)
         setActiveProject(projectData)
         setProjectError(false)
-        notFoundHandledRef.current = false
       })
       .catch((error) => {
-        if (!isMounted || notFoundHandledRef.current) return
-
+        if (!isMounted) return
         if (error?.response?.status === 404) {
           notFoundHandledRef.current = true
           toast.error('Project not found')
-          setProjectError(true)
-          setProject(null)
-          setActiveProject(null)
           navigate(workspaceId ? `/workspaces/${workspaceId}` : '/workspaces', { replace: true })
-        } else {
-          toast.error('Failed to load project')
-          setProjectError(true)
         }
       })
 
@@ -84,211 +76,216 @@ export default function ProjectPage() {
       fetchCategories(workspaceId)
     }
 
-    // ── Real-time Project Synchronization ──────────────────────────────
     const socket = connectSocket()
     socket.emit('join_project', { projectId, userId: user?.id })
 
     const onTaskUpdated = (payload) => {
-      const { projectId: pid, action, task: updatedTask } = payload
-      if (pid !== projectId) return
-
-      // Refresh tasks from server to ensure data integrity
+      if (payload.projectId !== projectId) return
       loadTasks()
-      
-      // Optional: Visual cue for update
-      if (action === 'update') {
-        toast.success('Tasks updated in real-time', { id: 'task-sync-toast' })
-      }
-    }
-
-    const onEmployeeRemoved = (payload) => {
-      const { projectId: pid, userId: removedUserId } = payload
-      if (pid !== projectId) return
-
-      if (String(removedUserId) === String(user?.id)) {
-        toast.error('You have been removed from this project', { duration: 5000 })
-        navigate(workspaceId ? `/workspaces/${workspaceId}` : '/workspaces', { replace: true })
-      } else {
-        // Refresh members to update UI (filters, etc.)
-        if (workspaceId) fetchMembers(workspaceId)
-        toast.info('Project members updated')
-      }
+      if (payload.action === 'update') toast.success('Sync: Tasks updated', { id: 'sync' })
     }
 
     socket.on('task_updated', onTaskUpdated)
-    socket.on('employee_removed', onEmployeeRemoved)
-
     return () => {
       isMounted = false
       socket.emit('leave_project', { projectId })
       socket.off('task_updated', onTaskUpdated)
-      socket.off('employee_removed', onEmployeeRemoved)
     }
-  }, [projectId, workspaceId, user?.id, navigate, setActiveProject, fetchProjectById, fetchMembers, fetchCategories])
+  }, [projectId, workspaceId])
 
   useEffect(() => {
     if (projectId && project && !projectError) {
       loadTasks()
     }
-  }, [projectId, project, projectError, filters])
+  }, [projectId, project, filters])
 
-  if (projectError) {
-    return null
-  }
-
-  if (!project) {
+  if (!project && !projectError) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="border-b" style={{ borderColor: 'var(--border-main)', backgroundColor: 'var(--bg-card)' }}>
-          <div className="app-container py-6 sm:py-8">
-            <div className="mb-6 flex items-center justify-between gap-4">
-              <div className="flex min-w-0 items-center gap-4">
-              <Skeleton variant="rect" width="48px" height="48px" className="rounded-xl" />
-              <div className="space-y-2">
-                <Skeleton variant="text" width="200px" height="24px" />
-                <Skeleton variant="text" width="300px" height="12px" />
-              </div>
-            </div>
-            <Skeleton variant="rect" width="120px" height="40px" className="rounded-xl" />
-          </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-            {[1, 2, 3, 4].map(i => <Skeleton key={i} variant="rect" width="80px" height="32px" className="rounded-lg" />)}
+      <div className="flex-1 flex flex-col bg-page">
+        <div className="h-16 border-b border-white/5 bg-slate-900/20 animate-pulse" />
+        <div className="app-container py-10 space-y-8">
+          <div className="flex gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-slate-800 animate-pulse" />
+            <div className="space-y-3">
+              <div className="h-6 w-48 bg-slate-800 rounded animate-pulse" />
+              <div className="h-4 w-72 bg-slate-800 rounded animate-pulse" />
             </div>
           </div>
-        </div>
-        <div className="app-container py-4 sm:py-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="card p-5 space-y-4">
-              <Skeleton variant="text" width="80%" height="20px" />
-              <Skeleton variant="text" width="100%" height="40px" />
-              <div className="flex justify-between">
-                <Skeleton variant="rect" width="60px" height="20px" />
-                <Skeleton variant="circle" width="24px" height="24px" />
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-1 flex-col min-h-0">
-      <div className="flex-shrink-0 border-b" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-main)' }}>
-        <div className="app-container py-4">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-            <div
-              className="h-9 w-9 rounded-lg flex items-center justify-center text-xl flex-shrink-0"
-              style={{ backgroundColor: project.color + '30' }}
-            >
-              {project.icon}
+    <div className="flex-1 flex flex-col min-h-0 bg-page font-['Outfit']">
+      {/* Project Header */}
+      <header className="flex-shrink-0 border-b border-white/5 bg-slate-900/40 backdrop-blur-md sticky top-0 z-20">
+        <div className="app-container py-4 md:py-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 mb-6 md:mb-8">
+            <div className="flex items-center gap-3 md:gap-5 min-w-0">
+              <button 
+                onClick={() => navigate(`/workspaces/${workspaceId}`)}
+                className="p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-white/5 shrink-0"
+              >
+                <ArrowLeft size={18} />
+              </button>
+              <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-slate-800/80 flex items-center justify-center text-xl md:text-3xl shadow-inner border border-white/5 shrink-0">
+                {project.icon || '🚀'}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+                  <h1 className="text-lg md:text-2xl font-black text-white tracking-tight truncate">{project.name}</h1>
+                  <span className="badge bg-primary-500/10 border-primary-500/20 text-primary-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest px-1.5 md:px-2">
+                    {project.status}
+                  </span>
+                </div>
+                {project.description && (
+                  <p className="text-slate-500 text-xs md:text-sm mt-0.5 md:mt-1 font-medium line-clamp-1">{project.description}</p>
+                )}
+              </div>
             </div>
-            <div className="min-w-0">
-              <h1 className="truncate text-base sm:text-lg font-bold" style={{ color: 'var(--text-main)' }}>{project.name}</h1>
-              {project.description && (
-                <p className="mt-0.5 truncate text-xs" style={{ color: 'var(--text-muted)' }}>{project.description}</p>
+
+            <div className="flex items-center justify-between md:justify-end gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex -space-x-2 mr-2 md:mr-4">
+                  {members.slice(0, 3).map((m) => (
+                    <div key={m.id} className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-800 border-2 border-slate-950 flex items-center justify-center text-[9px] md:text-[10px] font-bold text-white uppercase shadow-lg" title={m.full_name}>
+                      {m.initials}
+                    </div>
+                  ))}
+                  {members.length > 3 && (
+                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-800 border-2 border-slate-950 flex items-center justify-center text-[9px] md:text-[10px] font-bold text-slate-500">
+                      +{members.length - 3}
+                    </div>
+                  )}
+                </div>
+                <button onClick={loadTasks} className="p-2 md:p-2.5 rounded-xl bg-slate-800/50 hover:bg-slate-700 text-slate-400 transition-all">
+                  <RefreshCw size={18} className={loading ? 'animate-spin text-primary-500' : ''} />
+                </button>
+                <button 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`p-2 md:p-2.5 rounded-xl border transition-all ${showFilters ? 'bg-primary-500/10 border-primary-500/30 text-primary-400' : 'bg-slate-800/50 border-white/5 text-slate-400'}`}
+                >
+                  <Filter size={18} />
+                </button>
+              </div>
+              {!isViewer && (
+                <Button onClick={() => setShowCreateModal(true)} icon={Plus} className="shadow-lg shadow-primary-500/20 text-xs md:text-sm px-4 md:px-6">
+                  <span className="hidden xs:inline">New Task</span>
+                  <span className="xs:hidden">New</span>
+                </Button>
               )}
             </div>
           </div>
 
-          <div className="flex w-full items-center gap-2 sm:w-auto">
-            <button onClick={loadTasks} className="btn-ghost p-2" title="Refresh">
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            </button>
-            {!isViewer && (
+          {/* Navigation Tabs */}
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-white/5 -mb-5">
+            {VIEW_TABS.map(({ id, label, Icon }) => (
               <button
-                onClick={() => setShowCreateModal(true)}
-                className="btn-primary flex-1 sm:flex-none"
-                id="create-task-btn"
+                key={id}
+                onClick={() => setView(id)}
+                className={`relative px-6 py-4 text-sm font-bold transition-all flex items-center gap-2.5 whitespace-nowrap ${
+                  view === id ? 'text-primary-400' : 'text-slate-500 hover:text-slate-300'
+                }`}
               >
-                <Plus size={14} /> New Task
+                <Icon size={16} />
+                {label}
+                {view === id && (
+                  <motion.div 
+                    layoutId="activeTab" 
+                    className="absolute bottom-0 left-0 right-0 h-1 bg-primary-500 rounded-t-full"
+                  />
+                )}
               </button>
-            )}
+            ))}
           </div>
-          </div>
-
-          <div className="mb-3 flex items-center gap-1 overflow-x-auto pb-1">
-          {VIEW_TABS.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              onClick={() => setView(id)}
-              className={`flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                view === id
-                  ? 'text-white'
-                  : 'hover:bg-opacity-50'
-              }`}
-              style={{ 
-                backgroundColor: view === id ? 'var(--primary-main)' : 'transparent',
-                color: view === id ? 'white' : 'var(--text-muted)'
-              }}
-            >
-              <Icon size={14} />
-              {label}
-            </button>
-          ))}
-
-          <div className="ml-auto hidden sm:flex items-center gap-2">
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{tasks.length} tasks</span>
-          </div>
-          </div>
-
-          <TaskFilters members={members} categories={categories} />
         </div>
-      </div>
+      </header>
 
-      <div className="app-container flex-1 py-4 sm:py-6">
-        {loading ? (
-          <div className="flex items-center justify-center h-40">
-            <Loader2 className="animate-spin text-primary-500" size={24} />
-          </div>
-        ) : (
-          <Suspense fallback={<div className="flex h-40 items-center justify-center text-slate-400">Loading view...</div>}>
-            {view === 'list' && (
-              <TaskListView
-                tasks={tasks}
-                project={project}
-                workspace={activeWorkspace}
-                onRefresh={loadTasks}
-                onCreateTask={() => setShowCreateModal(true)}
-              />
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto bg-page relative">
+        <div className="app-container py-4 md:py-8">
+          <AnimatePresence>
+            {showFilters && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                onAnimationComplete={() => {
+                  // Ensure dropdowns are visible after animation
+                }}
+                className="mb-6 md:mb-8 bg-slate-900/20 p-4 rounded-2xl border border-white/5 backdrop-blur-sm relative z-30"
+              >
+                <TaskFilters 
+                  members={members} 
+                  categories={categories} 
+                  onClose={() => setShowFilters(false)}
+                />
+              </motion.div>
             )}
-            {view === 'kanban' && (
-              <KanbanBoard
-                tasks={tasks}
-                project={project}
-                workspace={activeWorkspace}
-                onRefresh={loadTasks}
-                onCreateTask={() => setShowCreateModal(true)}
-              />
-            )}
-            {view === 'calendar' && (
-              <CalendarView
-                tasks={tasks}
-                project={project}
-                workspace={activeWorkspace}
-                onRefresh={loadTasks}
-                onCreateTask={() => setShowCreateModal(true)}
-              />
-            )}
-            {view === 'timeline' && (
-              <TimelineView
-                tasks={tasks}
-                project={project}
-                workspace={activeWorkspace}
-                onRefresh={loadTasks}
-                onCreateTask={() => setShowCreateModal(true)}
-              />
-            )}
-            {view === 'members' && (
-              <ProjectMembersView 
-                projectId={projectId}
-                workspaceId={workspaceId}
-              />
-            )}
-          </Suspense>
-        )}
-      </div>
+          </AnimatePresence>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={view}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Suspense fallback={
+                <div className="flex flex-col items-center justify-center h-64 gap-4">
+                  <Loader2 className="animate-spin text-primary-500" size={32} />
+                  <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Preparing your workspace...</p>
+                </div>
+              }>
+                {view === 'list' && (
+                  <TaskListView
+                    tasks={tasks}
+                    project={project}
+                    workspace={activeWorkspace}
+                    onRefresh={loadTasks}
+                    onCreateTask={() => setShowCreateModal(true)}
+                  />
+                )}
+                {view === 'kanban' && (
+                  <KanbanBoard
+                    tasks={tasks}
+                    project={project}
+                    workspace={activeWorkspace}
+                    onRefresh={loadTasks}
+                    onCreateTask={() => setShowCreateModal(true)}
+                  />
+                )}
+                {view === 'calendar' && (
+                  <CalendarView
+                    tasks={tasks}
+                    project={project}
+                    workspace={activeWorkspace}
+                    onRefresh={loadTasks}
+                    onCreateTask={() => setShowCreateModal(true)}
+                  />
+                )}
+                {view === 'timeline' && (
+                  <TimelineView
+                    tasks={tasks}
+                    project={project}
+                    workspace={activeWorkspace}
+                    onRefresh={loadTasks}
+                    onCreateTask={() => setShowCreateModal(true)}
+                  />
+                )}
+                {view === 'members' && (
+                  <ProjectMembersView 
+                    projectId={projectId}
+                    workspaceId={workspaceId}
+                  />
+                )}
+              </Suspense>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </main>
 
       {showCreateModal && activeWorkspace && (
         <TaskModal

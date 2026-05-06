@@ -1,8 +1,35 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
+from django.core.cache import cache
 
 from .documents import UserDocument
 from .mongo_services import create_user
+
+class UserSummarySerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    full_name = serializers.CharField()
+    avatar = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    initials = serializers.SerializerMethodField()
+
+    def get_initials(self, obj):
+        parts = (getattr(obj, 'full_name', '') or '').split()
+        return ''.join(part[0].upper() for part in parts[:2]) if parts else ''
+
+def get_cached_user_summary(user_id):
+    if not user_id:
+        return None
+    cache_key = f'user_summary_{user_id}'
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+    
+    user = UserDocument.objects(id=str(user_id)).first()
+    if not user:
+        return None
+    
+    data = UserSummarySerializer(user).data
+    cache.set(cache_key, data, 3600) # Cache for 1 hour
+    return data
 
 
 class UserSerializer(serializers.Serializer):

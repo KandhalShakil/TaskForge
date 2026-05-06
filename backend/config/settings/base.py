@@ -90,6 +90,14 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+else:
+    # Explicitly disable these for local dev to avoid browser caching issues
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
 MONGO_DB_NAME = config('MONGO_DB_NAME', default='takify')
 
 # Django still requires a default database for its migration machinery.
@@ -217,8 +225,8 @@ else:
 
 
 # Brevo API Configuration
-BREVO_API_KEY = config('BREVO_API_KEY', default='')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='a70388001@smtp-brevo.com')
+BREVO_API_KEY = config('BREVO_API_KEY', default='').strip()
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='kandhalshakil@gmail.com')
 DEFAULT_FROM_NAME = config('DEFAULT_FROM_NAME', default='TaskForge')
 
 # OTP Settings

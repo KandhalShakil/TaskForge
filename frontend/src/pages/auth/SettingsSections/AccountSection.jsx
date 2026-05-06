@@ -114,7 +114,9 @@ export default function AccountSection() {
             <h4 className="text-sm font-bold text-red-500 flex items-center gap-2">
                <AlertCircle size={16} /> Danger Zone
             </h4>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Once you delete your account, there is no going back. Please be certain.</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Deleting your account will schedule it for permanent removal in 15 days. You can recover it anytime before then using the link sent to your email.
+            </p>
           </div>
 
           <button 
@@ -131,11 +133,13 @@ export default function AccountSection() {
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDeleteAccount}
-        title="Delete Account?"
-        message="Are you absolutely sure you want to delete your account? This action is permanent and will remove all your tasks, projects, and personal data from our servers."
-        confirmText="Yes, delete my account"
+        title="Schedule Account Deletion?"
+        message="Are you sure you want to delete your account? Your data will be hidden immediately and permanently purged after 15 days. We will send you a recovery link in case you change your mind."
+        confirmText="Yes, schedule deletion"
         isDanger={true}
         isLoading={loading}
+        requireConfirmationText={true}
+        confirmationKeyword="DELETE"
       />
     </div>
   )

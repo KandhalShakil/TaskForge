@@ -24,15 +24,18 @@ const applyThreadUpdate = (threads, incoming) => {
 }
 
 const mergeMessageList = (messages = [], message) => {
-  const exists = messages.some((existing) => existing.id === message.id || (message.clientMessageId && existing.clientMessageId === message.clientMessageId))
+  const match = (existing) => (
+    (message.id && existing.id === message.id) || 
+    (message.clientMessageId && existing.clientMessageId === message.clientMessageId)
+  )
+
+  const exists = messages.some(match)
   if (!exists) {
     return [...messages, message]
   }
 
   return messages.map((existing) => (
-    existing.id === message.id || (message.clientMessageId && existing.clientMessageId === message.clientMessageId)
-      ? { ...existing, ...message }
-      : existing
+    match(existing) ? { ...existing, ...message } : existing
   ))
 }
 
@@ -95,15 +98,19 @@ export const useChatStore = create((set, get) => ({
     }
   }),
 
-  upsertMessage: (message) => set((state) => ({
-    messages: mergeMessageList(state.messages, message),
-    messagesByRoom: Object.fromEntries(
-      Object.entries(state.messagesByRoom).map(([roomId, roomMessages]) => [
-        roomId,
-        mergeMessageList(roomMessages, message),
-      ]),
-    ),
-  })),
+  upsertMessage: (message) => set((state) => {
+    const activeRoom = state.activeRoom
+    const messageRoom = message.roomId
+    const isCurrentRoom = activeRoom && messageRoom && String(activeRoom) === String(messageRoom)
+
+    return {
+      messages: isCurrentRoom ? mergeMessageList(state.messages, message) : state.messages,
+      messagesByRoom: {
+        ...state.messagesByRoom,
+        [messageRoom]: mergeMessageList(state.messagesByRoom[messageRoom] || [], message),
+      },
+    }
+  }),
 
   markMessageStatus: (identifier, status, extra = {}) => set((state) => ({
     messages: state.messages.map((message) => (

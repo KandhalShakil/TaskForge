@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
-import { X, Calendar, User, Tag, Flag, AlignLeft, CheckSquare } from 'lucide-react'
+import { X, Calendar, User, Tag, Flag, AlignLeft, CheckSquare, ChevronUp, ChevronDown } from 'lucide-react'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
 import Button from '../common/Button'
+import SelectionList from '../common/SelectionList'
+import AdvancedDatePicker from '../common/AdvancedDatePicker'
+import SegmentedControl from '../common/SegmentedControl'
 import { stripHtml } from '../../utils/html'
 import { validateSubtask } from '../../utils/validation'
+import { TASK_STATUSES, TASK_PRIORITIES } from '../../utils/constants'
 
 const toFormValues = (subtask) => ({
   title: subtask?.title || '',
@@ -106,126 +110,185 @@ export default function SubtaskModal({
           <button onClick={onClose} className="btn-ghost p-1.5"><X size={16} /></button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-4 sm:p-6 space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-4 sm:p-6 space-y-6">
           {formError && (
-            <div className="rounded-lg border border-red-700/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+            <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-rose-400">
               {formError}
             </div>
           )}
-          <div>
+          
+          <div className="space-y-1">
             <input
-              className={`input text-base font-medium ${errors.title ? 'border-red-500' : ''}`}
-              placeholder="Subtask title..."
+              className={`w-full bg-transparent border-none text-2xl font-black text-white placeholder:text-slate-800 outline-none p-0 ${errors.title ? 'text-rose-400' : ''}`}
+              placeholder="Protocol Identifier..."
               disabled={isViewer}
               {...register('title', { required: 'Title is required' })}
+              autoFocus
             />
-            {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title.message}</p>}
+            <div className="h-px w-full bg-gradient-to-r from-slate-800 via-slate-800 to-transparent" />
+            {errors.title && <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mt-1 ml-1">{errors.title.message}</p>}
           </div>
 
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <AlignLeft size={14} className="text-slate-500" />
-              <label className="text-xs font-medium text-slate-400">Description</label>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <AlignLeft size={14} className="text-primary-500" />
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Deployment Specs</label>
             </div>
             <Controller
               name="description"
               control={control}
               rules={{ required: 'Description is required' }}
               render={({ field }) => (
-                <div className={`bg-surface-900 border border-slate-700 rounded-lg overflow-hidden [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-slate-700 [&_.ql-toolbar]:bg-surface-800 [&_.ql-container]:border-none [&_.ql-editor]:min-h-[150px] [&_.ql-editor]:text-sm [&_.ql-editor]:text-slate-200 [&_.ql-stroke]:stroke-slate-400 [&_.ql-fill]:fill-slate-400 [&_.ql-picker]:text-slate-400 ${isViewer ? '[&_.ql-toolbar]:hidden' : ''}`}>
-                  <ReactQuill theme="snow" value={field.value || ''} onChange={field.onChange} placeholder="Add a formatted description..." readOnly={isViewer} />
+                <div className={`bg-[#0b0c10]/60 border border-white/5 rounded-2xl overflow-hidden [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-white/5 [&_.ql-toolbar]:bg-white/[0.02] [&_.ql-container]:border-none [&_.ql-editor]:min-h-[150px] [&_.ql-editor]:text-[13px] [&_.ql-editor]:font-medium [&_.ql-editor]:text-slate-300 [&_.ql-stroke]:stroke-slate-500 [&_.ql-fill]:fill-slate-500 [&_.ql-picker]:text-slate-500 ${isViewer ? '[&_.ql-toolbar]:hidden' : ''}`}>
+                  <ReactQuill theme="snow" value={field.value || ''} onChange={field.onChange} placeholder="Initialize sub-protocol details..." readOnly={isViewer} />
                 </div>
               )}
             />
-            {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>}
+            {errors.description && <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mt-1 ml-1">{errors.description.message}</p>}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="label flex items-center gap-1.5"><Flag size={12} /> Status</label>
-              <select className="select" {...register('status')} disabled={isViewer}>
-                <option value="todo">To Do</option>
-                <option value="in_progress">In Progress</option>
-                <option value="in_review">In Review</option>
-                <option value="done">Done</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-            <div>
-              <label className="label flex items-center gap-1.5"><Flag size={12} /> Priority</label>
-              <select className="select" {...register('priority')} disabled={isViewer}>
-                <option value="urgent">Urgent</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-                <option value="no_priority">No Priority</option>
-              </select>
-            </div>
+          <div className="grid grid-cols-1 gap-6">
+            <Controller
+              name="status"
+              control={control}
+              render={({ field }) => (
+                <SegmentedControl
+                  label="Execution Status"
+                  options={TASK_STATUSES}
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={isViewer}
+                />
+              )}
+            />
+
+            <Controller
+              name="priority"
+              control={control}
+              rules={{ required: 'Priority is required' }}
+              render={({ field }) => (
+                <SegmentedControl
+                  label="Mission Priority"
+                  options={TASK_PRIORITIES}
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={isViewer}
+                  error={errors.priority?.message}
+                />
+              )}
+            />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="label flex items-center gap-1.5"><User size={12} /> Assignee</label>
-              <select className={`select ${errors.assignee_id ? 'border-red-500' : ''}`} {...register('assignee_id', { required: 'Assignee is required' })} disabled={isViewer}>
-                <option value="">Unassigned</option>
-                {members.map((member) => (
-                  <option key={member.user.id} value={member.user.id}>{member.user.full_name}</option>
-                ))}
-              </select>
-              {errors.assignee_id && <p className="text-red-400 text-xs mt-1">{errors.assignee_id.message}</p>}
-            </div>
-            <div>
-              <label className="label flex items-center gap-1.5"><Tag size={12} /> Category</label>
-              <select className="select" {...register('category_id')} disabled={isViewer}>
-                <option value="">No category</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
-                ))}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <Controller
+              name="assignee_id"
+              control={control}
+              rules={{ required: 'Assignee is required' }}
+              render={({ field }) => (
+                <SelectionList
+                  label="Primary Operator"
+                  options={members.map(m => ({ id: m.user.id, name: m.user.full_name, icon: <User size={14} /> }))}
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={errors.assignee_id?.message}
+                  className="max-h-40"
+                />
+              )}
+            />
+            <Controller
+              name="category_id"
+              control={control}
+              rules={{ required: 'Category is required' }}
+              render={({ field }) => (
+                <SelectionList
+                  label="Classification"
+                  options={categories.map(c => ({ id: c.id, name: c.name, icon: <Tag size={14} /> }))}
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={errors.category_id?.message}
+                  className="max-h-40"
+                />
+              )}
+            />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="label flex items-center gap-1.5"><Calendar size={12} /> Start Date</label>
-              <input type="date" className={`input ${errors.start_date ? 'border-red-500' : ''}`} {...register('start_date', { required: 'Start date is required' })} disabled={isViewer} />
-              {errors.start_date && <p className="text-red-400 text-xs mt-1">{errors.start_date.message}</p>}
-            </div>
-            <div>
-              <label className="label flex items-center gap-1.5"><Calendar size={12} /> Due Date</label>
-              <input
-                type="date"
-                className={`input ${errors.due_date ? 'border-red-500' : ''}`}
-                {...register('due_date', {
-                  required: 'End date is required',
-                  validate: (value) => {
-                    if (!value || !startDate) return true
-                    return value >= startDate || 'End date cannot be before start date'
-                  },
-                })}
-                disabled={isViewer}
-              />
-              {errors.due_date && <p className="text-red-400 text-xs mt-1">{errors.due_date.message}</p>}
-            </div>
-            <div>
-              <label className="label">Est. Hours</label>
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                className="input"
-                placeholder="0"
-                disabled={isViewer}
-                {...register('estimated_hours', {
-                  required: 'Estimated hours is required',
-                  validate: (value) => {
-                    if (value === '' || value === null || value === undefined) return true
-                    const parsed = Number(value)
-                    return Number.isFinite(parsed) && parsed > 0 || 'Estimated hours must be a positive number'
-                  },
-                })}
-              />
-              {errors.estimated_hours && <p className="text-red-400 text-xs mt-1">{errors.estimated_hours.message}</p>}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <Controller
+              name="start_date"
+              control={control}
+              rules={{ required: 'Required' }}
+              render={({ field }) => (
+                <AdvancedDatePicker
+                  label="Kickoff"
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={errors.start_date?.message}
+                  position="top"
+                />
+              )}
+            />
+            <Controller
+              name="due_date"
+              control={control}
+              rules={{ 
+                required: 'Required',
+                validate: (v) => !v || !startDate || v >= startDate || 'End date cannot be before start date'
+              }}
+              render={({ field }) => (
+                <AdvancedDatePicker
+                  label="Deadline"
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={errors.due_date?.message}
+                  position="top"
+                />
+              )}
+            />
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block opacity-70">Allocation (Hrs)</label>
+              <div className="relative group">
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0.5"
+                  className={`w-full rounded-xl h-12 pl-4 pr-12 text-[13px] font-bold bg-[#12141a]/60 border border-white/5 text-slate-200 focus:border-primary-500/50 outline-none transition-all ${errors.estimated_hours ? 'border-rose-500/50' : ''}`}
+                  placeholder="0"
+                  disabled={isViewer}
+                  {...register('estimated_hours', {
+                    required: 'Required',
+                    validate: (value) => {
+                      if (value === '' || value === null) return true
+                      const parsed = Number(value)
+                      return parsed > 0 || 'Must be positive'
+                    }
+                  })}
+                />
+                {!isViewer && (
+                  <div className="absolute right-1 top-1 bottom-1 flex flex-col gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = Number(watch('estimated_hours')) || 0
+                        setValue('estimated_hours', val + 0.5, { shouldValidate: true, shouldDirty: true })
+                      }}
+                      className="flex-1 px-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-slate-500 hover:text-white transition-all flex items-center justify-center border border-white/5"
+                    >
+                      <ChevronUp size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = Number(watch('estimated_hours')) || 0
+                        if (val > 0.5) setValue('estimated_hours', val - 0.5, { shouldValidate: true, shouldDirty: true })
+                      }}
+                      className="flex-1 px-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-slate-500 hover:text-white transition-all flex items-center justify-center border border-white/5"
+                    >
+                      <ChevronDown size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
+              {errors.estimated_hours && <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest ml-1">{errors.estimated_hours.message}</p>}
             </div>
           </div>
 

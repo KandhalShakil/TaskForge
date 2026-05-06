@@ -7,10 +7,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.permissions import IsWorkspaceMemberOrAdmin
-from apps.core.validation import normalize_datetime
 from django.core.cache import cache
 from apps.workspaces.documents import WorkspaceMemberDocument
+from apps.core.permissions import IsWorkspaceMemberOrAdmin, IsTaskOwnerOrAdmin, CompanyTenantMixin
 
 from .documents import CategoryDocument, CommentDocument, SubTaskDocument, TaskDocument
 from apps.users.emails import send_html_email
@@ -168,7 +167,7 @@ class SubTaskListCreateView(generics.ListCreateAPIView):
 
 
 class SubTaskDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin, IsTaskOwnerOrAdmin]
     serializer_class = SubTaskSerializer
     lookup_field = 'id'
     lookup_url_kwarg = 'pk'
@@ -187,8 +186,9 @@ class SubTaskDetailView(generics.RetrieveUpdateDestroyAPIView):
         if subtask.assigneeId and subtask.assigneeId != old_assignee:
             _send_task_assignment_email(subtask, self.request)
 
-class TaskListCreateView(generics.ListCreateAPIView):
+class TaskListCreateView(CompanyTenantMixin, generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
+    document_class = TaskDocument
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -196,7 +196,24 @@ class TaskListCreateView(generics.ListCreateAPIView):
         return TaskSerializer
 
     def perform_create(self, serializer):
-        task = serializer.save(createdById=str(self.request.user.id))
+        # 1. Validate dates against project
+        project_id = serializer.validated_data.get('projectId')
+        if project_id:
+            project = ProjectDocument.objects(id=str(project_id)).first()
+            if project:
+                start_date = serializer.validated_data.get('start_date')
+                due_date = serializer.validated_data.get('due_date')
+                
+                if start_date and project.start_date and start_date < project.start_date:
+                    raise ValidationError({'start_date': f"Task cannot start before project start ({project.start_date.date()})"})
+                if due_date and project.end_date and due_date > project.end_date:
+                    raise ValidationError({'due_date': f"Task cannot end after project end ({project.end_date.date()})"})
+
+        # 2. Save with companyId
+        task = serializer.save(
+            createdById=str(self.request.user.id),
+            companyId=str(self.request.user.companyId)
+        )
         _send_task_assignment_email(task, self.request)
 
     def get_queryset(self):
@@ -220,21 +237,81 @@ class TaskListCreateView(generics.ListCreateAPIView):
 
         return qs.order_by('order', '-created_at')
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # Paginate if needed
+        page = self.paginate_queryset(queryset)
+        tasks = list(page) if page is not None else list(queryset)
+        
+        if not tasks:
+            return self.get_paginated_response([]) if page is not None else Response([])
 
-class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin]
+        # Bulk fetch related data
+        task_ids = [str(t.id) for t in tasks]
+        
+        # 1. Categories
+        cat_ids = list(set(str(t.categoryId) for t in tasks if getattr(t, 'categoryId', None)))
+        categories = {str(c.id): c for c in CategoryDocument.objects(id__in=cat_ids)}
+        
+        # 2. Subtasks (only root level for listing)
+        subtasks_qs = SubTaskDocument.objects(taskId__in=task_ids, parentId__in=[None, ''])
+        task_subtasks = {}
+        for st in subtasks_qs:
+            t_id = str(st.taskId)
+            if t_id not in task_subtasks:
+                task_subtasks[t_id] = []
+            task_subtasks[t_id].append(st)
+            
+        # 3. Comment Counts
+        # MongoDB aggregation for counts
+        from apps.core.mongo import get_mongo_db
+        db = get_mongo_db()
+        pipeline = [
+            {"$match": {"taskId": {"$in": task_ids}}},
+            {"$group": {"_id": "$taskId", "count": {"$sum": 1}}}
+        ]
+        comment_counts = {item['_id']: item['count'] for item in db.task_comments.aggregate(pipeline)}
+
+        context = self.get_serializer_context()
+        context.update({
+            'bulk_categories': categories,
+            'bulk_subtasks': task_subtasks,
+            'bulk_comment_counts': comment_counts
+        })
+
+        serializer = self.get_serializer(tasks, many=True, context=context)
+        
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
+
+class TaskDetailView(CompanyTenantMixin, generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceMemberOrAdmin, IsTaskOwnerOrAdmin]
     serializer_class = TaskSerializer
+    document_class = TaskDocument
     lookup_field = 'id'
     lookup_url_kwarg = 'pk'
 
     def perform_update(self, serializer):
+        # Validate dates if changed
+        project_id = self.get_object().projectId
+        if project_id:
+            project = ProjectDocument.objects(id=str(project_id)).first()
+            if project:
+                start_date = serializer.validated_data.get('start_date')
+                due_date = serializer.validated_data.get('due_date')
+                
+                if start_date and project.start_date and start_date < project.start_date:
+                    raise ValidationError({'start_date': f"Task cannot start before project start ({project.start_date.date()})"})
+                if due_date and project.end_date and due_date > project.end_date:
+                    raise ValidationError({'due_date': f"Task cannot end after project end ({project.end_date.date()})"})
+
         old_assignee = self.get_object().assigneeId
         task = serializer.save(updated_at=timezone.now())
         if task.assigneeId and task.assigneeId != old_assignee:
             _send_task_assignment_email(task, self.request)
-
-    def get_queryset(self):
-        return TaskDocument.objects(workspaceId__in=_member_workspace_ids(self.request.user.id))
 
 
 class TaskBulkUpdateView(APIView):

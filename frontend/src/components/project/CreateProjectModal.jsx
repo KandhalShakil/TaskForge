@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { X } from 'lucide-react'
+import { useForm, Controller } from 'react-hook-form'
+import { X, Layout, Info, Calendar as CalendarIcon, Hash, Folder, Check } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { useProjectStore } from '../../store/projectStore'
 import { WORKSPACE_ICONS, WORKSPACE_COLORS } from '../../utils/constants'
 import Button from '../common/Button'
+import Input from '../common/Input'
+import TextArea from '../common/TextArea'
+import SelectionList from '../common/SelectionList'
+import AdvancedDatePicker from '../common/AdvancedDatePicker'
 import { extractApiError, validateProject } from '../../utils/validation'
 
 export default function CreateProjectModal({ workspace, defaultSpaceId = '', defaultFolderId = '', onClose }) {
@@ -20,14 +25,15 @@ export default function CreateProjectModal({ workspace, defaultSpaceId = '', def
     space: defaultSpaceId || '',
     folder: defaultFolderId || '',
   }), [defaultSpaceId, defaultFolderId])
+  
   const {
     register,
     handleSubmit,
     watch,
     reset,
     setError,
-    setFocus,
     clearErrors,
+    control,
     formState: { errors, isSubmitting, isValid },
   } = useForm({ mode: 'onChange', defaultValues })
 
@@ -36,11 +42,20 @@ export default function CreateProjectModal({ workspace, defaultSpaceId = '', def
   }, [defaultValues, reset])
 
   const selectedSpaceId = watch('space')
-  const selectedStartDate = watch('start_date')
+  const selectedFolderId = watch('folder')
+
+  // Filter folders: only show folders belonging to the selected space
   const availableFolders = useMemo(
-    () => folders.filter((folder) => !selectedSpaceId || folder.space === selectedSpaceId),
+    () => folders.filter((folder) => selectedSpaceId && folder.space === selectedSpaceId),
     [folders, selectedSpaceId]
   )
+
+  // Reset folder selection if space changes and current folder is not in the new available list
+  useEffect(() => {
+    if (selectedFolderId && !availableFolders.some(f => f.id === selectedFolderId)) {
+      reset({ ...watch(), folder: '' })
+    }
+  }, [selectedSpaceId, availableFolders, selectedFolderId, reset, watch])
 
   const onSubmit = async (data) => {
     setFormError('')
@@ -48,12 +63,10 @@ export default function CreateProjectModal({ workspace, defaultSpaceId = '', def
 
     const validation = validateProject(data)
     if (!validation.isValid) {
-      setFormError(validation.generalError || 'All fields are required')
+      setFormError(validation.generalError || 'Check your input')
       Object.entries(validation.errors).forEach(([field, message]) => {
         setError(field, { type: 'manual', message })
       })
-      const firstField = Object.keys(validation.errors)[0]
-      if (firstField) setFocus(firstField)
       return
     }
 
@@ -67,112 +80,183 @@ export default function CreateProjectModal({ workspace, defaultSpaceId = '', def
       space: data.space || null,
       folder: data.folder || null,
     }
-    if (!payload.space) delete payload.space
-    if (!payload.folder) delete payload.folder
 
     try {
       await createProject(payload)
-      toast.success('Project created!')
+      toast.success('Project created successfully')
       onClose()
     } catch (err) {
-      const message = extractApiError(err, 'Failed to create project')
+      const message = extractApiError(err, 'Creation failed')
       setFormError(message)
       toast.error(message)
     }
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content max-w-md" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-6 border-b border-slate-800">
-          <h2 className="text-lg font-semibold text-white">Create List</h2>
-          <button onClick={onClose} className="btn-ghost p-1.5"><X size={16} /></button>
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm" onClick={onClose}>
+      <motion.div 
+        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.98 }}
+        className="relative w-full max-w-xl max-h-[90vh] bg-[#0b0c10] rounded-[2rem] overflow-hidden border border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.7)] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header - Compact */}
+        <div className="p-6 border-b border-white/5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary-500/10 flex items-center justify-center text-primary-400 border border-primary-500/20">
+              <Layout size={22} />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-white tracking-tight leading-none">Initialize Project</h2>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1.5 opacity-60">System Configuration</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-white/5 text-slate-500 hover:text-white transition-all flex items-center justify-center">
+            <X size={18} />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-          {formError && (
-            <div className="rounded-lg border border-red-700/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
-              {formError}
-            </div>
-          )}
-          <div>
-            <label className="label">List Name *</label>
-            <input
-              className={`input ${errors.name ? 'border-red-500' : ''}`}
-              placeholder="Sprint Backlog"
+        <div className="overflow-y-auto no-scrollbar flex-1">
+          <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+          <AnimatePresence>
+            {formError && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-[10px] font-black text-rose-400 uppercase tracking-widest overflow-hidden">
+                {formError}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="space-y-5">
+            <Input
+              label="Project Identity"
+              placeholder="e.g., Enterprise Core V2"
+              error={errors.name?.message}
               {...register('name', { required: 'Name is required' })}
             />
-            {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>}
-          </div>
 
-          <div>
-            <label className="label">Description *</label>
-            <textarea
-              className={`input min-h-[70px] resize-none ${errors.description ? 'border-red-500' : ''}`}
-              placeholder="What's this project about?"
-              {...register('description', { required: 'Description is required' })}
+            <TextArea
+              label="Project Mission / Brief"
+              placeholder="Define the primary objectives and mission protocols..."
+              {...register('description')}
+              className="min-h-[100px]"
             />
-            {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>}
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Start Date *</label>
-              <input
-                type="date"
-                className={`input ${errors.start_date ? 'border-red-500' : ''}`}
-                {...register('start_date', { required: 'Start date is required' })}
+            <div className="grid grid-cols-2 gap-4">
+              <Controller
+                name="space"
+                control={control}
+                render={({ field }) => (
+                  <SelectionList
+                    label="Space Assignment"
+                    options={spaces}
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.space?.message}
+                    icon={Hash}
+                  />
+                )}
               />
-              {errors.start_date && <p className="text-red-400 text-xs mt-1">{errors.start_date.message}</p>}
+              <Controller
+                name="folder"
+                control={control}
+                render={({ field }) => (
+                  <SelectionList
+                    label="Folder Assignment"
+                    options={availableFolders}
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.folder?.message}
+                    icon={Folder}
+                    emptyMessage={selectedSpaceId ? "No Folder in this Space" : "Select a space first"}
+                  />
+                )}
+              />
             </div>
-            <div>
-              <label className="label">End Date *</label>
-              <input
-                type="date"
-                className={`input ${errors.end_date ? 'border-red-500' : ''}`}
-                {...register('end_date', {
-                  required: 'End date is required',
-                  validate: (value) => {
-                    if (!value || !selectedStartDate) return true
-                    return value >= selectedStartDate || 'End date cannot be before start date'
-                  },
+
+            <div className="grid grid-cols-2 gap-4">
+              <Controller
+                name="start_date"
+                control={control}
+                rules={{ required: 'Required' }}
+                render={({ field }) => (
+                  <AdvancedDatePicker
+                    label="Kickoff"
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.start_date?.message}
+                  />
+                )}
+              />
+              <Controller
+                name="end_date"
+                control={control}
+                rules={{ required: 'Required' }}
+                render={({ field }) => (
+                  <AdvancedDatePicker
+                    label="Deadline"
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.end_date?.message}
+                  />
+                )}
+              />
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block opacity-70">Visual Branding / Theme</label>
+              <div className="flex items-center gap-4 bg-white/[0.03] p-4 rounded-[1.5rem] border border-white/5 overflow-x-auto no-scrollbar">
+                {WORKSPACE_COLORS.map((color) => {
+                  const isSelected = selectedColor === color
+                  return (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setSelectedColor(color)}
+                      className="relative flex-shrink-0 outline-none group"
+                    >
+                      <motion.div
+                        animate={{ 
+                          scale: isSelected ? 1.2 : 1,
+                          opacity: isSelected ? 1 : 0.6
+                        }}
+                        whileHover={{ scale: 1.1, opacity: 1 }}
+                        className="w-7 h-7 rounded-full shadow-lg transition-shadow"
+                        style={{ 
+                          backgroundColor: color,
+                          boxShadow: isSelected ? `0 0 20px ${color}66` : 'none',
+                          border: isSelected ? '2px solid white' : '1px solid rgba(255,255,255,0.1)'
+                        }}
+                      >
+                        <AnimatePresence>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0, opacity: 0 }}
+                              className="absolute inset-0 flex items-center justify-center"
+                            >
+                              <Check size={14} className="text-white" strokeWidth={4} />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    </button>
+                  )
                 })}
-              />
-              {errors.end_date && <p className="text-red-400 text-xs mt-1">{errors.end_date.message}</p>}
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Space</label>
-              <select className="select" {...register('space')}>
-                <option value="">No space</option>
-                {spaces.map((space) => (
-                  <option key={space.id} value={space.id}>{space.icon} {space.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label">Folder</label>
-              <select className="select" {...register('folder')}>
-                <option value="">No folder</option>
-                {availableFolders.map((folder) => (
-                  <option key={folder.id} value={folder.id}>{folder.icon} {folder.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="label">Icon</label>
-            <div className="flex flex-wrap gap-2">
-              {WORKSPACE_ICONS.map((icon) => (
+            <div className="grid grid-cols-10 gap-2">
+              {WORKSPACE_ICONS.slice(0, 10).map((icon) => (
                 <button
                   key={icon}
                   type="button"
                   onClick={() => setSelectedIcon(icon)}
-                  className={`w-9 h-9 rounded-lg text-lg hover:scale-110 transition-all ${
-                    selectedIcon === icon ? 'ring-2 ring-primary-500 bg-surface-700' : 'hover:bg-surface-700'
+                  className={`h-11 rounded-xl flex items-center justify-center text-lg transition-all border ${
+                    selectedIcon === icon 
+                      ? 'bg-primary-500 border-primary-400 text-white shadow-lg' 
+                      : 'bg-white/[0.02] border-white/5 text-slate-500 hover:text-slate-300'
                   }`}
                 >
                   {icon}
@@ -181,37 +265,17 @@ export default function CreateProjectModal({ workspace, defaultSpaceId = '', def
             </div>
           </div>
 
-          <div>
-            <label className="label">Color</label>
-            <div className="flex flex-wrap gap-2">
-              {WORKSPACE_COLORS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setSelectedColor(color)}
-                  className={`w-7 h-7 rounded-full transition-all hover:scale-110 ${
-                    selectedColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-surface-900 scale-110' : ''
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-500">
-            Workspace: <span className="text-slate-300">{workspace.name}</span>
-          </p>
-
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
+            <Button type="button" variant="ghost" size="md" onClick={onClose} className="flex-1">
               Cancel
             </Button>
-            <Button type="submit" loading={isSubmitting} disabled={!isValid} className="flex-1">
-              Create List
+            <Button type="submit" variant="primary" size="md" loading={isSubmitting} disabled={!isValid} className="flex-1">
+              Finalize Project
             </Button>
           </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      </motion.div>
     </div>
   )
 }

@@ -1,9 +1,12 @@
+import { createPortal } from 'react-dom'
 import { X, Check, Trash2, Mail } from 'lucide-react'
 import { useWorkspaceStore } from '../../store/workspaceStore'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import ConfirmModal from '../common/ConfirmModal'
 import { connectSocket } from '../../utils/socket'
+import Button from '../common/Button'
 
 export default function InvitationsModal({ onClose }) {
   const { invitations, acceptInvitation, declineInvitation } = useWorkspaceStore()
@@ -15,7 +18,6 @@ export default function InvitationsModal({ onClose }) {
       const invite = invitations.find((inv) => inv.id === id)
       await acceptInvitation(id)
       
-      // Emit socket event
       if (invite) {
         const socket = connectSocket()
         socket.emit('accept_invitation', {
@@ -48,56 +50,96 @@ export default function InvitationsModal({ onClose }) {
     }
   }
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content max-w-md" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Mail size={18} className="text-primary-400" /> Workspace Invitations
-          </h2>
-          <button onClick={onClose} className="btn-ghost p-1.5"><X size={16} /></button>
+  return createPortal(
+    <div className="fixed inset-0 z-[1100] grid place-items-center p-4 bg-slate-950/90 backdrop-blur-md overflow-y-auto" onClick={onClose}>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 30 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="glass-thick w-full max-w-[440px] rounded-[2.5rem] overflow-hidden font-['Outfit'] shadow-[0_30px_100px_rgba(0,0,0,0.6)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 py-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500/20 to-primary-600/10 flex items-center justify-center text-primary-400 border border-white/5 premium-glow">
+              <Mail size={22} />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-white tracking-tight text-gradient leading-tight">Invitations</h2>
+              <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.15em] mt-0.5 opacity-80">Pending requests</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-3 rounded-2xl hover:bg-white/5 text-slate-500 hover:text-white transition-all group">
+            <X size={20} className="group-hover:rotate-90 transition-transform duration-300" />
+          </button>
         </div>
 
-        <div className="p-6 max-h-[400px] overflow-y-auto">
+        <div className="p-6 max-h-[500px] overflow-y-auto">
           {invitations.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center mx-auto mb-3">
-                <Mail size={24} className="text-slate-600" />
+            <div className="text-center py-12">
+              <div className="w-20 h-20 rounded-[2rem] bg-slate-950/40 border border-white/5 flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <Mail size={32} className="text-slate-600" />
               </div>
-              <p className="text-slate-400 text-sm font-medium">No pending invitations</p>
-              <button onClick={onClose} className="btn-secondary mt-4">Close Info</button>
+              <h3 className="text-white font-black text-lg uppercase tracking-widest mb-2">Inbox Clear</h3>
+              <p className="text-slate-500 text-xs font-medium">No pending invitations at the moment.</p>
+              <Button onClick={onClose} variant="secondary" size="md" className="mt-8">Close Info</Button>
             </div>
           ) : (
             <div className="space-y-4">
               {invitations.map((invite) => (
-                <div 
+                <motion.div 
+                  layout
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
                   key={invite.id} 
-                  className="bg-surface-900 border border-slate-800 rounded-xl p-4 flex items-center gap-4 hover:border-slate-700/50 transition-all"
+                  className="group relative bg-[#12141a]/40 border border-white/5 rounded-[2rem] p-5 flex items-center gap-5 hover:border-primary-500/30 hover:bg-[#12141a]/60 transition-all duration-300 shadow-inner"
                 >
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-inner" style={{ background: invite.workspace.color + '20' }}>
-                    {invite.workspace.icon}
+                  {/* Workspace Icon Container */}
+                  <div 
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-xl transition-all duration-500 group-hover:scale-105 group-hover:rotate-3 shrink-0" 
+                    style={{ 
+                      backgroundColor: invite.workspace.color + '15', 
+                      color: invite.workspace.color, 
+                      border: `1px solid ${invite.workspace.color}30` 
+                    }}
+                  >
+                    <span className="flex items-center justify-center leading-none drop-shadow-md">
+                      {invite.workspace.icon}
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white truncate">{invite.workspace.name}</p>
-                    <p className="text-xs text-slate-500 truncate">Invited by: {invite.workspace.owner.full_name}</p>
+
+                  {/* Info Section */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <h4 className="text-sm font-black text-white truncate uppercase tracking-wider mb-1">
+                      {invite.workspace.name}
+                    </h4>
+                    <div className="flex items-center gap-2 opacity-80">
+                      <div className="w-1 h-1 rounded-full bg-primary-500/40" />
+                      <p className="text-[10px] text-slate-500 truncate font-bold uppercase tracking-widest">
+                        Invited by: <span className="text-slate-300">{invite.workspace.owner.full_name}</span>
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button 
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2.5 shrink-0 ml-auto">
+                    <Button 
                       onClick={() => setInviteToDecline(invite)}
-                      className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/30 transition-all font-bold"
+                      variant="ghost"
+                      size="sm"
+                      icon={Trash2}
+                      className="!w-10 !h-10 !px-0 rounded-xl hover:text-rose-400 hover:bg-rose-400/10 border border-transparent hover:border-rose-400/20 transition-all active:scale-90"
                       title="Decline"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                    <button 
+                    />
+                    <Button 
                       onClick={() => handleAccept(invite.id)}
-                      className="p-2 rounded-lg bg-primary-600/20 text-primary-400 hover:bg-primary-600 hover:text-white transition-all shadow-lg shadow-primary-900/20"
+                      variant="primary"
+                      size="sm"
+                      icon={Check}
+                      className="!w-11 !h-11 !px-0 rounded-xl shadow-lg shadow-primary-500/20 active:scale-95 transition-all"
                       title="Accept"
-                    >
-                      <Check size={16} />
-                    </button>
+                    />
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           )}
@@ -113,7 +155,8 @@ export default function InvitationsModal({ onClose }) {
           isDanger={true}
           isLoading={isDeclining}
         />
-      </div>
-    </div>
+      </motion.div>
+    </div>,
+    document.body
   )
 }

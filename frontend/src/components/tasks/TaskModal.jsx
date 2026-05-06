@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
-import { X, Calendar, User, Tag, Flag, AlignLeft, Trash2, Plus, CheckSquare, Square, XCircle, Edit2, ChevronDown, ChevronRight } from 'lucide-react'
+import { X, Calendar, User, Tag, Flag, AlignLeft, Trash2, Plus, CheckSquare, Square, XCircle, Edit2, ChevronDown, ChevronRight, Hash, ChevronUp } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useTaskStore } from '../../store/taskStore'
 import { useWorkspaceStore } from '../../store/workspaceStore'
@@ -10,6 +10,9 @@ import 'react-quill/dist/quill.snow.css'
 import { useAuthStore } from '../../store/authStore'
 import ConfirmModal from '../common/ConfirmModal'
 import Button from '../common/Button'
+import SelectionList from '../common/SelectionList'
+import AdvancedDatePicker from '../common/AdvancedDatePicker'
+import SegmentedControl from '../common/SegmentedControl'
 import SubtaskModal from './SubtaskModal'
 import CreateCategoryModal from './CreateCategoryModal'
 import { tasksAPI } from '../../api/tasks'
@@ -195,6 +198,14 @@ export default function TaskModal({ task, project, workspace, onClose }) {
 
   const userRole = getUserRole(user?.id)
   const isViewer = userRole === 'viewer'
+  const isAdmin = userRole === 'admin'
+
+  const canEdit = useMemo(() => {
+    if (isViewer) return false
+    if (isAdmin) return true
+    if (!isEditing) return true // Members can create
+    return task?.created_by?.id === user?.id || task?.assignee?.id === user?.id
+  }, [isAdmin, isViewer, isEditing, task, user?.id])
 
   const {
     register,
@@ -729,7 +740,9 @@ export default function TaskModal({ task, project, workspace, onClose }) {
           <button onClick={onClose} className="btn-ghost p-1.5" style={{ color: 'var(--text-muted)' }}><X size={16} /></button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-4 sm:p-6 space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
+          {/* Scrollable Form Body */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 no-scrollbar sm:custom-scrollbar">
           {formError && (
             <div className="rounded-lg border border-red-700/50 bg-red-950/40 px-3 py-2 text-xs text-red-200">
               {formError}
@@ -739,7 +752,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
             <input
               className={`input text-base font-medium ${errors.title ? 'border-red-500' : ''}`}
               placeholder="Task title..."
-              disabled={isViewer}
+              disabled={!canEdit}
               {...register('title', { required: 'Title is required' })}
             />
             {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title.message}</p>}
@@ -762,131 +775,169 @@ export default function TaskModal({ task, project, workspace, onClose }) {
                     borderColor: 'var(--border-main)' 
                   }}
                 >
-                  <ReactQuill theme="snow" value={field.value || ''} onChange={field.onChange} placeholder="Add a formatted description..." readOnly={isViewer} />
+                  <ReactQuill theme="snow" value={field.value || ''} onChange={field.onChange} placeholder="Add a formatted description..." readOnly={!canEdit} />
                 </div>
               )}
             />
             {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="label flex items-center gap-1.5"><Flag size={12} /> Status</label>
-              <select className="select" {...register('status')} disabled={isViewer}>
-                {TASK_STATUSES.map((statusItem) => (
-                  <option key={statusItem.value} value={statusItem.value}>{statusItem.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label flex items-center gap-1.5"><Flag size={12} /> Priority</label>
-              <select className={`select ${errors.priority ? 'border-red-500' : ''}`} {...register('priority', { required: 'Priority is required' })} disabled={isViewer}>
-                {TASK_PRIORITIES.map((priorityItem) => (
-                  <option key={priorityItem.value} value={priorityItem.value}>{priorityItem.icon} {priorityItem.label}</option>
-                ))}
-              </select>
-              {errors.priority && <p className="text-red-400 text-xs mt-1">{errors.priority.message}</p>}
-            </div>
+          <div className="grid grid-cols-1 gap-6">
+            <Controller
+              name="status"
+              control={control}
+              render={({ field }) => (
+                <SegmentedControl
+                  label="Execution Status"
+                  options={TASK_STATUSES}
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={!canEdit}
+                />
+              )}
+            />
+
+            <Controller
+              name="priority"
+              control={control}
+              rules={{ required: 'Priority is required' }}
+              render={({ field }) => (
+                <SegmentedControl
+                  label="Mission Priority"
+                  options={TASK_PRIORITIES}
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={isViewer}
+                  error={errors.priority?.message}
+                />
+              )}
+            />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="label flex items-center gap-1.5"><User size={12} /> Assignee</label>
-              <select className={`select ${errors.assignee_id ? 'border-red-500' : ''}`} {...register('assignee_id', { required: 'Assignee is required' })} disabled={isViewer}>
-                <option value="">Unassigned</option>
-                {members.map((member) => (
-                  <option key={member.user.id} value={member.user.id}>{member.user.full_name}</option>
-                ))}
-              </select>
-              {errors.assignee_id && <p className="text-red-400 text-xs mt-1">{errors.assignee_id.message}</p>}
-            </div>
-            <div>
-              <label className="label flex items-center gap-1.5"><Tag size={12} /> Category</label>
-              <div className="flex gap-2">
-                <select className={`select ${errors.category_id ? 'border-red-500' : ''}`} {...register('category_id', { required: 'Category is required' })} disabled={isViewer}>
-                  <option value="">Select category</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>{category.name}</option>
-                  ))}
-                </select>
-                {!isViewer && (
-                  <Button type="button" variant="secondary" size="sm" onClick={() => setShowCreateCategory(true)} className="shrink-0 whitespace-nowrap">
-                    <Plus size={14} /> Add
-                  </Button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <Controller
+              name="assignee_id"
+              control={control}
+              rules={{ required: 'Assignee is required' }}
+              render={({ field }) => (
+                <SelectionList
+                  label="Primary Operator"
+                  options={members.map(m => ({ id: m.user.id, name: m.user.full_name, icon: <User size={14} /> }))}
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={errors.assignee_id?.message}
+                  className="max-h-40"
+                />
+              )}
+            />
+            <div className="space-y-4">
+              <Controller
+                name="category_id"
+                control={control}
+                rules={{ required: 'Category is required' }}
+                render={({ field }) => (
+                  <SelectionList
+                    label="Classification"
+                    options={categories.map(c => ({ id: c.id, name: c.name, icon: <Tag size={14} /> }))}
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.category_id?.message}
+                    className="max-h-40"
+                  />
                 )}
-              </div>
-              {errors.category_id && <p className="text-red-400 text-xs mt-1">{errors.category_id.message}</p>}
+              />
+              {!isViewer && (
+                <button
+                  type="button"
+                  onClick={() => setShowCreateCategory(true)}
+                  className="w-full h-10 rounded-xl bg-slate-800/30 border border-white/5 hover:bg-slate-800/60 hover:border-white/10 text-[10px] font-black text-slate-400 hover:text-slate-200 uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus size={14} /> New Category
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="label flex items-center gap-1.5"><Calendar size={12} /> Start Date</label>
-              <input type="date" className={`input ${errors.start_date ? 'border-red-500' : ''}`} {...register('start_date', { required: 'Start date is required' })} disabled={isViewer} />
-              {errors.start_date && <p className="text-red-400 text-xs mt-1">{errors.start_date.message}</p>}
-            </div>
-            <div>
-              <label className="label flex items-center gap-1.5"><Calendar size={12} /> Due Date</label>
-              <input
-                type="date"
-                className={`input ${errors.due_date ? 'border-red-500' : ''}`}
-                {...register('due_date', {
-                  required: 'End date is required',
-                  validate: (value) => {
-                    if (!value || !startDate) return true
-                    return value >= startDate || 'End date cannot be before start date'
-                  },
-                })}
-                disabled={isViewer}
-              />
-              {errors.due_date && <p className="text-red-400 text-xs mt-1">{errors.due_date.message}</p>}
-            </div>
-            <div>
-              <label className="label">Est. Hours</label>
-              <input
-                type="number"
-                step="0.5"
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <Controller
+              name="start_date"
+              control={control}
+              rules={{ required: 'Required' }}
+              render={({ field }) => (
+                <AdvancedDatePicker
+                  label="Kickoff"
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={errors.start_date?.message}
+                  position="top"
+                />
+              )}
+            />
+            <Controller
+              name="due_date"
+              control={control}
+              rules={{ 
+                required: 'Required',
+                validate: (v) => !v || !startDate || v >= startDate || 'End date cannot be before start date'
+              }}
+              render={({ field }) => (
+                <AdvancedDatePicker
+                  label="Deadline"
+                   value={field.value}
+                  onChange={field.onChange}
+                  error={errors.due_date?.message}
+                  position="top"
+                />
+              )}
+            />
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 block opacity-70">Allocation (Hrs)</label>
+              <div className="relative group">
+                <input
+                  type="number"
+                  step="0.5"
                   min="0.5"
                   max={taskHoursLimit.limitHours ?? undefined}
-                className={`input ${errors.estimated_hours ? 'border-red-500' : ''}`}
-                placeholder="0"
-                disabled={isViewer}
-                {...register('estimated_hours', {
-                  required: 'Estimated hours is required',
-                  validate: (value) => {
-                    if (value === '' || value === null || value === undefined) return true
-                    const parsed = Number(value)
-                      if (!Number.isFinite(parsed) || parsed <= 0) {
-                        return 'Estimated hours must be a positive number'
-                      }
-
-                      if (taskHoursLimit.isSameDay && !taskHoursLimit.isValidTimeSelection) {
-                        return 'Invalid time selection'
-                      }
-
-                      if (taskHoursLimit.limitHours !== null && parsed > taskHoursLimit.limitHours) {
-                        return taskHoursLimit.isSameDay
-                          ? 'Estimated hours cannot exceed remaining time today'
-                          : 'Estimated hours cannot exceed task duration'
-                      }
-
+                  className={`w-full rounded-xl h-12 pl-4 pr-12 text-[13px] font-bold bg-[#12141a]/60 border border-white/5 text-slate-200 focus:border-primary-500/50 outline-none transition-all ${errors.estimated_hours ? 'border-rose-500/50' : ''}`}
+                  placeholder="0"
+                  disabled={isViewer}
+                  {...register('estimated_hours', {
+                    required: 'Required',
+                    validate: (value) => {
+                      if (value === '' || value === null) return true
+                      const parsed = Number(value)
+                      if (parsed <= 0) return 'Must be positive'
+                      if (taskHoursLimit.limitHours !== null && parsed > taskHoursLimit.limitHours) return 'Exceeds limit'
                       return true
-                  },
-                })}
-              />
-                {taskHoursLimit.limitHours !== null && (
-                  <p className={`text-xs mt-1 ${taskHoursLimit.isSameDay && !taskHoursLimit.isValidTimeSelection ? 'text-red-400' : 'text-slate-500'}`}>
-                    {taskHoursLimit.isSameDay && taskHoursLimit.isValidTimeSelection
-                      ? `You can only add up to ${taskHoursLimit.displayHours} hours today`
-                      : taskHoursLimit.isSameDay && !taskHoursLimit.isValidTimeSelection
-                        ? 'Invalid time selection'
-                        : `You can only add up to ${taskHoursLimit.displayHours} hours for this task`}
-                  </p>
+                    }
+                  })}
+                />
+                {!isViewer && (
+                  <div className="absolute right-1 top-1 bottom-1 flex flex-col gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = Number(watch('estimated_hours')) || 0
+                        setValue('estimated_hours', val + 0.5, { shouldValidate: true, shouldDirty: true })
+                      }}
+                      className="flex-1 px-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-slate-500 hover:text-white transition-all flex items-center justify-center border border-white/5"
+                    >
+                      <ChevronUp size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = Number(watch('estimated_hours')) || 0
+                        if (val > 0.5) setValue('estimated_hours', val - 0.5, { shouldValidate: true, shouldDirty: true })
+                      }}
+                      className="flex-1 px-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-slate-500 hover:text-white transition-all flex items-center justify-center border border-white/5"
+                    >
+                      <ChevronDown size={12} />
+                    </button>
+                  </div>
                 )}
-                {estimatedHoursValidationMessage && !errors.estimated_hours && (
-                  <p className="text-red-400 text-xs mt-1">{estimatedHoursValidationMessage}</p>
-                )}
-              {errors.estimated_hours && <p className="text-red-400 text-xs mt-1">{errors.estimated_hours.message}</p>}
+              </div>
+              {errors.estimated_hours && <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest ml-1">{errors.estimated_hours.message}</p>}
             </div>
           </div>
 
@@ -910,7 +961,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
               <p className="text-xs text-slate-500 mb-2">Loading subtasks...</p>
             )}
             {nestedSubtasks.roots.length > 0 ? (
-              <div className="space-y-2">
+              <div className="max-h-60 overflow-y-auto no-scrollbar pr-1 space-y-2">
                 {renderSubtaskRows(nestedSubtasks.roots, nestedSubtasks.byParent)}
               </div>
             ) : (
@@ -925,32 +976,37 @@ export default function TaskModal({ task, project, workspace, onClose }) {
             <span>Workspace: {workspace.name}</span>
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2 border-t border-slate-800 items-stretch sm:items-center justify-between">
-            {isEditing && !isViewer && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleDeleteClick}
-                className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded transition-all self-start"
-                title="Delete Task"
-                icon={Trash2}
-              />
-            )}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 ml-auto w-full sm:w-auto sm:flex-1 sm:max-w-[360px]">
-              <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
-                {isViewer ? 'Close' : 'Cancel'}
-              </Button>
-              {!isViewer && (
+          </div>
+
+          {/* Fixed Footer */}
+          <div className="px-6 py-4 border-t border-slate-800 bg-slate-900/40 backdrop-blur-md">
+            <div className="flex flex-col-reverse sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+              {isEditing && canEdit && (
                 <Button
-                  type="submit"
-                  loading={isSubmitting || isSavingSubtasks}
-                  disabled={!isValid}
-                  loadingText={isEditing ? 'Saving...' : 'Creating...'}
-                  className="flex-1"
-                >
-                  {isEditing ? 'Update Task' : 'Create Task'}
-                </Button>
+                  type="button"
+                  variant="ghost"
+                  onClick={handleDeleteClick}
+                  className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded transition-all self-start sm:self-center"
+                  title="Delete Task"
+                  icon={Trash2}
+                />
               )}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 ml-auto w-full sm:w-auto sm:flex-1 sm:max-w-[360px]">
+                <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
+                  {isViewer || !canEdit ? 'Close' : 'Cancel'}
+                </Button>
+                {canEdit && (
+                  <Button
+                    type="submit"
+                    loading={isSubmitting || isSavingSubtasks}
+                    disabled={!isValid}
+                    loadingText={isEditing ? 'Saving...' : 'Creating...'}
+                    className="flex-1"
+                  >
+                    {isEditing ? 'Update Task' : 'Create Task'}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </form>

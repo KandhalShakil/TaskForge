@@ -8,9 +8,16 @@ class CompanyCheckView(APIView):
 
     def get(self, request):
         name = request.query_params.get('name', '').strip()
+        # Normalize spaces
+        name = " ".join(name.split())
+        
         if not name:
-            return Response({'exists': False})
+            return Response({'exists': False, 'total_count': CompanyDocument.objects.count()})
         
         # Case-insensitive search for company name
         company = CompanyDocument.objects(name__iexact=name).first()
-        return Response({'exists': bool(company)})
+        return Response({
+            'exists': bool(company),
+            'total_count': CompanyDocument.objects.count(),
+            'searched_for': name
+        })

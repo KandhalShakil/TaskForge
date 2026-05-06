@@ -8,6 +8,7 @@ export default function ChatSidebar({
   activeTaskRoom,
   onSelectThread,
   onStartDirectMessage,
+  loading = false,
   className = '',
 }) {
   const workspaceThread = threads.find((t) => t.chatType === 'workspace')
@@ -25,85 +26,110 @@ export default function ChatSidebar({
       {/* Header */}
       <div className="border-b border-slate-800/60 bg-surface-900/60 px-4 py-4 sm:px-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600/30 to-primary-500/10 text-xl ring-1 ring-primary-500/20">
-            {workspace?.icon || '💬'}
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-600">Chat</p>
-            <h2 className="truncate text-sm font-bold text-white">{workspace?.name || 'Workspace'}</h2>
-          </div>
+          {loading ? (
+            <>
+              <div className="h-10 w-10 shrink-0 rounded-2xl bg-slate-800 skeleton" />
+              <div className="flex-1 space-y-2">
+                <div className="h-2 w-12 rounded bg-slate-800 skeleton" />
+                <div className="h-3 w-24 rounded bg-slate-800 skeleton" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600/30 to-primary-500/10 text-xl ring-1 ring-primary-500/20">
+                {workspace?.icon || '💬'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-600">Chat</p>
+                <h2 className="truncate text-sm font-bold text-white">{workspace?.name || 'Workspace'}</h2>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* Threads */}
       <div className="flex-1 space-y-5 overflow-y-auto px-3 py-4 sm:px-4">
-        {/* Workspace thread */}
-        {workspaceThread && (
-          <Section label="Workspace" icon={<Workflow size={11} />}>
-            <ThreadItem
-              thread={workspaceThread}
-              isActive={activeRoom === workspaceThread.roomId}
-              onClick={() => onSelectThread(workspaceThread)}
-            />
-          </Section>
-        )}
+        {loading ? (
+          <div className="space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="space-y-3">
+                <div className="h-2 w-20 rounded bg-slate-800 skeleton" />
+                <div className="h-16 w-full rounded-2xl bg-slate-900 skeleton" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            {/* Workspace thread */}
+            {workspaceThread && (
+              <Section label="Workspace" icon={<Workflow size={11} />}>
+                <ThreadItem
+                  thread={workspaceThread}
+                  isActive={activeRoom === workspaceThread.roomId}
+                  onClick={() => onSelectThread(workspaceThread)}
+                />
+              </Section>
+            )}
 
-        {/* Task thread */}
-        {taskThread && (
-          <Section label="Task" icon={<Hash size={11} />}>
-            <ThreadItem
-              thread={taskThread}
-              isActive={activeRoom === taskThread.roomId}
-              onClick={() => onSelectThread(taskThread)}
-            />
-          </Section>
-        )}
+            {/* Task thread */}
+            {taskThread && (
+              <Section label="Task" icon={<Hash size={11} />}>
+                <ThreadItem
+                  thread={taskThread}
+                  isActive={activeRoom === taskThread.roomId}
+                  onClick={() => onSelectThread(taskThread)}
+                />
+              </Section>
+            )}
 
-        {/* Direct messages */}
-        <Section label="Direct Messages" icon={<Users size={11} />}>
-          {directThreads.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-800 bg-surface-900/40 px-4 py-5 text-center text-xs text-slate-600">
-              No direct messages yet
-            </div>
-          ) : (
-            directThreads.map((thread) => (
-              <ThreadItem
-                key={thread.roomId}
-                thread={thread}
-                isActive={activeRoom === thread.roomId}
-                onClick={() => onSelectThread(thread)}
-              />
-            ))
-          )}
-        </Section>
+            {/* Direct messages */}
+            <Section label="Direct Messages" icon={<Users size={11} />}>
+              {directThreads.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-800 bg-surface-900/40 px-4 py-5 text-center text-xs text-slate-600">
+                  No direct messages yet
+                </div>
+              ) : (
+                directThreads.map((thread) => (
+                  <ThreadItem
+                    key={thread.roomId}
+                    thread={thread}
+                    isActive={activeRoom === thread.roomId}
+                    onClick={() => onSelectThread(thread)}
+                  />
+                ))
+              )}
+            </Section>
 
-        {/* Start a DM */}
-        {members.length > 0 && (
-          <Section label="Start a DM" icon={<MessageSquarePlus size={11} />}>
-            <div className="space-y-1.5">
-              {members.map((member) => (
-                <button
-                  key={member.id}
-                  type="button"
-                  onClick={() => onStartDirectMessage(member)}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-slate-800/60 bg-surface-900/60 px-3 py-2.5 text-left transition-all hover:border-slate-600/60 hover:bg-surface-800"
-                >
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-slate-700 to-slate-600 text-xs font-bold text-slate-200 ring-1 ring-slate-700">
-                    {member.avatar ? (
-                      <img src={member.avatar} alt={member.full_name} className="h-full w-full object-cover" />
-                    ) : (
-                      member.initials || member.full_name?.[0]?.toUpperCase() || 'U'
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white">{member.full_name}</p>
-                    <p className="truncate text-[11px] text-slate-500">{member.role}</p>
-                  </div>
-                  <SendHorizonal size={13} className="shrink-0 text-slate-700" />
-                </button>
-              ))}
-            </div>
-          </Section>
+            {/* Start a DM */}
+            {members.length > 0 && (
+              <Section label="Start a DM" icon={<MessageSquarePlus size={11} />}>
+                <div className="space-y-1.5">
+                  {members.map((member) => (
+                    <button
+                      key={member.id}
+                      type="button"
+                      onClick={() => onStartDirectMessage(member)}
+                      className="flex w-full items-center gap-3 rounded-2xl border border-slate-800/60 bg-surface-900/60 px-3 py-2.5 text-left transition-all hover:border-slate-600/60 hover:bg-surface-800"
+                    >
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-slate-700 to-slate-600 text-xs font-bold text-slate-200 ring-1 ring-slate-700">
+                        {member.avatar ? (
+                          <img src={member.avatar} alt={member.full_name} className="h-full w-full object-cover" />
+                        ) : (
+                          member.initials || member.full_name?.[0]?.toUpperCase() || 'U'
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-white">{member.full_name}</p>
+                        <p className="truncate text-[11px] text-slate-500">{member.role}</p>
+                      </div>
+                      <SendHorizonal size={13} className="shrink-0 text-slate-700" />
+                    </button>
+                  ))}
+                </div>
+              </Section>
+            )}
+          </>
         )}
       </div>
     </aside>

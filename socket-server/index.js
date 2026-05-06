@@ -3,6 +3,7 @@ const express = require('express')
 const http = require('http')
 const { Server } = require('socket.io')
 const cors = require('cors')
+const jwt = require('jsonwebtoken')
 
 const app = express()
 const server = http.createServer(app)
@@ -11,6 +12,8 @@ const PORT = process.env.PORT || 3001
 const CORS_ORIGIN = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim())
   : ['http://localhost:5173', 'http://127.0.0.1:5173']
+
+const JWT_SECRET = process.env.JWT_SECRET || 'django-insecure-3x7+a9@&=p_vs)=uh58($f2i8*jbm1o9cn1857jo^fuk!p%soo'
 
 app.use(cors({ origin: CORS_ORIGIN, credentials: true }))
 
@@ -22,11 +25,27 @@ const io = new Server(server, {
   },
 })
 
+// Authentication Middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token || socket.handshake.headers.token
+  if (!token) {
+    return next(new Error('Authentication error: Token missing'))
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return next(new Error('Authentication error: Invalid token'))
+    }
+    socket.user = decoded // Contains user_id, email, etc.
+    next()
+  })
+})
+
 // Track active rooms per socket for cleanup on disconnect
 const socketRooms = new Map()
 
 io.on('connection', (socket) => {
-  console.log(`[Socket.IO] Connected: ${socket.id}`)
+  console.log(`[Socket.IO] Authenticated: ${socket.id} (User: ${socket.user?.user_id})`)
 
   // Client joins a specific chat room
   // Payload: { chatId: string, userId: string }
@@ -89,6 +108,16 @@ io.on('connection', (socket) => {
     
     const workspaceRoom = `workspace_${workspaceId}`
     socket.to(workspaceRoom).emit('member_accepted', payload)
+  })
+  
+  // Client updates a member role — notify everyone in the workspace
+  // Payload: { workspaceId: string, userId: string, role: string }
+  socket.on('role_updated', (payload) => {
+    const { workspaceId } = payload || {}
+    if (!workspaceId) return
+    
+    const workspaceRoom = `workspace_${workspaceId}`
+    io.to(workspaceRoom).emit('role_updated', payload)
   })
 
   // ── Project-specific Synchronization ────────────────────────────────

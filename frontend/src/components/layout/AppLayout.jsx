@@ -64,7 +64,7 @@ export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
-  const { fetchWorkspaces, fetchInvitations } = useWorkspaceStore()
+  const { fetchWorkspaces, fetchInvitations, activeWorkspace, fetchMembers } = useWorkspaceStore()
   const { user } = useAuthStore()
   const { incrementUnread } = useChatStore()
 
@@ -175,11 +175,37 @@ export default function AppLayout() {
 
     socket.on('new_invitation', onNewInvitation)
 
+    // ── Real-time Role Update Handler ──────────────────────────────────
+    const onRoleUpdated = (payload) => {
+      const { workspaceId, userId } = payload || {}
+      
+      // If we are in the affected workspace, refresh members list
+      if (activeWorkspace?.id === workspaceId) {
+        fetchMembers(workspaceId)
+      }
+
+      // If it's the current user, refresh everything to update permissions
+      if (String(userId) === String(user?.id)) {
+        fetchWorkspaces()
+        toast('Your access level has been updated', { 
+          icon: '🛡️',
+          style: {
+            background: 'rgba(6, 182, 212, 0.1)',
+            borderColor: 'rgba(6, 182, 212, 0.2)',
+            color: '#fff'
+          }
+        })
+      }
+    }
+
+    socket.on('role_updated', onRoleUpdated)
+
     return () => {
       socket.off('receive_message', onReceiveMessage)
       socket.off('new_invitation', onNewInvitation)
+      socket.off('role_updated', onRoleUpdated)
     }
-  }, [user?.id, incrementUnread, navigateToRoom, fetchInvitations])
+  }, [user?.id, activeWorkspace?.id, fetchMembers, fetchWorkspaces, incrementUnread, navigateToRoom, fetchInvitations])
 
   // ── Theme management ──────────────────────────────────────────────────────
   useEffect(() => {

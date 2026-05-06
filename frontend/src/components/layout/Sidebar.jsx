@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation, useParams } from 'react-router-dom'
 import {
   LayoutDashboard, FolderKanban, Plus, Settings, ChevronDown,
   ChevronRight, Users, BarChart2, Loader2, Hash, LogOut, MessagesSquare,
-  Layers, ChevronLeft
+  Layers, ChevronLeft, X
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useWorkspaceStore } from '../../store/workspaceStore'
@@ -41,7 +41,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const [selectedSpaceIdForCreate, setSelectedSpaceIdForCreate] = useState(null)
   const [selectedFolderIdForCreate, setSelectedFolderIdForCreate] = useState(null)
   const [workspacesExpanded, setWorkspacesExpanded] = useState(true)
-  const [spacesExpanded, setSpacesExpanded] = useState(true)
+  const [spacesExpanded, setSpacesExpanded] = useState(false)
   const [expandedSpaces, setExpandedSpaces] = useState({})
   const [expandedFolders, setExpandedFolders] = useState({})
 
@@ -64,7 +64,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
     hierarchy.forEach((space) => {
       ;(space.folders || []).forEach((folder) => {
-        const isOpen = expandedFolders[folder.id] ?? true
+        const isOpen = expandedFolders[folder.id] ?? false
         const hasCache = Array.isArray(folderProjects[folder.id])
         const isLoading = Boolean(folderProjectsLoading[folder.id])
 
@@ -163,78 +163,72 @@ export default function Sidebar({ isOpen, onClose }) {
       >
         {/* Logo Area */}
         <div 
-          className="p-6 border-b flex items-center justify-between backdrop-blur-sm"
+          className="p-5 border-b flex items-center justify-between"
           style={{ borderColor: 'var(--border-light)' }}
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500/20 to-purple-600/20 border border-primary-500/20 flex items-center justify-center shadow-inner shadow-primary-500/10">
-              <LayoutDashboard size={20} className="text-primary-400" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-primary-500/20">
+              <Layers size={18} className="text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-base text-white tracking-tight leading-none">{user?.company_name || 'TaskForge'}</span>
-              <span className="text-[10px] font-bold text-primary-500 uppercase tracking-[0.2em] mt-1 line-clamp-1">{user?.user_type === 'owner' ? 'Company Owner' : 'Employee'}</span>
+              <span className="font-bold text-sm text-white tracking-tight leading-tight">{user?.company_name || 'TaskForge'}</span>
+              <span className="text-[10px] font-bold text-primary-500 uppercase tracking-widest mt-0.5">{user?.user_type === 'owner' ? 'Owner' : 'Member'}</span>
             </div>
           </div>
-          <button
-            onClick={() => setCollapsed(true)}
-            className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-surface-800/80 transition-all border border-transparent hover:border-slate-700/50"
-          >
-            <ChevronLeft size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onClose}
+              className="lg:hidden p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-all"
+            >
+              <X size={20} />
+            </button>
+            <button
+              onClick={() => setCollapsed(true)}
+              className="hidden lg:flex btn-ghost"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-1">
+        <div className="flex-1 overflow-y-auto p-3 space-y-4">
           {/* Workspaces section */}
           <div>
             <div
-              className="flex items-center justify-between w-full px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+              className="flex items-center justify-between w-full px-2 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] cursor-pointer hover:text-slate-300 transition-colors"
               onClick={() => setWorkspacesExpanded(!workspacesExpanded)}
-              style={{ color: 'var(--text-muted)' }}
             >
-              <div className="flex items-center justify-between w-full pr-2">
-                <h2 className="text-xs font-bold uppercase tracking-widest pl-2">Workspaces</h2>
+              <span>Workspaces</span>
+              <div className="flex items-center gap-2">
                 {isCompany && (
                   <button 
-                    id="sidebar-create-workspace"
                     onClick={(e) => { e.stopPropagation(); setShowWorkspaceModal(true) }}
-                    className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-white transition-colors"
+                    className="p-1 rounded bg-slate-800/50 hover:bg-primary-600 hover:text-white transition-all"
                   >
-                    <Plus size={14} />
+                    <Plus size={10} />
                   </button>
                 )}
-              </div>
-              <div className="flex items-center gap-1">
-                {workspacesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                {workspacesExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
               </div>
             </div>
 
             {workspacesExpanded && (
               <div className="mt-1 space-y-0.5">
                 {workspaces.map((ws) => (
-                  <div key={ws.id}>
-                    <button
-                      onClick={() => {
-                        setActiveWorkspace(ws)
-                        navigate('/workspaces')
-                      }}
-                      className={`group flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
-                        activeWorkspace?.id === ws.id
-                          ? 'border shadow-sm shadow-primary-900/10'
-                          : 'hover:bg-opacity-50'
-                      }`}
-                      style={{ 
-                        backgroundColor: activeWorkspace?.id === ws.id ? 'var(--bg-page)' : 'transparent',
-                        borderColor: activeWorkspace?.id === ws.id ? 'var(--border-main)' : 'transparent',
-                        color: activeWorkspace?.id === ws.id ? 'var(--text-main)' : 'var(--text-muted)'
-                      }}
-                    >
-                      <span className="text-base group-hover:scale-125 transition-transform duration-200">{ws.icon}</span>
-                      <span className="truncate font-medium">{ws.name}</span>
-                      {ws.user_role === 'admin' && (
-                        <span className="ml-auto text-[10px] font-bold text-primary-500 uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">admin</span>
-                      )}
-                    </button>
-                  </div>
+                  <button
+                    key={ws.id}
+                    onClick={() => {
+                      setActiveWorkspace(ws)
+                      navigate('/workspaces')
+                    }}
+                    className={`sidebar-item w-full ${activeWorkspace?.id === ws.id ? 'sidebar-item-active' : ''}`}
+                  >
+                    <span className="text-base">{ws.icon}</span>
+                    <span className="truncate">{ws.name}</span>
+                    {ws.user_role === 'admin' && activeWorkspace?.id === ws.id && (
+                      <span className="ml-auto text-[9px] font-black text-primary-500/80 uppercase">admin</span>
+                    )}
+                  </button>
                 ))}
               </div>
             )}
@@ -242,11 +236,8 @@ export default function Sidebar({ isOpen, onClose }) {
 
           {/* Active workspace nav */}
           {activeWorkspace && (
-            <div className="mt-3">
-              <div 
-                className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider truncate"
-                style={{ color: 'var(--text-muted)' }}
-              >
+            <div className="space-y-1">
+              <div className="px-2 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em]">
                 {activeWorkspace.name}
               </div>
 
@@ -254,7 +245,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 to={`/workspaces/${activeWorkspace.id}/dashboard`}
                 className={`sidebar-item ${isActive(`/workspaces/${activeWorkspace.id}/dashboard`) ? 'sidebar-item-active' : ''}`}
               >
-                <BarChart2 size={16} />
+                <LayoutDashboard size={16} />
                 <span>Dashboard</span>
               </Link>
 
@@ -277,30 +268,29 @@ export default function Sidebar({ isOpen, onClose }) {
               <div className="divider" />
 
               {/* Projects */}
-              <div
-                className="flex items-center justify-between w-full px-2 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors cursor-pointer"
-                onClick={() => setSpacesExpanded(!spacesExpanded)}
-              >
-                <div className="flex items-center justify-between w-full pr-2 mt-4">
-                  <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-2">Spaces</h2>
-                  {activeWorkspace?.user_role !== 'viewer' && (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setShowSpaceModal(true) }}
-                      className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-white transition-colors"
-                    >
-                      <Plus size={14} />
-                    </button>
-                  )}
+              <div>
+                <div
+                  className="flex items-center justify-between w-full px-2 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] cursor-pointer hover:text-slate-300 transition-colors"
+                  onClick={() => setSpacesExpanded(!spacesExpanded)}
+                >
+                  <span>Spaces</span>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setShowSpaceModal(true) }}
+                        className="p-1 rounded bg-slate-800/50 hover:bg-primary-600 hover:text-white transition-all"
+                      >
+                        <Plus size={10} />
+                      </button>
+                    )}
+                    {spacesExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 mt-4">
-                  {spacesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                </div>
-              </div>
 
-              {spacesExpanded && (
-                <div className="space-y-0.5 mt-1">
+                {spacesExpanded && (
+                  <div className="space-y-1 mt-1">
                   {hierarchy.map((space) => {
-                    const isSpaceOpen = expandedSpaces[space.id] ?? true
+                    const isSpaceOpen = expandedSpaces[space.id] ?? false
                     const folders = space.folders || []
                     const rootLists = space.lists || []
 
@@ -308,32 +298,27 @@ export default function Sidebar({ isOpen, onClose }) {
                       <div key={space.id} className="space-y-1">
                         <div
                           onClick={() => toggleSpaceExpanded(space.id)}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-surface-800 transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-slate-300 hover:bg-slate-800/40 transition-all cursor-pointer group/space"
                         >
-                          {isSpaceOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                          <span>{space.icon || '🧭'}</span>
-                          <span className="truncate font-medium">{space.name}</span>
-                          {!isViewer && (
-                            <div className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="transition-transform group-hover/space:scale-110">
+                              {isSpaceOpen ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-500" />}
+                            </span>
+                            <span className="text-lg leading-none">{space.icon || '🧭'}</span>
+                            <span className="truncate font-bold tracking-tight">{space.name}</span>
+                          </div>
+                          
+                          {isAdmin && (
+                            <div className="flex items-center gap-1 opacity-0 group-hover/space:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => {
                                   setSelectedSpaceIdForCreate(space.id)
                                   setShowFolderModal(true)
                                 }}
-                                className="p-1 rounded text-slate-500 hover:text-slate-200 hover:bg-surface-700"
-                                title="Create folder"
+                                className="p-1.5 rounded-lg bg-primary-600/10 text-primary-400 hover:bg-primary-600 hover:text-white transition-all border border-primary-500/10"
+                                title="Add Folder"
                               >
-                                <Plus size={12} />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedSpaceIdForCreate(space.id)
-                                  setShowProjectModal(true)
-                                }}
-                                className="p-1 rounded text-slate-500 hover:text-slate-200 hover:bg-surface-700"
-                                title="Create list"
-                              >
-                                <Hash size={12} />
+                                <Plus size={14} />
                               </button>
                             </div>
                           )}
@@ -361,7 +346,7 @@ export default function Sidebar({ isOpen, onClose }) {
                             })}
 
                             {folders.map((folder) => {
-                              const isFolderOpen = expandedFolders[folder.id] ?? true
+                              const isFolderOpen = expandedFolders[folder.id] ?? false
                               const fallbackFolderLists = folder.lists || folder.projects || []
                               const folderLists = folderProjects[folder.id] || fallbackFolderLists
                               const isFolderLoading = Boolean(folderProjectsLoading[folder.id])
@@ -375,7 +360,7 @@ export default function Sidebar({ isOpen, onClose }) {
                                     {isFolderOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                                     <span>{folder.icon || '🗂️'}</span>
                                     <span className="truncate">{folder.name}</span>
-                                    {!isViewer && (
+                                    {isAdmin && (
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation()
@@ -429,8 +414,39 @@ export default function Sidebar({ isOpen, onClose }) {
                             })}
 
                             {rootLists.length === 0 && folders.length === 0 && (
-                              <div className="text-xs text-slate-600 px-3 py-1.5 italic">No lists in this space</div>
-                            )}
+                               <div className="px-3 py-6 space-y-4">
+                                 <div className="flex flex-col items-center text-center gap-2">
+                                   <div className="w-10 h-10 rounded-full bg-slate-800/30 flex items-center justify-center text-slate-600 border border-white/5">
+                                      <Hash size={16} />
+                                   </div>
+                                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">No lists yet</p>
+                                 </div>
+                                 {!isViewer && (
+                                   <div className="grid grid-cols-1 gap-2.5">
+                                     <button
+                                       onClick={() => {
+                                         setSelectedSpaceIdForCreate(space.id)
+                                         setShowFolderModal(true)
+                                       }}
+                                       className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-primary-400 bg-primary-500/5 border border-primary-500/10 hover:bg-primary-500/10 transition-all shadow-sm"
+                                     >
+                                       <Plus size={14} />
+                                       Add Folder
+                                     </button>
+                                     <button
+                                       onClick={() => {
+                                         setSelectedSpaceIdForCreate(space.id)
+                                         setShowProjectModal(true)
+                                       }}
+                                       className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 bg-slate-800/40 border border-white/5 hover:bg-slate-800/60 transition-all"
+                                     >
+                                       <Hash size={14} />
+                                       Add List
+                                     </button>
+                                   </div>
+                                 )}
+                               </div>
+                             )}
                           </div>
                         )}
                       </div>
@@ -440,8 +456,9 @@ export default function Sidebar({ isOpen, onClose }) {
                   {hierarchy.length === 0 && (
                     <div className="text-xs text-slate-600 px-3 py-2 italic">No spaces yet</div>
                   )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
