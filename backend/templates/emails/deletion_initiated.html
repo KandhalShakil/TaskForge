@@ -23,8 +23,12 @@
             <div class="warning-box">
                 <p><strong>Scheduled Deletion Date: {{ deletion_date }}</strong></p>
             </div>
+            {% if recovery_url %}
             <p>If you wish to stop this process, please click the button below to recover your account.</p>
             <a href="{{ recovery_url }}" class="btn">Recover My Account</a>
+            {% else %}
+            <p>If you wish to stop this process, open the app to recover your account.</p>
+            {% endif %}
         </div>
         <div class="footer">
             &copy; 2026 TaskForge. All rights reserved.

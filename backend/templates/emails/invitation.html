@@ -24,7 +24,11 @@
             <p>Hi,</p>
             <p><strong>{{ inviter_name }}</strong> has invited you to join the <strong>{{ workspace_name }}</strong> workspace on TaskForge.</p>
             <p>Collaborate on projects, track tasks, and stay productive with your team.</p>
+            {% if join_url %}
             <a href="{{ join_url }}" class="btn">Accept Invitation</a>
+            {% else %}
+            <p>Open the app to accept the invitation.</p>
+            {% endif %}
         </div>
         <div class="footer">
             &copy; 2026 TaskForge. All rights reserved.

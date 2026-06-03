@@ -34,6 +34,7 @@ from django.utils.decorators import method_decorator
 
 from .documents import UserDocument
 from .mongo_services import authenticate_user, create_user, to_mongo_user, update_password
+from apps.core.email_links import build_frontend_url
 
 
 logger = logging.getLogger(__name__)
@@ -130,13 +131,19 @@ class VerifyRegistrationView(APIView):
             
             # Send Welcome email
             try:
+                dashboard_url = build_frontend_url('/dashboard')
                 html_message = render_to_string('emails/welcome.html', {
                     'full_name': user.full_name,
-                    'dashboard_url': f"{settings.FRONTEND_URL}/dashboard"
+                    'dashboard_url': dashboard_url,
                 })
+                plain_body = (
+                    f"Hi {user.full_name}, welcome to TaskForge! Start managing your tasks at {dashboard_url}"
+                    if dashboard_url
+                    else f"Hi {user.full_name}, welcome to TaskForge! Start managing your tasks in the app."
+                )
                 send_html_email(
                     subject='Welcome to TaskForge!',
-                    plain_body=f"Hi {user.full_name}, welcome to TaskForge! Start managing your tasks at {settings.FRONTEND_URL}/dashboard",
+                    plain_body=plain_body,
                     html_body=html_message,
                     recipient=user.email,
                 )
@@ -213,7 +220,7 @@ class ForgotPasswordView(APIView):
             cache.set(cache_key, email, timeout=settings.OTP_EXPIRY)
 
             try:
-                reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}&email={email}"
+                reset_url = build_frontend_url('/reset-password', token=token, email=email)
                 html_message = render_to_string('emails/password_reset_email.html', {'reset_url': reset_url})
                 plain_message = f'Please use the following link to reset your password: {reset_url}. It will expire in 15 minutes.'
                 
@@ -423,12 +430,16 @@ class DeleteAccountView(APIView):
         perm_deletion_date = (deletion_date + timedelta(days=15)).strftime('%B %d, %Y')
         
         try:
-            recovery_url = f"{settings.FRONTEND_URL}/recover-account?token={recovery_token}"
+            recovery_url = build_frontend_url('/recover-account', token=recovery_token)
             html_message = render_to_string('emails/deletion_initiated.html', {
                 'deletion_date': perm_deletion_date,
                 'recovery_url': recovery_url
             })
-            plain_message = f"Your TaskForge account is scheduled for deletion on {perm_deletion_date}. You can recover it within 15 days using this link: {recovery_url}"
+            plain_message = (
+                f"Your TaskForge account is scheduled for deletion on {perm_deletion_date}. You can recover it within 15 days using this link: {recovery_url}"
+                if recovery_url
+                else f"Your TaskForge account is scheduled for deletion on {perm_deletion_date}. You can recover it within 15 days from the app."
+            )
 
             send_html_email(
                 subject='Account Deletion Initiated',
@@ -474,12 +485,18 @@ class RecoverAccountView(APIView):
         
         # Send Recovery Confirmation
         try:
+            dashboard_url = build_frontend_url('/dashboard')
             html_message = render_to_string('emails/account_recovered.html', {
-                'dashboard_url': f"{settings.FRONTEND_URL}/dashboard"
+                'dashboard_url': dashboard_url,
             })
+            plain_body = (
+                f"Welcome back! Your TaskForge account has been restored. Access your dashboard at {dashboard_url}"
+                if dashboard_url
+                else "Welcome back! Your TaskForge account has been restored. Open the app to access your dashboard."
+            )
             send_html_email(
                 subject='Account Successfully Recovered',
-                plain_body=f"Welcome back! Your TaskForge account has been restored. Access your dashboard at {settings.FRONTEND_URL}/dashboard",
+                plain_body=plain_body,
                 html_body=html_message,
                 recipient=user_doc.email,
             )
@@ -538,13 +555,18 @@ class RecoverWithTokenView(APIView):
 
             # Send confirmation email asynchronously
             try:
+                dashboard_url = build_frontend_url('/dashboard')
                 html_body = render_to_string('emails/welcome.html', {
                     'full_name': user_doc.full_name,
-                    'dashboard_url': f"{settings.FRONTEND_URL}/dashboard"
+                    'dashboard_url': dashboard_url,
                 })
                 send_html_email(
                     subject='Welcome Back to TaskForge!',
-                    plain_body=f"Your account has been successfully recovered. Welcome back!",
+                    plain_body=(
+                        f"Your account has been successfully recovered. Welcome back! Visit your dashboard at {dashboard_url}."
+                        if dashboard_url
+                        else "Your account has been successfully recovered. Welcome back! Open the app to continue."
+                    ),
                     html_body=html_body,
                     recipient=user_doc.email,
                 )

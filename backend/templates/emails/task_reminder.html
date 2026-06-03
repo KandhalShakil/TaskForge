@@ -26,8 +26,12 @@
                 <p class="task-title">{{ task_title }}</p>
                 <p>Deadline: <span class="deadline">{{ deadline }}</span></p>
             </div>
+            {% if dashboard_url %}
             <p>Please make sure to complete it on time. You can view your tasks by clicking the button below:</p>
             <a href="{{ dashboard_url }}" class="btn">View Tasks</a>
+            {% else %}
+            <p>Please make sure to complete it on time. Open the app to view your tasks.</p>
+            {% endif %}
         </div>
         <div class="footer">
             &copy; 2026 TaskForge. All rights reserved.

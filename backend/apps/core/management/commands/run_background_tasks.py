@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from django.core.management.base import BaseCommand
 from django.conf import settings
 from django.template.loader import render_to_string
+from apps.core.email_links import build_frontend_url
 from apps.users.documents import UserDocument
 from apps.tasks.documents import TaskDocument, SubTaskDocument
 from apps.users.emails import send_html_email
@@ -71,12 +72,17 @@ class Command(BaseCommand):
 
     def send_task_reminder(self, user, task):
         try:
+            dashboard_url = build_frontend_url('/dashboard')
             html_message = render_to_string('emails/task_reminder.html', {
                 'task_title': task.title,
                 'deadline': task.due_date.strftime('%B %d, %Y at %I:%M %p'),
-                'dashboard_url': f"{settings.FRONTEND_URL}/dashboard"
+                'dashboard_url': dashboard_url,
             })
-            plain_message = f"Reminder: Your task '{task.title}' is due on {task.due_date}."
+            plain_message = (
+                f"Reminder: Your task '{task.title}' is due on {task.due_date}. View it at {dashboard_url}."
+                if dashboard_url
+                else f"Reminder: Your task '{task.title}' is due on {task.due_date}."
+            )
             
             send_html_email(
                 subject=f"Deadline Reminder: {task.title}",
@@ -117,11 +123,15 @@ class Command(BaseCommand):
 
     def send_deletion_reminder(self, user, type):
         try:
-            recovery_url = f"{settings.FRONTEND_URL}/recover-account?token={user.recovery_token}"
+            recovery_url = build_frontend_url('/recover-account', token=user.recovery_token)
             if type == "10-day":
                 subject = "Account Deletion Reminder"
                 template = 'emails/deletion_reminder.html'
-                plain_message = "Your account will be permanently deleted in 5 days. Recover your account if needed."
+                plain_message = (
+                    f"Your account will be permanently deleted in 5 days. Recover your account here: {recovery_url}."
+                    if recovery_url
+                    else "Your account will be permanently deleted in 5 days. Recover your account if needed."
+                )
                 context = {
                     'days_remaining': 5,
                     'recovery_url': recovery_url
@@ -129,7 +139,11 @@ class Command(BaseCommand):
             else: # final warning
                 subject = "Final Warning: Account Deletion"
                 template = 'emails/final_warning.html'
-                plain_message = "Your account will be permanently deleted in 1 hour. Recover now to avoid data loss."
+                plain_message = (
+                    f"Your account will be permanently deleted in 1 hour. Recover now here: {recovery_url}."
+                    if recovery_url
+                    else "Your account will be permanently deleted in 1 hour. Recover now to avoid data loss."
+                )
                 context = {
                     'recovery_url': recovery_url
                 }

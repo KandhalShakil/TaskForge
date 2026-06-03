@@ -23,8 +23,12 @@
             <div class="info-box">
                 <p>Your account will be permanently deleted in 5 days. Recover your account if needed.</p>
             </div>
+            {% if recovery_url %}
             <p>If you wish to keep your account and data, you can cancel this process by logging in before the deadline.</p>
             <a href="{{ recovery_url }}" class="btn">Recover My Account</a>
+            {% else %}
+            <p>If you wish to keep your account and data, open the app and recover your account before the deadline.</p>
+            {% endif %}
         </div>
         <div class="footer">
             &copy; 2026 TaskForge. All rights reserved.

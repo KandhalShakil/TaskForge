@@ -233,4 +233,4 @@ DEFAULT_FROM_NAME = config('DEFAULT_FROM_NAME', default='TaskForge')
 OTP_EXPIRY = 900  # 15 minutes
 
 # Frontend URL for email links
-FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
+FRONTEND_URL = config('FRONTEND_URL', default='').strip()

@@ -17,6 +17,7 @@ from apps.users.documents import UserDocument
 from apps.projects.documents import ProjectDocument
 from django.template.loader import render_to_string
 from django.conf import settings
+from apps.core.email_links import build_frontend_url
 import logging
 
 logger = logging.getLogger(__name__)
@@ -45,18 +46,24 @@ def _send_task_assignment_email(task, request):
 
     try:
         due_date_str = task.due_date.strftime('%B %d, %Y') if task.due_date else "No due date"
+        task_url = build_frontend_url(f'/tasks/{task.id}')
         
         html_message = render_to_string('emails/task_assigned.html', {
             'assignee_name': assignee.full_name,
             'task_title': task.title,
             'project_name': project_name,
             'due_date': due_date_str,
-            'task_url': f"{settings.FRONTEND_URL}/tasks/{task.id}"
+            'task_url': task_url,
         })
+        plain_message = (
+            f"Hi {assignee.full_name}, you have been assigned to '{task.title}' in project {project_name}. Open the app to view the task."
+            if not task_url
+            else f"Hi {assignee.full_name}, you have been assigned to '{task.title}' in project {project_name}. View it here: {task_url}."
+        )
         
         send_html_email(
             subject=f"New Task Assigned: {task.title}",
-            plain_body=f"Hi {assignee.full_name}, you have been assigned to '{task.title}' in project {project_name}.",
+            plain_body=plain_message,
             html_body=html_message,
             recipient=assignee.email,
         )

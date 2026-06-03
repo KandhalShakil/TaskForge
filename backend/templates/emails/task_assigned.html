@@ -33,7 +33,11 @@
                 <div class="task-meta">Due Date: {{ due_date }}</div>
                 {% endif %}
             </div>
+            {% if task_url %}
             <a href="{{ task_url }}" class="btn">View Task Details</a>
+            {% else %}
+            <p>Open the app to view the task details.</p>
+            {% endif %}
         </div>
         <div class="footer">
             &copy; 2026 TaskForge. All rights reserved.

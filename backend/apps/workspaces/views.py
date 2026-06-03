@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.core.permissions import IsWorkspaceAdmin, IsWorkspaceMemberOrAdmin
 
 from apps.users.documents import UserDocument
+from apps.core.email_links import build_frontend_url
 from .documents import WorkspaceDocument, WorkspaceMemberDocument
 from .serializers import (
     WorkspaceSerializer, WorkspaceDetailSerializer, WorkspaceMemberSerializer
@@ -143,17 +144,22 @@ class AddWorkspaceMemberView(APIView):
             try:
                 from django.template.loader import render_to_string
                 from apps.users.emails import send_html_email
-                from django.conf import settings
                 import logging
 
+                join_url = build_frontend_url('/invitations')
                 html_message = render_to_string('emails/invitation.html', {
                     'inviter_name': request.user.full_name,
                     'workspace_name': workspace.name,
-                    'join_url': f"{settings.FRONTEND_URL}/invitations"
+                    'join_url': join_url,
                 })
+                plain_body = (
+                    f"{request.user.full_name} invited you to join the {workspace.name} workspace on TaskForge. Open the app to accept the invitation."
+                    if not join_url
+                    else f"{request.user.full_name} invited you to join the {workspace.name} workspace on TaskForge. Accept it here: {join_url}"
+                )
                 send_html_email(
                     subject=f"Invitation to join {workspace.name}",
-                    plain_body=f"{request.user.full_name} invited you to join the {workspace.name} workspace on TaskForge.",
+                    plain_body=plain_body,
                     html_body=html_message,
                     recipient=user.email,
                 )

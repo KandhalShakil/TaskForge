@@ -1,8 +1,6 @@
 import os
 import django
 from django.template.loader import render_to_string
-from django.conf import settings
-from decouple import config
 
 # Setup Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.base')
@@ -13,7 +11,7 @@ def test_render():
     try:
         context = {
             'deletion_date': 'May 18, 2026',
-            'recovery_url': 'http://localhost:5173/recover'
+            'recovery_url': None,
         }
         html = render_to_string('emails/deletion_initiated.html', context)
         print("Success! Template rendered.")

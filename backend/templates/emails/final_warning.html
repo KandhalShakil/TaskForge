@@ -23,8 +23,12 @@
             <div class="danger-box">
                 <p>Your account will be permanently deleted in 1 hour. Recover now to avoid data loss.</p>
             </div>
+            {% if recovery_url %}
             <p>Once this hour passes, all your data will be scrubbed from our systems and cannot be recovered.</p>
             <a href="{{ recovery_url }}" class="btn">Recover My Account NOW</a>
+            {% else %}
+            <p>Once this hour passes, all your data will be scrubbed from our systems and cannot be recovered. Open the app immediately if you want to recover your account.</p>
+            {% endif %}
         </div>
         <div class="footer">
             &copy; 2026 TaskForge. All rights reserved.

@@ -23,8 +23,12 @@
         <div class="content">
             <p>Hi {{ full_name }},</p>
             <p>Your account has been successfully verified. We're thrilled to have you on board! TaskForge is designed to help you stay organized, collaborate with your team, and crush your goals.</p>
-            <p>Ready to get started? Click the button below to head to your dashboard.</p>
+            {% if dashboard_url %}
+            <p>Ready to get started? Open your dashboard in the app below.</p>
             <a href="{{ dashboard_url }}" class="btn">Go to Dashboard</a>
+            {% else %}
+            <p>Ready to get started? Open the app to head to your dashboard.</p>
+            {% endif %}
         </div>
         <div class="footer">
             &copy; 2026 TaskForge. All rights reserved.

@@ -23,7 +23,11 @@
         <div class="content">
             <p>Your TaskForge account has been successfully recovered.</p>
             <p>The 15-day deletion process has been cancelled, and all your data is fully restored. You can now resume your work exactly where you left off.</p>
+            {% if dashboard_url %}
             <a href="{{ dashboard_url }}" class="btn">Return to Dashboard</a>
+            {% else %}
+            <p>Open the app to return to your dashboard.</p>
+            {% endif %}
         </div>
         <div class="footer">
             &copy; 2026 TaskForge. All rights reserved.
