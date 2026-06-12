@@ -10,23 +10,23 @@
 
 <br />
 
-<a href="[REPOSITORY_URL]">
+<a href="https://github.com/KandhalShakil/TaskForge">
   <img src="https://img.shields.io/badge/Status-Production%20Ready-14B8A6?style=for-the-badge&logo=vercel&logoColor=white" alt="Status" />
 </a>
-<a href="[REPOSITORY_URL]/blob/main/LICENSE">
+<a href="https://github.com/KandhalShakil/TaskForge/blob/main/LICENSE">
   <img src="https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="License" />
 </a>
-<a href="[REPOSITORY_URL]/releases">
+<a href="https://github.com/KandhalShakil/TaskForge/releases">
   <img src="https://img.shields.io/badge/Version-v0.1.0-2563EB?style=for-the-badge&logo=semver&logoColor=white" alt="Version" />
 </a>
 
 <br />
 
-<img src="https://img.shields.io/github/stars/[GITHUB_USERNAME]/[PROJECT_NAME]?style=flat-square&color=F59E0B" alt="GitHub stars" />
-<img src="https://img.shields.io/github/forks/[GITHUB_USERNAME]/[PROJECT_NAME]?style=flat-square&color=6366F1" alt="GitHub forks" />
-<img src="https://img.shields.io/github/last-commit/[GITHUB_USERNAME]/[PROJECT_NAME]?style=flat-square&color=06B6D4" alt="Last commit" />
-<img src="https://img.shields.io/github/issues/[GITHUB_USERNAME]/[PROJECT_NAME]?style=flat-square&color=EF4444" alt="Open issues" />
-<img src="https://img.shields.io/github/issues-pr/[GITHUB_USERNAME]/[PROJECT_NAME]?style=flat-square&color=8B5CF6" alt="Open PRs" />
+<img src="https://img.shields.io/github/stars/KandhalShakil/TaskForge?style=flat-square&color=F59E0B" alt="GitHub stars" />
+<img src="https://img.shields.io/github/forks/KandhalShakil/TaskForge?style=flat-square&color=6366F1" alt="GitHub forks" />
+<img src="https://img.shields.io/github/last-commit/KandhalShakil/TaskForge?style=flat-square&color=06B6D4" alt="Last commit" />
+<img src="https://img.shields.io/github/issues/KandhalShakil/TaskForge?style=flat-square&color=EF4444" alt="Open issues" />
+<img src="https://img.shields.io/github/issues-pr/KandhalShakil/TaskForge?style=flat-square&color=8B5CF6" alt="Open PRs" />
 
 </div>
 
@@ -45,13 +45,13 @@ across projects and tasks.
 </p>
 
 <p>
-<a href="[LIVE_URL]">
+<a href="https://www.task-forge.kandhal.tech">
   <img src="https://img.shields.io/badge/Live%20Demo-Visit%20Now-0EA5E9?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Live Demo" />
 </a>
 <a href="#-8-installation-guide">
   <img src="https://img.shields.io/badge/Get%20Started-Installation-16A34A?style=for-the-badge&logo=rocket&logoColor=white" alt="Get Started" />
 </a>
-<a href="[REPOSITORY_URL]">
+<a href="https://github.com/KandhalShakil/TaskForge.git">
   <img src="https://img.shields.io/badge/Source%20Code-Repository-1F2937?style=for-the-badge&logo=github&logoColor=white" alt="Repository" />
 </a>
 </p>
@@ -100,13 +100,10 @@ Most teams juggle multiple tools for tasks, updates, communication, and access c
 
 <br />
 
-<a href="[LIVE_URL]">
+<a href="https://www.task-forge.kandhal.tech">
   <img src="https://img.shields.io/badge/🚀%20Live%20Demo-Open-0EA5E9?style=for-the-badge" alt="Live Demo" />
 </a>
-<a href="[REPOSITORY_URL]/wiki">
-  <img src="https://img.shields.io/badge/📚%20Documentation-Read-334155?style=for-the-badge" alt="Documentation" />
-</a>
-<a href="[REPOSITORY_URL]">
+<a href="https://github.com/KandhalShakil/TaskForge.git">
   <img src="https://img.shields.io/badge/💻%20Repository-Explore-2563EB?style=for-the-badge" alt="Repository" />
 </a>
 
@@ -197,7 +194,7 @@ flowchart LR
 <!-- Replace the badge above with your primary cloud/provider badge if needed -->
 
 ### DevOps Tools
-<img src="https://skillicons.dev/icons?i=docker,git,github,linux,bash" alt="DevOps Tools" />
+<img src="https://skillicons.dev/icons?i=git,github" alt="DevOps Tools" />
 
 ### Testing Tools
 <img src="https://img.shields.io/badge/Django%20Test%20Framework-Available-0C4B33?style=for-the-badge" alt="Django Test Framework" />
@@ -208,9 +205,8 @@ flowchart LR
 <img src="https://img.shields.io/badge/OpenAI%20Compatible-Pluggable-1F2937?style=for-the-badge" alt="OpenAI Compatible" />
 
 ### Deployment Platforms
-<img src="https://skillicons.dev/icons?i=vercel,netlify" alt="Deployment Platforms" />
-<img src="https://img.shields.io/badge/Railway-Supported-7C3AED?style=for-the-badge" alt="Railway" />
-<img src="https://img.shields.io/badge/DigitalOcean-Supported-0EA5E9?style=for-the-badge" alt="DigitalOcean" />
+<img src="https://skillicons.dev/icons?i=vercel" alt="Deployment Platforms" />
+<img src="https://img.shields.io/badge/render-backend-7C3AED?style=for-the-badge" alt="Render" />
 
 </div>
 
@@ -219,18 +215,6 @@ flowchart LR
 ## 📁 7. Project Structure
 
 ```text
-project/
-├── frontend/            # React SPA, routing, state stores, UI components
-├── backend/             # Django API, domain logic, RBAC, auth, background commands
-├── database/            # (recommended) migrations, seeds, data docs, ER assets
-├── docs/                # (recommended) architecture docs, API specs, runbooks
-├── tests/               # (recommended) unit, integration, e2e suites
-├── scripts/             # utility scripts, CI helpers, automation tasks
-├── public/              # static public assets for frontend
-└── configuration/       # environment templates, deployment manifests, infra config
-```
-
-### Current repository mapping
 project/
 ├── frontend/            # React SPA, routing, state stores, UI components
 ├── backend/             # Django API, domain logic, RBAC, auth, background commands
@@ -284,7 +268,7 @@ TaskForge/
 
 ### 1) Clone repository
 ```bash
-git clone [REPOSITORY_URL]
+git clone https://github.com/KandhalShakil/TaskForge.git
 cd TaskForge
 ```
 
@@ -296,36 +280,7 @@ python -m venv .venv
 .venv\Scripts\activate
 # macOS/Linux
 # source .venv/bin/activate
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-# source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-### 3) Frontend setup
-```bash
-cd ../frontend
-npm install
-```
-
-### 4) Socket server setup
-```bash
-cd ../socket-server
-npm install
-```
-
-### 5) Environment setup
-Create `.env` files in:
-- `backend/.env`
-- `frontend/.env`
-- `socket-server/.env`
-
-Use the table in Section 9 as your source of truth.
-
-### 6) Database setup
-```bash
-cd ../backend
 ```
 
 ### 3) Frontend setup
@@ -358,31 +313,21 @@ python manage.py ensure_mongo_indexes
 ```bash
 # Terminal A - Backend
 cd backend
-```
-
-### 7) Run development servers
-```bash
-# Terminal A - Backend
-cd backend
 python manage.py runserver
 ```
 
 ```bash
 # Terminal B - Socket server
-# Terminal B - Socket server
 cd socket-server
-npm run dev
 npm run dev
 ```
 
 ```bash
 # Terminal C - Frontend
-# Terminal C - Frontend
 cd frontend
 npm run dev
 ```
 
-### 8) Build production version
 ### 8) Build production version
 ```bash
 cd frontend
@@ -390,7 +335,6 @@ npm run build
 ```
 
 ```bash
-cd ../backend
 cd ../backend
 python manage.py collectstatic --no-input
 ```
@@ -681,19 +625,6 @@ Contribution standards:
 ---
 
 ## 📄 19. License
-2. Create your feature branch: `git checkout -b feature/amazing-improvement`
-3. Commit with clear messages: `git commit -m "feat: add amazing improvement"`
-4. Push to your fork: `git push origin feature/amazing-improvement`
-5. Open a Pull Request with context, screenshots, and test notes.
-
-Contribution standards:
-- Keep PRs focused and reviewable.
-- Add/update tests where relevant.
-- Preserve code style and architecture conventions.
-
----
-
-## 📄 19. License
 
 This project is licensed under the MIT License.
 
@@ -705,40 +636,36 @@ See the [LICENSE](LICENSE) file for full details.
 
 <div align="center">
 
-### [AUTHOR_NAME]
+### KANDHAL SHAKIL
 
-<a href="https://github.com/[GITHUB_USERNAME]">
+<a href="https://github.com/KandhalShakil">
   <img src="https://img.shields.io/badge/GitHub-Profile-111827?style=for-the-badge&logo=github&logoColor=white" alt="GitHub" />
 </a>
-<a href="[PORTFOLIO_URL]">
+<a href="https://www.kandhal.tech">
   <img src="https://img.shields.io/badge/Portfolio-Visit-0EA5E9?style=for-the-badge&logo=vercel&logoColor=white" alt="Portfolio" />
 </a>
-<a href="[LINKEDIN_URL]">
+<a href="linkedin.com/in/kandhal-shakil-5311302b6">
   <img src="https://img.shields.io/badge/LinkedIn-Connect-2563EB?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn" />
 </a>
-<a href="mailto:[EMAIL_ADDRESS]">
+<a href="mailto:kandhalshakil@gmail.com">
   <img src="https://img.shields.io/badge/Email-Contact-EA4335?style=for-the-badge&logo=gmail&logoColor=white" alt="Email" />
 </a>
 
 </div>
 
-<!-- Replace [PORTFOLIO_URL], [LINKEDIN_URL], [EMAIL_ADDRESS] with your actual links -->
-
----
-
 ## 📈 21. GitHub Statistics
 
 <div align="center">
 
-<img height="170" src="https://github-readme-stats.vercel.app/api?username=[GITHUB_USERNAME]&show_icons=true&theme=tokyonight&hide_border=true&rank_icon=github" alt="GitHub Stats" />
-<img height="170" src="https://streak-stats.demolab.com?user=[GITHUB_USERNAME]&theme=tokyonight&hide_border=true" alt="GitHub Streak" />
+<img height="170" src="https://github-readme-stats.vercel.app/api?username=KandhalShakil&show_icons=true&theme=tokyonight&hide_border=true&rank_icon=github" alt="GitHub Stats" />
+<img height="170" src="https://streak-stats.demolab.com?user=&theme=KandhalShakiltokyonight&hide_border=true" alt="GitHub Streak" />
 
-<img height="170" src="https://github-readme-stats.vercel.app/api/top-langs/?username=[GITHUB_USERNAME]&layout=compact&theme=tokyonight&hide_border=true" alt="Top Languages" />
+<img height="170" src="https://github-readme-stats.vercel.app/api/top-langs/?username=KandhalShakil&layout=compact&theme=tokyonight&hide_border=true" alt="Top Languages" />
 
-<img width="100%" src="https://github-readme-activity-graph.vercel.app/graph?username=[GITHUB_USERNAME]&bg_color=0f172a&color=38bdf8&line=22d3ee&point=f59e0b&area=true&hide_border=true" alt="Activity Graph" />
+<img width="100%" src="https://github-readme-activity-graph.vercel.app/graph?username=KandhalShakil&bg_color=0f172a&color=38bdf8&line=22d3ee&point=f59e0b&area=true&hide_border=true" alt="Activity Graph" />
 
 <!-- Contribution snake (enable with GitHub Actions in your profile/repo) -->
-<img width="100%" src="https://raw.githubusercontent.com/[GITHUB_USERNAME]/[GITHUB_USERNAME]/output/github-contribution-grid-snake.svg" alt="Contribution Snake" />
+<img width="100%" src="https://raw.githubusercontent.com/KandhalShakil/KandhalShakil/output/github-contribution-grid-snake.svg" alt="Contribution Snake" />
 
 </div>
 
