@@ -261,7 +261,7 @@ export default function TaskModal({ task, project, workspace, onClose }) {
     const parentKey = subtaskEditor.parent ? (subtaskEditor.parent.id || subtaskEditor.parent.temp_key) : null
     setSubtasks((prev) => {
       if (subtaskEditor.subtask) { const ek = subtaskEditor.subtask.id || subtaskEditor.subtask.temp_key; return prev.map((item) => (item.id || item.temp_key) === ek ? { ...item, ...data, parent_temp_key: item.parent_temp_key, temp_key: item.temp_key } : item) }
-      return [...prev, { id: null, temp_key: makeTempKey(), description: '', status: 'todo', priority: 'no_priority', assignee_id: '', category_id: '', start_date: '', due_date: '', estimated_hours: '', is_completed: false, order: 0, parent_id: null, ...data, parent_id: null, parent_temp_key: parentKey }]
+      return [...prev, { id: null, temp_key: makeTempKey(), description: '', status: 'todo', priority: 'no_priority', assignee_id: '', category_id: '', start_date: '', due_date: '', estimated_hours: '', is_completed: false, order: 0, ...data, parent_id: null, parent_temp_key: parentKey }]
     }); closeSubtaskEditor()
   }
   const removeSubtaskRow = (node) => setSubtasks((prev) => { const cm = buildChildrenMap(prev); const keys = collectBranchKeys(node, cm); return prev.filter((item) => !keys.has(item.id || item.temp_key)) })
