@@ -215,15 +215,18 @@ class ForgotPasswordView(APIView):
         user = UserDocument.objects(email=email).first()
         if user:
             token = str(uuid.uuid4())
-            cache_key = f"forgot_password_{token}"
-            # Store the email associated with this token
-            cache.set(cache_key, email, timeout=settings.OTP_EXPIRY)
+            expires_at = datetime.utcnow() + timedelta(seconds=settings.OTP_EXPIRY)
+
+            # Store token in MongoDB — survives server restarts
+            user.password_reset_token = token
+            user.password_reset_expires = expires_at
+            user.save()
 
             try:
                 reset_url = build_frontend_url('/reset-password', token=token, email=email)
                 html_message = render_to_string('emails/password_reset_email.html', {'reset_url': reset_url})
                 plain_message = f'Please use the following link to reset your password: {reset_url}. It will expire in 15 minutes.'
-                
+
                 send_html_email(
                     subject='TaskForge Password Reset',
                     plain_body=plain_message,
@@ -232,8 +235,7 @@ class ForgotPasswordView(APIView):
                 )
             except Exception:
                 logger.exception('Failed to send password reset email')
-                # We still return 200 to prevent enumeration, but log the error
-        
+
         return Response(
             {'message': 'If this email exists, a recovery link has been sent.'},
             status=status.HTTP_200_OK,
@@ -246,11 +248,11 @@ class ResetPasswordView(APIView):
 
     def post(self, request):
         email = request.data.get('email', '').lower().strip()
-        otp = str(request.data.get('otp', '')) # This is our token from the URL
+        token = str(request.data.get('otp', ''))
         password = request.data.get('password')
         password2 = request.data.get('password2')
 
-        if not email or not otp or not password or not password2:
+        if not email or not token or not password or not password2:
             return Response(
                 {'error': 'All fields are required.'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -264,18 +266,25 @@ class ResetPasswordView(APIView):
         except Exception as exc:
             return Response({'error': exc.messages if hasattr(exc, 'messages') else str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        cache_key = f"forgot_password_{otp}"
-        cached_email = cache.get(cache_key)
-        
-        if not cached_email or cached_email.lower().strip() != email:
+        # Validate token from MongoDB
+        user = UserDocument.objects(email=email, password_reset_token=token).first()
+
+        if not user:
             return Response({'error': 'Invalid or expired reset link.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = UserDocument.objects(email=email).first()
-        if not user:
-            return Response({'error': 'Invalid request.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.password_reset_expires or user.password_reset_expires < datetime.utcnow():
+            # Clear expired token
+            user.password_reset_token = None
+            user.password_reset_expires = None
+            user.save()
+            return Response({'error': 'Reset link has expired. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
 
         update_password(user=user, raw_password=password)
-        cache.delete(cache_key)
+
+        # Clear the token after use
+        user.password_reset_token = None
+        user.password_reset_expires = None
+        user.save()
 
         return Response({'message': 'Password reset successful.'}, status=status.HTTP_200_OK)
 

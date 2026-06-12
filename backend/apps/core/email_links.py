@@ -1,18 +1,20 @@
+import logging
 from urllib.parse import urlencode
 
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_frontend_base_url():
     raw_url = getattr(settings, 'FRONTEND_URL', '') or ''
     normalized_url = raw_url.strip().rstrip('/')
+
     if not normalized_url:
+        logger.warning("FRONTEND_URL is not set or empty — email links will not be generated.")
         return None
 
-    lowered_url = normalized_url.lower()
-    if 'localhost' in lowered_url or '127.0.0.1' in lowered_url or '::1' in lowered_url:
-        return None
-
+    logger.debug(f"FRONTEND_URL resolved to: {normalized_url}")
     return normalized_url
 
 
@@ -30,4 +32,5 @@ def build_frontend_url(path='', **query_params):
     if filtered_query_params:
         url = f"{url}?{urlencode(filtered_query_params)}"
 
+    logger.debug(f"Built frontend URL: {url}")
     return url

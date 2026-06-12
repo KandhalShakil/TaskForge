@@ -17,6 +17,8 @@ class UserDocument(Document):
     final_warning_sent = fields.BooleanField(default=False)
     recovery_token = fields.StringField(null=True, blank=True)
     recovery_token_expires = fields.DateTimeField(null=True, blank=True)
+    password_reset_token = fields.StringField(null=True, blank=True)
+    password_reset_expires = fields.DateTimeField(null=True, blank=True)
     is_staff = fields.BooleanField(default=False)
     is_superuser = fields.BooleanField(default=False)
     password = fields.StringField()
@@ -43,6 +45,7 @@ class UserDocument(Document):
             'is_deleted',
             'deleted_at',
             'recovery_token',
+            'password_reset_token',
             'is_active',
             {'fields': ['companyId', 'user_type'], 'name': 'company_role_idx'},
         ],
