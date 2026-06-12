@@ -206,8 +206,7 @@ flowchart LR
 
 ### Deployment Platforms
 <img src="https://skillicons.dev/icons?i=vercel" alt="Deployment Platforms" />
-<img src="https://img.shields.io/badge/Railway-Supported-7C3AED?style=for-the-badge" alt="Railway" />
-<img src="https://img.shields.io/badge/DigitalOcean-Supported-0EA5E9?style=for-the-badge" alt="DigitalOcean" />
+<img src="https://img.shields.io/badge/render-backend-7C3AED?style=for-the-badge" alt="Render" />
 
 </div>
 
