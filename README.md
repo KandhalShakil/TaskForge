@@ -231,6 +231,18 @@ project/
 ```
 
 ### Current repository mapping
+project/
+├── frontend/            # React SPA, routing, state stores, UI components
+├── backend/             # Django API, domain logic, RBAC, auth, background commands
+├── database/            # (recommended) migrations, seeds, data docs, ER assets
+├── docs/                # (recommended) architecture docs, API specs, runbooks
+├── tests/               # (recommended) unit, integration, e2e suites
+├── scripts/             # utility scripts, CI helpers, automation tasks
+├── public/              # static public assets for frontend
+└── configuration/       # environment templates, deployment manifests, infra config
+```
+
+### Current repository mapping
 
 ```text
 TaskForge/
@@ -284,7 +296,36 @@ python -m venv .venv
 .venv\Scripts\activate
 # macOS/Linux
 # source .venv/bin/activate
+# Windows
+.venv\Scripts\activate
+# macOS/Linux
+# source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+### 3) Frontend setup
+```bash
+cd ../frontend
+npm install
+```
+
+### 4) Socket server setup
+```bash
+cd ../socket-server
+npm install
+```
+
+### 5) Environment setup
+Create `.env` files in:
+- `backend/.env`
+- `frontend/.env`
+- `socket-server/.env`
+
+Use the table in Section 9 as your source of truth.
+
+### 6) Database setup
+```bash
+cd ../backend
 ```
 
 ### 3) Frontend setup
@@ -317,21 +358,31 @@ python manage.py ensure_mongo_indexes
 ```bash
 # Terminal A - Backend
 cd backend
+```
+
+### 7) Run development servers
+```bash
+# Terminal A - Backend
+cd backend
 python manage.py runserver
 ```
 
 ```bash
 # Terminal B - Socket server
+# Terminal B - Socket server
 cd socket-server
+npm run dev
 npm run dev
 ```
 
 ```bash
 # Terminal C - Frontend
+# Terminal C - Frontend
 cd frontend
 npm run dev
 ```
 
+### 8) Build production version
 ### 8) Build production version
 ```bash
 cd frontend
@@ -339,6 +390,7 @@ npm run build
 ```
 
 ```bash
+cd ../backend
 cd ../backend
 python manage.py collectstatic --no-input
 ```
@@ -616,6 +668,19 @@ Recommended test strategy:
 We welcome high-quality contributions.
 
 1. Fork the repository.
+2. Create your feature branch: `git checkout -b feature/amazing-improvement`
+3. Commit with clear messages: `git commit -m "feat: add amazing improvement"`
+4. Push to your fork: `git push origin feature/amazing-improvement`
+5. Open a Pull Request with context, screenshots, and test notes.
+
+Contribution standards:
+- Keep PRs focused and reviewable.
+- Add/update tests where relevant.
+- Preserve code style and architecture conventions.
+
+---
+
+## 📄 19. License
 2. Create your feature branch: `git checkout -b feature/amazing-improvement`
 3. Commit with clear messages: `git commit -m "feat: add amazing improvement"`
 4. Push to your fork: `git push origin feature/amazing-improvement`
