@@ -10,7 +10,7 @@ export default defineConfig({
           react: ['react', 'react-dom', 'react-router-dom'],
           charts: ['recharts'],
           calendar: ['react-big-calendar'],
-          quill: ['react-quill'],
+          quill: ['react-quill-new'],
           dnd: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
           motion: ['framer-motion'],
           forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
